@@ -102,3 +102,5 @@ artifacts/
 .DS_Store
 
 .env
+google-credentials.json
+**/google-credentials.json

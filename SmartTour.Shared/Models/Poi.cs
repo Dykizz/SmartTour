@@ -1,58 +1,56 @@
-namespace SmartTour.Shared.Models;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-public enum PoiPriority
-{
-    Low = 0,
-    Medium = 1,
-    High = 2,
-    Critical = 3
-}
+namespace SmartTour.Shared.Models;
 
 public class Poi
 {
+    [Key]
     public int Id { get; set; }
-    
-    public string Name { get; set; } = string.Empty;
-    
-    public string Description { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Tọa độ Vĩ độ (Latitude)
-    /// </summary>
+    [Required]
     public double Latitude { get; set; }
 
-    /// <summary>
-    /// Tọa độ Kinh độ (Longitude)
-    /// </summary>
+    [Required]
     public double Longitude { get; set; }
 
-    /// <summary>
-    /// Bán kính kích hoạt (mét) để bắt đầu phát nội dung khi người dùng đến gần
-    /// </summary>
-    public double ActivationRadius { get; set; }
+    [Required]
+    public double GeofenceRadius { get; set; }
 
-    /// <summary>
-    /// Mức độ ưu tiên của điểm POI này
-    /// </summary>
-    public PoiPriority Priority { get; set; } = PoiPriority.Medium;
+    [Required]
+    public int CategoryId { get; set; }
 
-    /// <summary>
-    /// Đường dẫn tới hình ảnh đại diện của POI
-    /// </summary>
-    public string? ImageUrl { get; set; }
+    [ForeignKey("CategoryId")]
+    public Category? Category { get; set; }
 
-    /// <summary>
-    /// Đường dẫn tới file âm thanh thuyết minh (mp3, wav,...)
-    /// </summary>
-    public string? AudioUrl { get; set; }
+    public bool IsActive { get; set; } = true;
 
-    /// <summary>
-    /// Nội dung văn bản dùng cho Text-To-Speech (TTS)
-    /// </summary>
-    public string? TtsScript { get; set; }
+    public bool IsFeature { get; set; } = false;
 
-    /// <summary>
-    /// Thời gian cập nhật cuối cùng
-    /// </summary>
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public string? QrValue { get; set; }
+
+    [MaxLength(200)]
+    public string Name { get; set; } = string.Empty;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public DateTime? UpdatedAt { get; set; }
+
+    [Required]
+    public int CreatedById { get; set; }
+
+    [ForeignKey(nameof(CreatedById))]
+    public User? CreatedBy { get; set; }
+
+    [Required]
+    public int UpdatedById { get; set; }
+
+    [ForeignKey(nameof(UpdatedById))]
+    public User? UpdatedBy { get; set; }
+
+    // Navigation properties
+    public ICollection<OperatingHours> OperatingHours { get; set; } = new List<OperatingHours>();
+    public ICollection<PoiImage> Images { get; set; } = new List<PoiImage>();
+    public ICollection<PoiContent> Contents { get; set; } = new List<PoiContent>();
+    public ICollection<PoiAudioFile> AudioFiles { get; set; } = new List<PoiAudioFile>();
 }

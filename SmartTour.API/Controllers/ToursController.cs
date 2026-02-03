@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using SmartTour.Shared;
+using SmartTour.Shared.Models;
 
 namespace SmartTour.API.Controllers;
 
@@ -7,6 +7,7 @@ namespace SmartTour.API.Controllers;
 [Route("api/[controller]")]
 public class ToursController : ControllerBase
 {
+    // Mock data updated to match new Poi structure
     private static readonly List<Tour> Tours = new()
     {
         new Tour 
@@ -16,8 +17,8 @@ public class ToursController : ControllerBase
             Description = "Tour đi bộ xuyên qua các con phố cổ kính của Hội An.",
             PointsOfInterest = new List<Poi>
             {
-                new Poi { Id = 101, Name = "Chùa Cầu", Description = "Biểu tượng mang tính lịch sử của Hội An.", Latitude = 15.8771, Longitude = 108.3259 },
-                new Poi { Id = 102, Name = "Nhà cổ Tấn Ký", Description = "Nhà cổ hơn 200 năm tuổi.", Latitude = 15.8762, Longitude = 108.3265 }
+                new Poi { Id = 101, Latitude = 15.8771, Longitude = 108.3259, GeofenceRadius = 50, CategoryId = 5 },
+                new Poi { Id = 102, Latitude = 15.8762, Longitude = 108.3265, GeofenceRadius = 50, CategoryId = 5 }
             }
         },
         new Tour 
@@ -27,7 +28,7 @@ public class ToursController : ControllerBase
             Description = "Trải nghiệm các món ăn đặc trưng tại Quận 1.",
             PointsOfInterest = new List<Poi>
             {
-                new Poi { Id = 201, Name = "Chợ Bến Thành", Description = "Trung tâm giao thương sầm uất.", Latitude = 10.7719, Longitude = 106.6983 }
+                new Poi { Id = 201, Latitude = 10.7719, Longitude = 106.6983, GeofenceRadius = 50, CategoryId = 5 }
             }
         }
     };

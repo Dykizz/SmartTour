@@ -1,0 +1,982 @@
+@page "/poi/editor"
+@page "/poi/editor/{Id:int}"
+@using SmartTour.Shared.Models
+@using SmartTour.Web.Services
+@using System.Net.Http.Json
+@using System.Text.RegularExpressions
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IMapService MapService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<PageTitle>@(IsEdit ? "Chỉnh sửa POI" : "Thêm mới POI")</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6 mb-20 animate-fade-in">
+    <MudPaper Elevation="0" Class="pa-6 mb-6 rounded-lg" Style="background: linear-gradient(135deg, rgba(var(--mud-palette-primary-rgb), 0.05) 0%, rgba(var(--mud-palette-primary-rgb), 0.02) 100%); border: 1px solid rgba(var(--mud-palette-primary-rgb), 0.1);">
+        <div class="d-flex align-center justify-space-between">
+            <div class="d-flex align-center">
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="GoBack" Variant="Variant.Filled" Color="Color.Surface" Class="mr-4" />
+                <div>
+                    <MudText Typo="Typo.h6" Class="mb-1">
+                        @(IsEdit ? "Cập nhật Điểm đến" : "Thêm Điểm đến mới")
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="@Color.Secondary">
+                        <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" />
+                        ID: @(Id?.ToString() ?? "N/A") • Cấu hình thông tin chi tiết và nội dung đa ngôn ngữ
+                    </MudText>
+                </div>
+            </div>
+            <div class="d-none d-sm-flex gap-3">
+                <MudButton Variant="Variant.Outlined" OnClick="GoBack" Size="Size.Medium" Class="px-8">Hủy</MudButton>
+                <MudButton Variant="Variant.Filled" Color="@Color.Primary" OnClick="SavePoi" Size="Size.Medium" Class="px-10" StartIcon="@Icons.Material.Filled.Save">
+                    @if (_saving) { <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" /> }
+                    else { <span>Lưu thay đổi</span> }
+                </MudButton>
+            </div>
+        </div>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Color="@Color.Primary" Indeterminate="true" Class="my-7" />
+    }
+    else
+    {
+        <MudExpansionPanels MultiExpansion="true" Elevation="0" Class="rounded-xl">
+            <MudPaper Elevation="2" Class="mb-4 rounded-xl overflow-hidden stagger-item" Style="border: 1px solid rgba(0,0,0,0.08);">
+            <MudExpansionPanel Expanded="true" Style="background: white;">
+                <TitleContent>
+                    <div class="d-flex align-center py-1">
+                        <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Medium" Class="mr-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Medium" />
+                        </MudAvatar>
+                        <div class="flex-grow-1">
+                            <MudText Typo="Typo.subtitle1" Class="mb-0">Cấu hình cơ bản</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Thiết lập thông tin chính của điểm đến</MudText>
+                        </div>
+                        <MudChip T="string" Color="@(_model.IsActive ? Color.Success : Color.Error)" Size="Size.Small" Variant="Variant.Filled" Class="mr-2">@(_model.IsActive ? "Đang hoạt động" : "Tạm ẩn")</MudChip>
+                    </div>
+                </TitleContent>
+                <ChildContent>
+                    <MudDivider />
+                    <div class="pa-6" Style="background: rgba(0,0,0,0.01);">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_model.Name" Label="Tên điểm đến" Variant="Variant.Outlined" 
+                                         Placeholder="Nhập tên điểm đến..." Margin="Margin.Dense" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="int" @bind-Value="_model.CategoryId" Label="Loại hình" Variant="Variant.Outlined" Required="true" Margin="Margin.Dense">
+                                @foreach (var cat in _categories) { <MudSelectItem Value="@cat.Id">@cat.Name</MudSelectItem> }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudNumericField @bind-Value="_model.GeofenceRadius" Label="Bán kính" Min="1" Variant="Variant.Outlined" Required="true" Adornment="Adornment.End" AdornmentText="m" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_model.QrValue" Label="Mã QR định danh" Variant="Variant.Outlined" 
+                                         Placeholder="ID duy nhất..." Margin="Margin.Dense"
+                                         Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Autorenew" OnAdornmentClick="GenerateRandomQr" />
+                        </MudItem>
+                        <MudItem xs="6" md="3">
+                            <MudCheckBox @bind-Value="_model.IsActive" Label="Hoạt động" Color="@Color.Primary" Dense="true" />
+                        </MudItem>
+                        <MudItem xs="6" md="3">
+                            <MudCheckBox @bind-Value="_model.IsFeature" Label="Nổi bật" Color="@Color.Warning" Dense="true" />
+                        </MudItem>
+                    </MudGrid>
+                    </div>
+                </ChildContent>
+            </MudExpansionPanel>
+            </MudPaper>
+
+            <!-- Section 2: Location & Map -->
+            <MudPaper Elevation="2" Class="mb-4 rounded-xl overflow-hidden stagger-item" Style="border: 1px solid rgba(0,0,0,0.08);">
+            <MudExpansionPanel Expanded="true" Style="background: white;">
+                <TitleContent>
+                    <div class="d-flex align-center py-1">
+                        <MudAvatar Color="Color.Info" Variant="Variant.Filled" Size="Size.Medium" Class="mr-3">
+                            <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Medium" />
+                        </MudAvatar>
+                        <div class="flex-grow-1">
+                            <MudText Typo="Typo.subtitle1" Class="mb-0">Vị trí địa lý & Bản đồ</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Xác định toạ độ và vùng geofence</MudText>
+                        </div>
+                    </div>
+                </TitleContent>
+                <ChildContent>
+                    <MudDivider />
+                    <div class="pa-6" Style="background: rgba(0,0,0,0.01);">
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="6">
+                                <MudTextField @bind-Value="_mapSearch" Label="Tìm địa chỉ" Variant="Variant.Outlined" Class="mb-2"
+                                             Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" 
+                                             Placeholder="Nhập tên địa điểm..." OnKeyDown="HandleSearchKey" Margin="Margin.Dense" />
+                            </MudItem>
+                            <MudItem xs="6" md="3">
+                                <MudNumericField @bind-Value="_model.Latitude" Label="Vĩ độ" Format="F6" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            </MudItem>
+                            <MudItem xs="6" md="3">
+                                <MudNumericField @bind-Value="_model.Longitude" Label="Kinh độ" Format="F6" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <div id="editor-map" style="height: 300px; width: 100%; border-radius: 12px; border: 1px solid var(--mud-palette-divider);"></div>
+                            </MudItem>
+                        </MudGrid>
+                    </div>
+                </ChildContent>
+            </MudExpansionPanel>
+            </MudPaper>
+
+                <!-- Section 3: Images -->
+                <MudPaper Elevation="2" Class="mb-4 rounded-xl overflow-hidden stagger-item" Style="border: 1px solid rgba(0,0,0,0.08);">
+                <MudExpansionPanel Style="background: white;">
+                    <TitleContent>
+                        <div class="d-flex align-center py-1">
+                            <MudAvatar Color="Color.Secondary" Variant="Variant.Filled" Size="Size.Medium" Class="mr-3">
+                                <MudIcon Icon="@Icons.Material.Filled.PhotoLibrary" Size="Size.Medium" />
+                            </MudAvatar>
+                            <div class="flex-grow-1">
+                                <MudText Typo="Typo.subtitle1" Class="mb-0">Bộ sưu tập hình ảnh</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Quản lý hình ảnh và thumbnail của điểm đến</MudText>
+                            </div>
+                        </div>
+                    </TitleContent>
+                    <ChildContent>
+                        <MudDivider />
+                        <div class="pa-6" Style="background: rgba(0,0,0,0.01);">
+                        <div class="mb-4">
+                            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="@Color.Primary" OnClick="AddImage" Size="Size.Small" DropShadow="false">Đặt ảnh</MudButton>
+                        </div>
+                        <MudGrid Spacing="2">
+                            @foreach (var img in _model.Images.OrderBy(x => x.SortOrder))
+                            {
+                                <MudItem xs="6" md="4" lg="3">
+                                    <MudCard Outlined="true" Class="poi-image-card relative rounded-lg shadow-none">
+                                        <div style="height: 120px; overflow: hidden; position: relative;" class="d-flex align-center justify-center bg-gray-100 rounded-t-lg">
+                                            @if (!string.IsNullOrEmpty(img.ImageUrl)) {
+                                                <MudImage Src="@img.ImageUrl" Style="height:100%; width:100%" ObjectFit="ObjectFit.Cover" />
+                                            } else {
+                                                <MudIcon Icon="@Icons.Material.Filled.Image" Color="Color.Default" Size="Size.Large" />
+                                            }
+                                            
+                                            @* Loading overlay *@
+                                            @if (_uploadingImages.ContainsKey(img) && _uploadingImages[img])
+                                            {
+                                                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;">
+                                                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="pa-2 d-flex align-center justify-space-between">
+                                            <MudFileUpload T="IBrowserFile" OnFilesChanged="@((e) => UploadImage(e, img))" Accept=".jpg,.jpeg,.png" Disabled="@(_uploadingImages.ContainsKey(img) && _uploadingImages[img])">
+                                                <ActivatorContent>
+                                                    <MudIconButton Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Small" Color="Color.Info" Disabled="@(_uploadingImages.ContainsKey(img) && _uploadingImages[img])" />
+                                                </ActivatorContent>
+                                            </MudFileUpload>
+                                            <div class="d-flex">
+                                                <MudIconButton Icon="@(img.IsThumbnail ? Icons.Material.Filled.Star : Icons.Material.Filled.StarBorder)" 
+                                                               Color="@(img.IsThumbnail ? Color.Warning : Color.Default)" 
+                                                               Size="Size.Small" 
+                                                               OnClick="@(() => img.IsThumbnail = !img.IsThumbnail)"
+                                                               Disabled="@(_uploadingImages.ContainsKey(img) && _uploadingImages[img])" />
+                                                <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                               Size="Size.Small" 
+                                                               Color="@Color.Error" 
+                                                               OnClick="@(() => _model.Images.Remove(img))"
+                                                               Disabled="@(_uploadingImages.ContainsKey(img) && _uploadingImages[img])" />
+                                            </div>
+                                        </div>
+                                        @if (img.IsThumbnail) {
+                                            <div style="position:absolute; top:4px; right:4px; background: rgba(255,193,7,0.9); border-radius:4px; padding:2px 6px;">
+                                                <MudText Typo="Typo.caption" Style="color:white; font-weight:700;">CHÍNH</MudText>
+                                            </div>
+                                        }
+                                    </MudCard>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                        </div>
+                </ChildContent>
+            </MudExpansionPanel>
+            </MudPaper>
+
+            <!-- Section 4: Details & Descriptions -->
+            <MudPaper Elevation="2" Class="mb-4 rounded-xl overflow-hidden stagger-item" Style="border: 1px solid rgba(0,0,0,0.08);">
+            <MudExpansionPanel Style="background: white;">
+                <TitleContent>
+                    <div class="d-flex align-center py-1">
+                        <MudAvatar Color="Color.Tertiary" Variant="Variant.Filled" Size="Size.Medium" Class="mr-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Medium" />
+                        </MudAvatar>
+                        <div class="flex-grow-1">
+                            <MudText Typo="Typo.subtitle1" Class="mb-0">Chi tiết & Mô tả đa ngôn ngữ</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Nội dung giới thiệu và bản dịch tự động</MudText>
+                        </div>
+                    </div>
+                </TitleContent>
+                <ChildContent>
+                    <MudDivider />
+                    <div class="pa-6" Style="background: rgba(0,0,0,0.01);">
+                        @{
+                            var defaultLang = _languages.FirstOrDefault(x => x.IsDefault) ?? new Language { Code = "vi", Name = "Tiếng Việt" };
+                            var mainContent = _model.Contents.FirstOrDefault(t => t.LanguageCode == defaultLang.Code) 
+                                           ?? new PoiContent { LanguageCode = defaultLang.Code };
+                            if (!_model.Contents.Any(t => t.LanguageCode == defaultLang.Code)) _model.Contents.Add(mainContent);
+                        }
+                        
+                        <!-- Mô tả gốc -->
+                        <div class="mb-6">
+                            <div class="d-flex align-center justify-space-between mb-3">
+                                <MudText Typo="Typo.subtitle2">Mô tả gốc (@defaultLang.Name)</MudText>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Translate" 
+                                           OnClick="TranslateAllContents" Size="Size.Small"
+                                           Disabled="@(_translatingAllDesc)">
+                                    @if (_translatingAllDesc) { <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" /> }
+                                    else { <MudText>Dịch tự động</MudText> }
+                                </MudButton>
+                            </div>
+                            <MudTextField @bind-Value="mainContent.Description" 
+                                         Label="Mô tả chi tiết" 
+                                         Lines="8" 
+                                         Variant="Variant.Outlined" 
+                                         Placeholder="Nhập mô tả chi tiết bằng Tiếng Việt..." />
+                        </div>
+
+                        <!-- Bản dịch các ngôn ngữ khác -->
+                        <div>
+                            <MudText Typo="Typo.subtitle2" Class="mb-3">Bản dịch các ngôn ngữ khác</MudText>
+                            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Border="true" PanelClass="pa-4" MinimumTabWidth="100px">
+                                @foreach (var lang in _languages.Where(x => x.IsActive && !x.IsDefault))
+                                {
+                                    <MudTabPanel Text="@lang.Code.ToUpper()">
+                                        @{
+                                            var currentLangCode = lang.Code;
+                                            var content = _model.Contents.FirstOrDefault(t => t.LanguageCode == currentLangCode) 
+                                                ?? new PoiContent { LanguageCode = currentLangCode };
+                                            
+                                            if (!_model.Contents.Any(t => t.LanguageCode == currentLangCode))
+                                                _model.Contents.Add(content);
+                                        }
+                                        <MudTextField @bind-Value="content.Description" 
+                                                     Label="@($"Mô tả ({lang.Name})")" 
+                                                     Lines="8" 
+                                                     Variant="Variant.Outlined" 
+                                                     Placeholder="Bản dịch sẽ hiện ở đây..." />
+                                    </MudTabPanel>
+                                }
+                            </MudTabs>
+                        </div>
+                    </div>
+                </ChildContent>
+            </MudExpansionPanel>
+            </MudPaper>
+
+            <!-- Section 5: Audio Guide Automation -->
+            <MudPaper Elevation="2" Class="mb-4 rounded-xl overflow-hidden stagger-item" Style="border: 1px solid rgba(0,0,0,0.08);">
+            <MudExpansionPanel Style="background: white;">
+                <TitleContent>
+                    <div class="d-flex align-center py-1">
+                        <MudAvatar Color="Color.Success" Variant="Variant.Filled" Size="Size.Medium" Class="mr-3">
+                            <MudIcon Icon="@Icons.Material.Filled.VolumeUp" Size="Size.Medium" />
+                        </MudAvatar>
+                        <div class="flex-grow-1">
+                            <MudText Typo="Typo.subtitle1" Class="mb-0">Trình tạo thuyết minh AI</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Tự động dịch và chuyển đổi thành giọng nói</MudText>
+                        </div>
+                    </div>
+                </TitleContent>
+                <ChildContent>
+                    <MudDivider />
+                    <div class="pa-6" Style="background: rgba(0,0,0,0.01);">
+                        <!-- Kịch bản gốc -->
+                        <div class="mb-6">
+                            <div class="d-flex align-center justify-space-between mb-3">
+                                <MudText Typo="Typo.subtitle2">Kịch bản gốc (Tiếng Việt)</MudText>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AutoFixHigh" 
+                                           OnClick="GenerateAutoAudioChain" Size="Size.Small"
+                                           Disabled="@(_generatingAllAudio)">
+                                    @if (_generatingAllAudio) { <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" /> }
+                                    else { <MudText>Tạo tự động</MudText> }
+                                </MudButton>
+                            </div>
+                            <MudStack Spacing="1">
+                                @{
+                                    var defaultLangCode = _languages.FirstOrDefault(l => l.IsDefault)?.Code ?? "vi";
+                                    var sourceAudios = _model.AudioFiles.Where(a => a.LanguageCode == defaultLangCode).OrderBy(a => a.SortOrder).ToList();
+                                }
+                                @foreach (var audio in sourceAudios)
+                                {
+                                    <div class="d-flex gap-2 pa-2 mb-2" Style="border: 1px solid var(--mud-palette-divider); border-radius: 8px;">
+                                        <div class="d-flex flex-column">
+                                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp" Size="Size.Small" OnClick="@(() => MoveAudio(audio, -1))" Disabled="@(audio == sourceAudios.First())" Class="pa-0"/>
+                                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small" OnClick="@(() => MoveAudio(audio, 1))" Disabled="@(audio == sourceAudios.Last())" Class="pa-0"/>
+                                        </div>
+                                        <MudTextField @bind-Value="audio.TtsScript" 
+                                                     Label="@($"Đoạn {audio.SortOrder + 1}")"
+                                                     Placeholder="Nhập nội dung thuyết minh..." 
+                                                     Lines="3"
+                                                     Variant="Variant.Outlined" 
+                                                     Margin="Margin.Dense" 
+                                                     Class="flex-grow-1" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => RemoveAudio(audio))" />
+                                    </div>
+                                }
+                                <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => AddTtsAudio(defaultLangCode))" Class="mt-2">Thêm đoạn thuyết minh</MudButton>
+                            </MudStack>
+                        </div>
+
+                        <!-- Kết quả Audio -->
+                        <div>
+                            <MudText Typo="Typo.subtitle2" Class="mb-3">Kết quả Audio</MudText>
+                            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" Border="true" PanelClass="pa-4" MinimumTabWidth="100px">
+                                @foreach (var lang in _languages.Where(x => x.IsActive))
+                                {
+                                    <MudTabPanel Text="@lang.Code.ToUpper()">
+                                        <MudStack Spacing="1" Style="max-height: 400px; overflow-y: auto;">
+                                            @foreach (var audio in _model.AudioFiles.Where(a => a.LanguageCode == lang.Code).OrderBy(a => a.SortOrder))
+                                            {
+                                                <div class="d-flex align-center gap-2 pa-1 border-b">
+                                                    <MudText Typo="Typo.caption" Style="width: 20px;">@(audio.SortOrder + 1).</MudText>
+                                                    <div class="flex-grow-1">
+                                                        @if (!string.IsNullOrEmpty(audio.FileUrl))
+                                                        {
+                                                            <audio controls src="@audio.FileUrl" style="width: 100%; height: 30px;"></audio>
+                                                        } else {
+                                                            <MudText Typo="Typo.caption" Color="Color.Default">Chưa có audio</MudText>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                        </MudStack>
+                                    </MudTabPanel>
+                                }
+                            </MudTabs>
+                        </div>
+                    </div>
+                </ChildContent>
+            </MudExpansionPanel>
+            </MudPaper>
+
+            <!-- Section 6: Operating Hours -->
+            <MudPaper Elevation="2" Class="mb-4 rounded-xl overflow-hidden stagger-item" Style="border: 1px solid rgba(0,0,0,0.08);">
+            <MudExpansionPanel Style="background: white;">
+                <TitleContent>
+                    <div class="d-flex align-center py-1">
+                        <MudAvatar Color="Color.Warning" Variant="Variant.Filled" Size="Size.Medium" Class="mr-3">
+                            <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Medium" />
+                        </MudAvatar>
+                        <div class="flex-grow-1">
+                            <MudText Typo="Typo.subtitle1" Class="mb-0">Giờ mở cửa hàng tuần</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Thiết lập lịch hoạt động theo ngày</MudText>
+                        </div>
+                    </div>
+                </TitleContent>
+                <ChildContent>
+                    <MudDivider />
+                    <div class="pa-6" Style="background: rgba(0,0,0,0.01);">
+                    <div class="d-flex justify-end mb-2">
+                        <MudButton StartIcon="@Icons.Material.Filled.ContentCopy" Size="@Size.Small" OnClick="ApplyMondayToAll" Variant="@Variant.Text" Color="@Color.Info" Disabled="@(!_model.OperatingHours.Any())">Sao chép Thứ 2 cho cả tuần</MudButton>
+                    </div>
+                    @foreach (var day in _model.OperatingHours.OrderBy(x => x.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)x.DayOfWeek))
+                    {
+                        <div class="d-flex align-center gap-4 py-2">
+                            <div style="width: 120px;" class="d-flex align-center gap-2">
+                                <MudSwitch T="bool" @bind-Value="day.IsActive" Color="@Color.Success" />
+                                <MudText Typo="Typo.body2">@TranslateDay(day.DayOfWeek)</MudText>
+                            </div>
+                            <MudTimePicker @bind-Time="day.OpenTime" Variant="@Variant.Outlined" Margin="Margin.Dense" Disabled="@(!day.IsActive)" AmPm="false" />
+                            <MudText Typo="@Typo.caption">—</MudText>
+                            <MudTimePicker @bind-Time="day.CloseTime" Variant="@Variant.Outlined" Margin="Margin.Dense" Disabled="@(!day.IsActive)" AmPm="false" />
+                        </div>
+                        <MudDivider />
+                    }
+                    @if (!_model.OperatingHours.Any())
+                    {
+                        <div class="py-4 text-center">
+                            <MudButton OnClick="InitializeDefaultOperatingHours" StartIcon="@Icons.Material.Filled.Refresh" Color="@Color.Primary" Variant="Variant.Outlined" Size="Size.Small">Khởi tạo dữ liệu giờ mở cửa</MudButton>
+                        </div>
+                    }
+                    </div>
+                </ChildContent>
+            </MudExpansionPanel>
+            </MudPaper>
+        </MudExpansionPanels>
+    }
+</MudContainer>
+
+<style>
+    /* Smooth Page Entry Animation */
+    .animate-fade-in { 
+        animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1); 
+    }
+    @@keyframes fadeIn { 
+        from { opacity: 0; transform: translateY(20px); } 
+        to { opacity: 1; transform: translateY(0); } 
+    }
+    
+    /* Expansion Panel Enhancements */
+    .mud-expansion-panel { 
+        border-radius: 12px !important; 
+        margin-bottom: 12px !important; 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+    }
+    .mud-expansion-panel:hover { 
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
+        transform: translateY(-2px);
+    }
+    .mud-expansion-panel-header { 
+        padding: 16px 24px !important;
+        transition: background-color 0.2s ease;
+    }
+    .mud-expansion-panel-header:hover {
+        background-color: rgba(0,0,0,0.02);
+    }
+    
+    /* Smooth Expansion Animation */
+    .mud-expand-panel-content {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    
+    /* Image Card Premium Effects */
+    .poi-image-card { 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    .poi-image-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        z-index: 1;
+    }
+    .poi-image-card:hover { 
+        transform: translateY(-6px) scale(1.02);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.15) !important;
+    }
+    .poi-image-card:hover::before {
+        opacity: 1;
+    }
+    
+    /* Button Smooth Interactions */
+    .mud-button-root {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    .mud-button-root:hover {
+        transform: translateY(-1px);
+    }
+    .mud-button-root:active {
+        transform: translateY(0);
+    }
+    
+    /* Input Focus Premium Effect */
+    .mud-input-outlined {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mud-input-outlined.mud-input-focus .mud-outlined-border { 
+        border-width: 2px !important;
+        box-shadow: 0 0 0 3px rgba(var(--mud-palette-primary-rgb), 0.1);
+    }
+    
+    /* Smooth Divider */
+    .border-b { 
+        border-bottom: 1px solid var(--mud-palette-divider);
+        transition: border-color 0.2s ease;
+    }
+    
+    /* Chip Animations */
+    .mud-chip {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mud-chip:hover {
+        transform: scale(1.05);
+    }
+    
+    /* Icon Button Smooth Hover */
+    .mud-icon-button {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mud-icon-button:hover {
+        transform: scale(1.1);
+        background-color: rgba(0,0,0,0.04);
+    }
+    
+    /* Tab Smooth Transition */
+    .mud-tabs .mud-tab {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mud-tabs .mud-tab:hover {
+        background-color: rgba(0,0,0,0.04);
+    }
+    
+    /* Progress Indicators */
+    .mud-progress-circular {
+        animation: spin 1s linear infinite;
+    }
+    @@keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Sticky Footer Smooth Entry */
+    .sticky-footer-smooth {
+        animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(100%); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    /* Overlay Smooth Fade */
+    .mud-overlay {
+        animation: fadeInOverlay 0.3s ease;
+    }
+    @@keyframes fadeInOverlay {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    /* Smooth Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: rgba(0,0,0,0.05);
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(0,0,0,0.2);
+        border-radius: 4px;
+        transition: background 0.2s ease;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0,0,0,0.3);
+    }
+    
+    /* Stagger Animation for List Items */
+    .stagger-item {
+        animation: staggerFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+    }
+    .stagger-item:nth-child(1) { animation-delay: 0.05s; }
+    .stagger-item:nth-child(2) { animation-delay: 0.1s; }
+    .stagger-item:nth-child(3) { animation-delay: 0.15s; }
+    .stagger-item:nth-child(4) { animation-delay: 0.2s; }
+    .stagger-item:nth-child(5) { animation-delay: 0.25s; }
+    .stagger-item:nth-child(6) { animation-delay: 0.3s; }
+    
+    @@keyframes staggerFadeIn {
+        from { opacity: 0; transform: translateX(-10px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+</style>
+
+<div style=" background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border-top: 1px solid var(--mud-palette-divider);" class="sticky-footer-smooth py-4 d-flex justify-center gap-6 px-6 shadow-xl">
+    <MudButton Variant="Variant.Outlined" OnClick="GoBack" Class="px-10 py-2 rounded-lg" Style="border: 1.5px solid var(--mud-palette-divider);">Hủy bỏ</MudButton>
+    <MudButton Variant="Variant.Filled" Color="@Color.Primary" OnClick="SavePoi" Size="Size.Large" Class="px-20 py-2 rounded-lg shadow-lg" DropShadow="false">
+        @if (_saving) { <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" /> }
+        else { <MudText Typo="Typo.button">LƯU THÔNG TIN POI</MudText> }
+    </MudButton>
+</div>
+
+
+<MudOverlay Visible="@(_generatingAllAudio || _saving)" DarkBackground="true" ZIndex="9999">
+    <MudStack AlignItems="AlignItems.Center">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+        <MudText Typo="Typo.h6" Color="Color.Inherit">@( _saving ? "Đang lưu dữ liệu..." : "Đang xử lý Audio đa ngôn ngữ...")</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Inherit">Vui lòng đợi trong giây lát, kịch bản đang được AI dịch và chuyển đổi sang giọng nói.</MudText>
+    </MudStack>
+</MudOverlay>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private bool IsEdit => Id.HasValue && Id.Value > 0;
+    private Poi _model = new() { GeofenceRadius = 50, IsActive = true };
+    private bool _loading = true;
+    private bool _saving = false;
+    private bool _generatingAllAudio = false;
+    private bool _translatingAllDesc = false;
+    private Dictionary<string, bool> _translatingDesc = new();
+    private Dictionary<PoiImage, bool> _uploadingImages = new();
+    private List<Category> _categories = new();
+    private List<Language> _languages = new();
+    
+    private string _mapSearch = "";
+    private bool _mapInitialized = false;
+    private DotNetObjectReference<PoiEditor>? _objRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try 
+        {
+            _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new();
+            _languages = await Http.GetFromJsonAsync<List<Language>>("api/languages") ?? new();
+            
+            if (IsEdit)
+            {
+                var poi = await Http.GetFromJsonAsync<Poi>($"api/pois/{Id}");
+                if (poi != null)
+                {
+                    _model = poi;
+                    EnsureAllDaysPresent();
+                }
+                else
+                {
+                    Snackbar.Add("Không tìm thấy POI", Severity.Error);
+                    NavigationManager.NavigateTo("/poi-management");
+                }
+            }
+            else
+            {
+                if (_categories.Any()) _model.CategoryId = _categories.First().Id;
+                _model.Latitude = 10.762622;
+                _model.Longitude = 106.660172;
+                InitializeDefaultOperatingHours();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi tải dữ liệu: " + ex.Message, Severity.Error);
+        }
+        finally 
+        {
+            _loading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_loading && !_mapInitialized)
+        {
+            await Task.Delay(500); 
+            _objRef = DotNetObjectReference.Create(this);
+            await MapService.InitMapAsync(_model.Latitude, _model.Longitude, "editor-map", _objRef);
+            _mapInitialized = true;
+        }
+    }
+
+    private async Task SavePoi()
+    {
+        _saving = true;
+        try 
+        {
+            // Clear navigation properties to avoid circular reference
+            foreach (var hour in _model.OperatingHours) hour.Poi = null;
+            foreach (var img in _model.Images) img.Poi = null;
+            foreach (var content in _model.Contents) content.Poi = null;
+            foreach (var audio in _model.AudioFiles) audio.Poi = null;
+            _model.Category = null;
+
+            HttpResponseMessage response;
+            if (IsEdit) response = await Http.PutAsJsonAsync($"api/pois/{Id}", _model);
+            else response = await Http.PostAsJsonAsync("api/pois", _model);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Đã lưu thông tin POI thành công", Severity.Success);
+                NavigationManager.NavigateTo("/poi-management");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Snackbar.Add("Lỗi khi lưu: " + error, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi khi lưu: " + ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void InitializeDefaultOperatingHours()
+    {
+        _model.OperatingHours.Clear();
+        EnsureAllDaysPresent();
+    }
+
+    private void EnsureAllDaysPresent()
+    {
+        var days = new[] { 
+            DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, 
+            DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday 
+        };
+        
+        foreach (var day in days)
+        {
+            if (!_model.OperatingHours.Any(x => x.DayOfWeek == day))
+            {
+                _model.OperatingHours.Add(new OperatingHours 
+                { 
+                    DayOfWeek = day, 
+                    OpenTime = new TimeSpan(8, 0, 0), 
+                    CloseTime = new TimeSpan(21, 0, 0),
+                    IsActive = true
+                });
+            }
+        }
+    }
+
+    private void ApplyMondayToAll()
+    {
+        var monday = _model.OperatingHours.FirstOrDefault(x => x.DayOfWeek == DayOfWeek.Monday);
+        if (monday == null) return;
+
+        foreach (var day in _model.OperatingHours.Where(x => x.DayOfWeek != DayOfWeek.Monday))
+        {
+            day.OpenTime = monday.OpenTime;
+            day.CloseTime = monday.CloseTime;
+        }
+        Snackbar.Add("Đã áp dụng giờ của Thứ 2 cho toàn bộ các ngày", Severity.Info);
+    }
+
+    private void AddImage() => _model.Images.Add(new PoiImage { SortOrder = _model.Images.Count });
+
+    private string TranslateDay(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Monday => "Thứ Hai",
+        DayOfWeek.Tuesday => "Thứ Ba",
+        DayOfWeek.Wednesday => "Thứ Tư",
+        DayOfWeek.Thursday => "Thứ Năm",
+        DayOfWeek.Friday => "Thứ Sáu",
+        DayOfWeek.Saturday => "Thứ Bảy",
+        DayOfWeek.Sunday => "Chủ Nhật",
+        _ => day.ToString()
+    };
+
+    private async Task UploadImage(InputFileChangeEventArgs e, PoiImage img)
+    {
+        var file = e.File;
+        if (file == null) return;
+        _uploadingImages[img] = true;
+        try
+        {
+            var content = new MultipartFormDataContent();
+            var fileStream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 10);
+            var fileContent = new StreamContent(fileStream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
+
+            var response = await Http.PostAsync("api/uploads/image", content);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<UploadResponse>();
+                if (result != null)
+                {
+                    img.ImageUrl = result.Url;
+                    Snackbar.Add("Tải ảnh lên thành công", Severity.Success);
+                }
+            }
+        }
+        catch (Exception ex) { Snackbar.Add("Lỗi upload: " + ex.Message, Severity.Error); }
+        finally { _uploadingImages[img] = false; }
+    }
+
+    private async Task GenerateAutoAudioChain()
+    {
+        var defaultLang = _languages.FirstOrDefault(l => l.IsDefault) ?? _languages.FirstOrDefault();
+        if (defaultLang == null) return;
+        
+        var sourceLangCode = defaultLang.Code;
+        var sourceAudios = _model.AudioFiles
+            .Where(a => a.LanguageCode == sourceLangCode && a.IsTts && !string.IsNullOrWhiteSpace(a.TtsScript))
+            .OrderBy(a => a.SortOrder)
+            .ToList();
+
+        if (!sourceAudios.Any()) {
+            Snackbar.Add("Vui lòng nhập kịch bản Tiếng Việt trước khi tạo Audio", Severity.Warning);
+            return;
+        }
+
+        _generatingAllAudio = true;
+        try {
+            var targetLangs = _languages.Where(x => x.IsActive).ToList();
+            Console.WriteLine($"[AudioChain] Starting for {targetLangs.Count} active languages. Source: {sourceLangCode}");
+            
+            foreach (var lang in targetLangs) {
+                Console.WriteLine($"[AudioChain] Processing language: {lang.Code} (IsDefault: {lang.IsDefault})");
+                var existing = _model.AudioFiles.Where(a => a.LanguageCode == lang.Code && a.IsTts).ToList();
+                foreach (var e in existing) _model.AudioFiles.Remove(e);
+
+                foreach (var src in sourceAudios) {
+                    var scriptToUse = src.TtsScript;
+
+                    if (lang.Code != sourceLangCode) {
+                        Console.WriteLine($"[AudioChain] Translating segment from {sourceLangCode} to {lang.Code}...");
+                        var resp = await Http.PostAsJsonAsync("api/Translate", new { Text = src.TtsScript, TargetLanguage = lang.Code });
+                        if (resp.IsSuccessStatusCode) {
+                            var res = await resp.Content.ReadFromJsonAsync<TranslateResponse>();
+                            if (res != null) {
+                                scriptToUse = System.Net.WebUtility.HtmlDecode(res.TranslatedText);
+                                Console.WriteLine($"[AudioChain] Translation success. Result: {scriptToUse.Substring(0, Math.Min(20, scriptToUse.Length))}...");
+                            }
+                        } else {
+                            var err = await resp.Content.ReadAsStringAsync();
+                            Console.WriteLine($"[AudioChain] Translation FAILED for {lang.Code}: {err}");
+                            Snackbar.Add($"Lỗi dịch sang {lang.Name}: {err}", Severity.Error);
+                        }
+                    }
+
+                    var newAudio = new PoiAudioFile {
+                        LanguageCode = lang.Code,
+                        IsTts = true,
+                        SortOrder = src.SortOrder,
+                        TtsScript = scriptToUse
+                    };
+
+                    if (!string.IsNullOrWhiteSpace(scriptToUse))
+                    {
+                        Console.WriteLine($"[AudioChain] Generating TTS for {lang.Code}...");
+                        var ttsResp = await Http.PostAsJsonAsync("api/tts/generate", new { Text = scriptToUse, LanguageCode = lang.Code });
+                        if (ttsResp.IsSuccessStatusCode) {
+                            var ttsResult = await ttsResp.Content.ReadFromJsonAsync<TtsResponse>();
+                            if (ttsResult != null) {
+                                newAudio.FileUrl = ttsResult.Url;
+                                Console.WriteLine($"[AudioChain] TTS Success: {ttsResult.Url}");
+                            }
+                        } else {
+                            Console.WriteLine($"[AudioChain] TTS FAILED for {lang.Code}");
+                        }
+                    }
+                    _model.AudioFiles.Add(newAudio);
+                }
+            }
+            Snackbar.Add("Đã tạo xong bộ Audio Guide đa ngôn ngữ", Severity.Success);
+        }
+        catch (Exception ex) { 
+            Console.WriteLine($"[AudioChain] FATAL ERROR: {ex.Message}");
+            Snackbar.Add("Lỗi tạo Audio: " + ex.Message, Severity.Error); 
+        }
+        finally { _generatingAllAudio = false; StateHasChanged(); }
+    }
+
+    private async Task TranslateAllContents()
+    {
+        var defaultLang = _languages.FirstOrDefault(x => x.IsDefault);
+        if (defaultLang == null) return;
+        var sourceContent = _model.Contents.FirstOrDefault(x => x.LanguageCode == defaultLang.Code);
+        if (sourceContent == null || string.IsNullOrWhiteSpace(sourceContent.Description)) return;
+
+        _translatingAllDesc = true;
+        try {
+            var tasks = _languages.Where(l => !l.IsDefault && l.IsActive).Select(async lang => {
+                var content = _model.Contents.FirstOrDefault(t => t.LanguageCode == lang.Code);
+                if (content == null) {
+                    content = new PoiContent { LanguageCode = lang.Code };
+                    _model.Contents.Add(content);
+                }
+                await TranslateContent(content, sourceContent);
+            });
+            await Task.WhenAll(tasks);
+            Snackbar.Add("Đã dịch xong tất cả ngôn ngữ", Severity.Success);
+        } catch (Exception ex) {
+            Snackbar.Add("Lỗi dịch tổng thể: " + ex.Message, Severity.Error);
+        } finally {
+            _translatingAllDesc = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task TranslateContent(PoiContent targetContent, PoiContent sourceContent)
+    {
+        if (string.IsNullOrEmpty(targetContent.LanguageCode)) return;
+        if (string.IsNullOrWhiteSpace(sourceContent.Description)) {
+            Snackbar.Add("Vui lòng nhập mô tả Tiếng Việt trước khi dịch", Severity.Warning);
+            return;
+        }
+        
+        _translatingDesc[targetContent.LanguageCode] = true;
+        try {
+            var response = await Http.PostAsJsonAsync("api/Translate", new { Text = sourceContent.Description, TargetLanguage = targetContent.LanguageCode });
+            if (response.IsSuccessStatusCode) {
+                var result = await response.Content.ReadFromJsonAsync<TranslateResponse>();
+                if (result != null) targetContent.Description = System.Net.WebUtility.HtmlDecode(result.TranslatedText);
+            }
+            
+            Snackbar.Add($"Đã dịch mô tả sang {targetContent.LanguageCode}", Severity.Success);
+        } catch (Exception ex) { 
+            Snackbar.Add("Lỗi dịch: " + ex.Message, Severity.Error); 
+        }
+        finally { _translatingDesc[targetContent.LanguageCode] = false; }
+    }
+
+    private void AddTtsAudio(string langCode)
+    {
+        var count = _model.AudioFiles.Count(a => a.LanguageCode == langCode);
+        _model.AudioFiles.Add(new PoiAudioFile { LanguageCode = langCode, IsTts = true, SortOrder = count });
+    }
+
+    private void RemoveAudio(PoiAudioFile audio)
+    {
+        _model.AudioFiles.Remove(audio);
+        ReorderAudios(audio.LanguageCode);
+    }
+
+    private void MoveAudio(PoiAudioFile audio, int direction)
+    {
+        var audios = _model.AudioFiles.Where(a => a.LanguageCode == audio.LanguageCode).OrderBy(a => a.SortOrder).ToList();
+        var idx = audios.IndexOf(audio);
+        var targetIdx = idx + direction;
+        if (targetIdx >= 0 && targetIdx < audios.Count) {
+            var target = audios[targetIdx];
+            (audio.SortOrder, target.SortOrder) = (target.SortOrder, audio.SortOrder);
+        }
+    }
+
+    private void ReorderAudios(string langCode)
+    {
+        var audios = _model.AudioFiles.Where(a => a.LanguageCode == langCode).OrderBy(a => a.SortOrder).ToList();
+        for (int i = 0; i < audios.Count; i++) audios[i].SortOrder = i;
+    }
+
+    private void GoBack() => NavigationManager.NavigateTo("/poi-management");
+
+    [JSInvokable]
+    public void UpdateCoordinates(double lat, double lng)
+    {
+        _model.Latitude = lat;
+        _model.Longitude = lng;
+        StateHasChanged();
+    }
+
+    private async Task HandleSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_mapSearch))
+        {
+            var predictions = await MapService.GetPredictionsAsync(_mapSearch, default);
+            var first = predictions.FirstOrDefault();
+            if (first != null) {
+                var details = await MapService.GetPlaceDetailsAsync(first.place_id);
+                if (details != null) {
+                    _model.Latitude = details.lat; _model.Longitude = details.lng;
+                    await MapService.SetMarkerAsync(_model.Latitude, _model.Longitude, "editor-map");
+                    StateHasChanged();
+                }
+            }
+        }
+    }
+
+    private void GenerateRandomQr() => _model.QrValue = "POI_" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
+
+    public void Dispose() => _objRef?.Dispose();
+
+    private class UploadResponse { public string Url { get; set; } = ""; }
+    private class TtsResponse { public string Url { get; set; } = ""; }
+    private class TranslateResponse { public string TranslatedText { get; set; } = ""; }
+}
