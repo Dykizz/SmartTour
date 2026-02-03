@@ -1,0 +1,12 @@
+{
+  "name": "smarttour-web",
+  "version": "1.0.0",
+  "description": "SmartTour Web Application",
+  "scripts": {
+    "postinstall": "node copy-map-libs.js"
+  },
+  "dependencies": {
+    "@vietmap/vietmap-gl-js": "^1.0.0",
+    "mapbox-gl": "^3.0.0"
+  }
+}

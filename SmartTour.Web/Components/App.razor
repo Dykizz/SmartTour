@@ -1,4 +1,6 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.Extensions.Configuration
+@inject IConfiguration Configuration
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -8,15 +10,39 @@
     <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="SmartTour.Web.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet />
+    
+    @{
+        var mapProvider = Configuration["MAP_PROVIDER"] ?? "Vietmap";
+    }
+    
+    @if (mapProvider == "Vietmap")
+    {
+        <link href="libs/vietmap/vietmap-gl.css" rel="stylesheet" />
+    }
+    else
+    {
+        <link href="libs/mapbox/mapbox-gl.css" rel="stylesheet" />
+    }
+    
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="InteractiveServer" />
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    
+    @if (mapProvider == "Vietmap")
+    {
+        <script src="libs/vietmap/vietmap-gl.js"></script>
+        <script src="vietmapInterop.js"></script>
+    }
+    else
+    {
+        <script src="libs/mapbox/mapbox-gl.js"></script>
+        <script src="mapInterop.js"></script>
+    }
 </body>
 
 </html>
