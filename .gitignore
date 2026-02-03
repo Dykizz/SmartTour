@@ -100,3 +100,5 @@ artifacts/
 
 # Mac
 .DS_Store
+
+.env

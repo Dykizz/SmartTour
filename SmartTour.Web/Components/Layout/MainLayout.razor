@@ -9,6 +9,24 @@
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
         <MudText Typo="Typo.h6">SmartTour Web</MudText>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized>
+                <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                    <ActivatorContent>
+                        <MudChip T="string" Icon="@Icons.Material.Filled.Person" Color="Color.Inherit">
+                            @context.User.Identity?.Name
+                        </MudChip>
+                    </ActivatorContent>
+                    <ChildContent>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Logout" Href="/account/logout">Đăng xuất</MudMenuItem>
+                    </ChildContent>
+                </MudMenu>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Href="/login" Variant="Variant.Text" Color="Color.Inherit">Đăng nhập</MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
