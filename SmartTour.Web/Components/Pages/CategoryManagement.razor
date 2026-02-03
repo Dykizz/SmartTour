@@ -1,0 +1,117 @@
+@page "/category-management"
+@using SmartTour.Shared.Models
+@using SmartTour.Web.Components.Pages
+@inject HttpClient Http
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Quản lý Loại hình</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8">
+    <MudPaper Elevation="2" Class="pa-4">
+        <div class="d-flex align-center justify-space-between mb-4">
+            <MudText Typo="Typo.h5" Style="font-weight: bold;">Danh sách Loại hình quán (API)</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => OpenDialog()">
+                Thêm loại hình
+            </MudButton>
+        </div>
+
+        <MudTable Items="@_categories" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0">
+            <HeaderContent>
+                <MudTh>Tên loại hình</MudTh>
+                <MudTh>Mô tả</MudTh>
+                <MudTh>Ngày tạo</MudTh>
+                <MudTh>Trạng thái</MudTh>
+                <MudTh Style="width: 120px">Thao tác</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Tên loại hình">@context.Name</MudTd>
+                <MudTd DataLabel="Mô tả">@context.Description</MudTd>
+                <MudTd DataLabel="Ngày tạo">@context.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                <MudTd DataLabel="Trạng thái">
+                    <MudChip T="string" Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
+                        @(context.IsActive ? "Hoạt động" : "Khóa")
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenDialog(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteCategory(context))" />
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText>Chưa có loại hình nào. Hãy thêm mới!</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<Category> _categories = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategories();
+    }
+
+    private async Task LoadCategories()
+    {
+        _loading = true;
+        try 
+        {
+            _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi kết nối API: " + ex.Message, Severity.Error);
+        }
+        _loading = false;
+    }
+
+    private async Task OpenDialog(Category? category = null)
+    {
+        bool isEdit = category != null;
+        var parameters = new DialogParameters<CategoryDialog>
+        {
+            { x => x.Model, isEdit ? new Category { 
+                Id = category!.Id, 
+                Name = category.Name, 
+                Description = category.Description, 
+                IsActive = category.IsActive,
+                CreatedAt = category.CreatedAt
+            } : new Category() },
+            { x => x.IsEdit, isEdit }
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<CategoryDialog>(isEdit ? "Chỉnh sửa loại hình" : "Thêm loại hình mới", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            await LoadCategories();
+        }
+    }
+
+    private async Task DeleteCategory(Category category)
+    {
+        bool? confirm = await DialogService.ShowMessageBox(
+            "Xác nhận xóa", 
+            $"Bạn có chắc chắn muốn xóa loại hình '{category.Name}' không?", 
+            yesText: "Xóa", cancelText: "Hủy");
+
+        if (confirm == true)
+        {
+            var response = await Http.DeleteAsync($"api/categories/{category.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Đã xóa loại hình", Severity.Success);
+                await LoadCategories();
+            }
+            else
+            {
+                Snackbar.Add("Xóa thất bại", Severity.Error);
+            }
+        }
+    }
+}

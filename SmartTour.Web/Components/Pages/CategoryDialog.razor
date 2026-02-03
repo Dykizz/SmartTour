@@ -1,0 +1,61 @@
+@using SmartTour.Shared.Models
+@using MudBlazor
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <EditForm Model="@Model" OnValidSubmit="OnValidSubmit">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField Label="Tên loại hình" @bind-Value="Model.Name" For="@(() => Model.Name)" Required="true" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField Label="Mô tả" @bind-Value="Model.Description" For="@(() => Model.Description)" Lines="3" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSwitch T="bool" @bind-Value="Model.IsActive" Label="Trạng thái hoạt động" Color="Color.Primary" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Hủy</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Lưu</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Category Model { get; set; } = new();
+    [Parameter] public bool IsEdit { get; set; }
+
+    private async Task OnValidSubmit()
+    {
+        HttpResponseMessage response;
+        if (IsEdit)
+        {
+            response = await Http.PutAsJsonAsync($"api/categories/{Model.Id}", Model);
+        }
+        else
+        {
+            response = await Http.PostAsJsonAsync("api/categories", Model);
+        }
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add(IsEdit ? "Đã cập nhật loại hình" : "Đã thêm loại hình mới", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Snackbar.Add("Lỗi: " + error, Severity.Error);
+        }
+    }
+
+    private async Task Submit() => await OnValidSubmit();
+    private void Cancel() => MudDialog.Cancel();
+}
