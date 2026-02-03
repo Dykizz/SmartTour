@@ -1,4 +1,6 @@
 @page "/login"
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Authorization
 @layout EmptyLayout
@@ -17,27 +19,27 @@
 
         @* Sử dụng form HTML thuần để POST lên Controller (Cookie Auth cần Full Request) *@
         <form action="/account/login-local" method="post">
-            <MudTextField Name="username" T="string" Label="Tên đăng nhập hoặc Email" 
+            <MudTextField T="string" Label="Tên đăng nhập hoặc Email" 
                           @bind-Value="_loginModel.Username" 
                           For="@(() => _loginModel.Username)"
                           Variant="Variant.Outlined" 
                           Margin="Margin.Normal"
                           Adornment="Adornment.Start" 
                           AdornmentIcon="@Icons.Material.Filled.Email"
-                          FullWidth="true" />
+                          FullWidth="true"
+                          UserAttributes="@(new Dictionary<string, object> { { "name", "username" } })" />
 
-            <MudTextField Name="password" Label="Mật khẩu" 
+            <MudTextField Label="Mật khẩu" 
                           @bind-Value="_loginModel.Password" 
                           For="@(() => _loginModel.Password)"
                           InputType="@(_passwordVisibility ? InputType.Text : InputType.Password)"
                           Variant="Variant.Outlined" 
                           Margin="Margin.Normal"
-                          Adornment="Adornment.Start" 
-                          AdornmentIcon="@Icons.Material.Filled.Lock"
-                          AdornmentLast="true"
-                          AdornmentIconSecondary="@(_passwordVisibility ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                          Adornment="Adornment.End" 
+                          AdornmentIcon="@(_passwordVisibility ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
                           OnAdornmentClick="TogglePasswordVisibility"
-                          FullWidth="true" />
+                          FullWidth="true"
+                          UserAttributes="@(new Dictionary<string, object> { { "name", "password" } })" />
 
             <div class="d-flex justify-space-between align-center mt-2 mb-6">
                 <MudCheckBox T="bool" Label="Ghi nhớ" Color="Color.Primary" Dense="true" />
@@ -54,7 +56,11 @@
             </MudButton>
         </form>
 
-        <MudDivider Class="my-8" DividerType="DividerType.Middle">HOẶC</MudDivider>
+        <div class="d-flex align-center my-8">
+            <hr class="flex-grow-1 mr-2" style="border: 0; border-top: 1px solid #ddd;" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary">HOẶC</MudText>
+            <hr class="flex-grow-1 ml-2" style="border: 0; border-top: 1px solid #ddd;" />
+        </div>
 
         <MudButton Variant="Variant.Outlined" 
                    FullWidth="true" 
