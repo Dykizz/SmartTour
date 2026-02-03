@@ -1,0 +1,198 @@
+@page "/language-management"
+@using Microsoft.EntityFrameworkCore
+@using SmartTour.Shared.Models
+@using SmartTour.Web.Components.Pages
+@using SmartTour.Shared.Helpers
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Cấu hình Ngôn ngữ</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-10">
+    <MudPaper Elevation="4" Class="pa-6" Style="border-radius: 12px;">
+        <div class="d-flex align-center justify-space-between mb-6">
+            <div>
+                <MudText Typo="Typo.h5" Style="font-weight: 800; color: var(--mud-palette-primary);">Quản lý Ngôn ngữ</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Cấu hình các ngôn ngữ hiển thị trên trang web của bạn</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       StartIcon="@Icons.Material.Filled.Add" 
+                       OnClick="() => OpenAddDialog()"
+                       Style="text-transform: none; border-radius: 8px; px-4">
+                Thêm ngôn ngữ mới
+            </MudButton>
+        </div>
+
+        <MudTable Items="@_languages" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0" CustomHeader="true">
+            <HeaderContent>
+                <MudTHeadRow>
+                    <MudTh Style="width: 300px">Ngôn ngữ</MudTh>
+                    <MudTh>Mã</MudTh>
+                    <MudTh Style="text-align: center;">Trạng thái</MudTh>
+                    <MudTh Style="width: 120px; text-align: right;">Thao tác</MudTh>
+                </MudTHeadRow>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Ngôn ngữ">
+                    <div class="d-flex align-center">
+                        <MudText Typo="Typo.h4" Class="mr-3">@LanguageHelper.GetFlagByCode(context.Code)</MudText>
+                        <div class="d-flex flex-column">
+                            <MudText Typo="Typo.body1" Style="font-weight: 600;">@context.Name</MudText>
+                            @if (context.IsDefault)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Info" Style="font-weight: bold;">[ Ngôn ngữ hệ thống ]</MudText>
+                            }
+                        </div>
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Mã">
+                    <code style="background-color: var(--mud-palette-background-grey); padding: 2px 6px; border-radius: 4px; font-weight: bold;">@context.Code.ToUpper()</code>
+                </MudTd>
+                <MudTd DataLabel="Trạng thái" Style="text-align: center;">
+                    @if (context.IsDefault)
+                    {
+                        <MudChip T="string" Color="Color.Info" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">Mặc định</MudChip>
+                    }
+                    else if (context.IsActive)
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">Đang hiển thị</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Text">Đã ẩn</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Thao tác" Style="text-align: right;">
+                    <div class="d-flex justify-end gap-1">
+                        @if (!context.IsDefault && context.IsActive)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.StarBorder" 
+                                           Color="Color.Info" 
+                                           Size="Size.Small" 
+                                           OnClick="@(() => SetAsDefault(context))" 
+                                           UserAttributes="@(new Dictionary<string, object> { { "title", "Đặt làm mặc định" } })" />
+                        }
+                        
+                        @if (!context.IsDefault)
+                        {
+                            @if (context.IsActive)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" 
+                                               Color="Color.Error" 
+                                               Size="Size.Small" 
+                                               OnClick="@(() => ToggleStatus(context))" 
+                                               UserAttributes="@(new Dictionary<string, object> { { "title", "Ngừng hỗ trợ" } })" />
+                            }
+                            else 
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.SettingsBackupRestore" 
+                                               Color="Color.Success" 
+                                               Size="Size.Small" 
+                                               OnClick="@(() => ToggleStatus(context))" 
+                                               UserAttributes="@(new Dictionary<string, object> { { "title", "Kích hoạt lại" } })" />
+                            }
+                        }
+                    </div>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4 text-center">Chưa có ngôn ngữ nào được cấu hình.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+        
+       
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<Language> _languages = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLanguages();
+    }
+
+    private async Task LoadLanguages()
+    {
+        _loading = true;
+        try 
+        {
+            _languages = await Http.GetFromJsonAsync<List<Language>>("api/languages") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi đồng bộ dữ liệu: " + ex.Message, Severity.Error);
+        }
+        _loading = false;
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<LanguageDialog>("Thêm ngôn ngữ mới", options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            await LoadLanguages();
+        }
+    }
+
+    private async Task ToggleStatus(Language language)
+    {
+        string action = language.IsActive ? "ngừng hỗ trợ" : "kích hoạt lại";
+        bool? confirm = await DialogService.ShowMessageBox(
+            "Xác nhận thay đổi", 
+            $"Bạn có chắc chắn muốn {action} ngôn ngữ '{language.Name}' không?", 
+            yesText: "Đồng ý", cancelText: "Hủy");
+
+        if (confirm == true)
+        {
+            HttpResponseMessage response;
+            if (language.IsActive)
+            {
+                response = await Http.DeleteAsync($"api/languages/{language.Id}");
+            }
+            else 
+            {
+                response = await Http.PostAsJsonAsync("api/languages", language);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add($"Đã cập nhật trạng thái ngôn ngữ {language.Name}", Severity.Success);
+                await LoadLanguages();
+            }
+            else
+            {
+                Snackbar.Add("Thao tác thất bại", Severity.Error);
+            }
+        }
+    }
+
+    private async Task SetAsDefault(Language language)
+    {
+        bool? confirm = await DialogService.ShowMessageBox(
+            "Cấu hình hệ thống", 
+            $"Xác nhận đặt '{language.Name}' làm ngôn ngữ chính thức cho toàn bộ trang web?", 
+            yesText: "Thiết lập", cancelText: "Hủy");
+
+        if (confirm == true)
+        {
+            var response = await Http.PatchAsync($"api/languages/{language.Id}/set-default", null);
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add($"Đã đặt '{language.Name}' làm mặc định.", Severity.Success);
+                await LoadLanguages();
+            }
+            else
+            {
+                Snackbar.Add("Thao tác thất bại", Severity.Error);
+            }
+        }
+    }
+}

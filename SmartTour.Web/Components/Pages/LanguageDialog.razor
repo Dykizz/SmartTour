@@ -1,0 +1,154 @@
+@using SmartTour.Shared.Models
+@using MudBlazor
+@using SmartTour.Shared.Helpers
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <EditForm Model="@Model" OnValidSubmit="OnValidSubmit">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.body2" Class="mb-4">Chọn một ngôn ngữ từ danh sách các ngôn ngữ chưa được hỗ trợ trên trang web:</MudText>
+                    
+                    @if (_loading)
+                    {
+                        <div class="d-flex align-center gap-2">
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                            <MudText Typo="Typo.caption">Đang tải danh sách hiện có...</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudAutocomplete T="LanguageItem" 
+                                       Label="Bắt đầu gõ để tìm ngôn ngữ..." 
+                                       Value="_selectedLanguage" 
+                                       SearchFunc="@SearchLanguage"
+                                       ToStringFunc="@(l => l?.DisplayName)"
+                                       ValueChanged="OnLanguageSelected"
+                                       Required="true"
+                                       Variant="Variant.Outlined"
+                                       Placeholder="Ví dụ: Nhật, Hàn, Pháp..."
+                                       AdornmentIcon="@Icons.Material.Filled.Search"
+                                       CoerceText="false"
+                                       ResetValueOnEmptyText="true" />
+                    }
+                </MudItem>
+                
+                @if (_selectedLanguage != null)
+                {
+                    <MudItem xs="6">
+                        <MudField Label="Mã chuẩn" Variant="Variant.Filled" InnerPadding="false">
+                            <MudText Typo="Typo.body1" Class="px-3 py-2">@Model.Code</MudText>
+                        </MudField>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudField Label="Tên ngôn ngữ" Variant="Variant.Filled" InnerPadding="false">
+                            <MudText Typo="Typo.body1" Class="px-3 py-2">@Model.Name</MudText>
+                        </MudField>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudCheckBox T="bool" @bind-Value="Model.IsDefault" Label="Sử dụng làm ngôn ngữ mặc định" Color="Color.Primary" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-8 d-block">
+                            (Nếu chọn, các ngôn ngữ mặc định trước đó sẽ được thay đổi)
+                        </MudText>
+                    </MudItem>
+                }
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Hủy</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" 
+                   OnClick="Submit" 
+                   Disabled="@(_selectedLanguage == null || _loading)">
+            Xác nhận thêm
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private Language Model { get; set; } = new();
+    private LanguageItem? _selectedLanguage;
+    private List<string> _existingCodes = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try 
+        {
+            // Lấy danh sách code đã tồn tại (bao gồm cả active và inactive) để lọc danh sách được phép thêm
+            var currentLanguages = await Http.GetFromJsonAsync<List<Language>>("api/languages") ?? new();
+            _existingCodes = currentLanguages.Select(l => l.Code.ToLower()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Cảnh báo: Không thể kiểm tra ngôn ngữ trùng lặp. " + ex.Message, Severity.Warning);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task<IEnumerable<LanguageItem>> SearchLanguage(string value, CancellationToken token)
+    {
+        // Lấy danh sách từ Helper
+        var available = LanguageHelper.GetAvailableLanguages();
+
+        // 1. Lọc bỏ những ngôn ngữ ĐÃ CÓ trong hệ thống (dựa theo code)
+        var filtered = available.Where(l => !_existingCodes.Contains(l.Code.ToLower()));
+
+        // 2. Lọc theo từ khóa người dùng nhập
+        if (string.IsNullOrEmpty(value))
+            return Task.FromResult(filtered);
+
+        var result = filtered
+            .Where(x => x.Name.Contains(value, StringComparison.InvariantCultureIgnoreCase) || 
+                        x.NativeName.Contains(value, StringComparison.InvariantCultureIgnoreCase) ||
+                        x.Code.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+
+        return Task.FromResult(result);
+    }
+
+    private void OnLanguageSelected(LanguageItem item)
+    {
+        _selectedLanguage = item;
+        if (item != null)
+        {
+            Model.Code = item.Code;
+            Model.Name = item.NativeName;
+        }
+        else
+        {
+            Model.Code = string.Empty;
+            Model.Name = string.Empty;
+        }
+    }
+
+    private async Task OnValidSubmit()
+    {
+        if (string.IsNullOrEmpty(Model.Code)) return;
+
+        // Đề phòng việc thêm trùng bằng cách gửi request lên server (Controller đã xử lý logic này)
+        var response = await Http.PostAsJsonAsync("api/languages", Model);
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add($"Thành công: Ngôn ngữ {Model.Name} đã được thiết lập.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Snackbar.Add("Lỗi: " + error, Severity.Error);
+        }
+    }
+
+    private async Task Submit() => await OnValidSubmit();
+    private void Cancel() => MudDialog.Cancel();
+}
