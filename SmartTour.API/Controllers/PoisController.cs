@@ -3,19 +3,57 @@ using Microsoft.EntityFrameworkCore;
 using SmartTour.API.Data;
 using SmartTour.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 
 namespace SmartTour.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize] // Yêu cầu đăng nhập mặc định cho toàn bộ controller
+[Authorize]
 public class PoisController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<PoisController> _logger;
 
-    public PoisController(AppDbContext context)
+    public PoisController(AppDbContext context, ILogger<PoisController> logger)
     {
         _context = context;
+        _logger = logger;
+    }
+
+    // ... (keep other methods as is, don't change them unless necessary, but I can't skip lines in replace_file_content like this easily if they are far apart. I'll target the Constructor and DeletePoi separately)
+
+    // ...
+    // DELETE: api/Pois/5
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeletePoi(int id)
+    {
+        _logger.LogInformation($"[DELETE POI] Request to delete POI ID: {id}. User: {User.Identity?.Name ?? "Anonymous"}");
+
+        var poi = await _context.Pois.FindAsync(id);
+        if (poi == null)
+        {
+            _logger.LogWarning($"[DELETE POI] POI {id} not found.");
+            return NotFound();
+        }
+
+        try
+        {
+            _context.Pois.Remove(poi);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation($"[DELETE POI] Successfully deleted POI {id}.");
+            return NoContent();
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, $"[DELETE POI] Database update error for POI {id}.");
+            return StatusCode(500, $"Lỗi cơ sở dữ liệu: {ex.InnerException?.Message ?? ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"[DELETE POI] General error deleting POI {id}.");
+            return StatusCode(500, $"Lỗi hệ thống: {ex.Message}");
+        }
     }
 
     private async Task<int?> GetCurrentUserIdAsync()
@@ -75,6 +113,7 @@ public class PoisController : ControllerBase
     }
 
         // POST: api/Pois
+    [HttpPost]
     [HttpPost]
     public async Task<ActionResult<Poi>> PostPoi(Poi poi)
     {
@@ -182,21 +221,7 @@ public class PoisController : ControllerBase
         return NoContent();
     }
 
-    // DELETE: api/Pois/5
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeletePoi(int id)
-    {
-        var poi = await _context.Pois.FindAsync(id);
-        if (poi == null)
-        {
-            return NotFound();
-        }
 
-        _context.Pois.Remove(poi);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
-    }
 
     private bool PoiExists(int id)
     {

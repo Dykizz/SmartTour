@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartTour.API.Data;
+using Microsoft.AspNetCore.DataProtection;
 
 DotNetEnv.Env.Load(Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"));
 
@@ -8,7 +9,8 @@ builder.Configuration.AddEnvironmentVariables();
 
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+        o => o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -29,7 +31,15 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie();
+    .AddCookie(options => 
+    {
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = 401;
+            return Task.CompletedTask;
+        };
+    });
+builder.Services.AddDataProtection().SetApplicationName("SmartTourShared");
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
@@ -42,9 +52,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
-app.UseHttpsRedirection();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
+app.UseMiddleware<SmartTour.API.Middleware.ApiKeyMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 

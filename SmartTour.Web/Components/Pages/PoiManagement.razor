@@ -20,6 +20,8 @@
             </MudButton>
         </div>
 
+
+
         <MudTable Items="@_pois" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0">
             <HeaderContent>
                 <MudTh>Tên điểm đến</MudTh>
@@ -125,7 +127,21 @@
                 }
                 else
                 {
-                    Snackbar.Add("Lỗi khi xóa POI", Severity.Error);
+                    var statusCode = response.StatusCode;
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    
+
+
+                    if (statusCode == System.Net.HttpStatusCode.Unauthorized)
+                    {
+                        Snackbar.Add("Bạn chưa đăng nhập hoặc phiên làm việc hết hạn.", Severity.Error);
+                    }
+                    else
+                    {
+                        if (string.IsNullOrWhiteSpace(errorContent)) errorContent = $"Mã lỗi {statusCode}";
+                        if (errorContent.Length > 100) errorContent = errorContent.Substring(0, 100) + "...";
+                        Snackbar.Add($"Lỗi khi xóa POI: {errorContent}", Severity.Error);
+                    }
                 }
             }
             catch (Exception ex)

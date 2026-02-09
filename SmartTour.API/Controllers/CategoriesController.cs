@@ -18,6 +18,7 @@ public class CategoriesController : ControllerBase
 
     // GET: api/Categories
     [HttpGet]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
     {
         return await _context.Categories.OrderByDescending(c => c.CreatedAt).ToListAsync();
@@ -25,6 +26,7 @@ public class CategoriesController : ControllerBase
 
     // GET: api/Categories/5
     [HttpGet("{id}")]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     public async Task<ActionResult<Category>> GetCategory(int id)
     {
         var category = await _context.Categories.FindAsync(id);

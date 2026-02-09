@@ -34,7 +34,10 @@ public class TranslateController : ControllerBase
         try
         {
             // Load credentials and create translation client
-            var googleCredential = GoogleCredential.FromFile(credentialPath);
+            using var stream = new System.IO.FileStream(credentialPath, FileMode.Open, FileAccess.Read);
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+            var googleCredential = GoogleCredential.FromJson(json);
             var client = TranslationClient.Create(googleCredential);
 
             var response = await client.TranslateTextAsync(

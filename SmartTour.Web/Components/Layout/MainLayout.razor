@@ -1,4 +1,7 @@
-﻿@inherits LayoutComponentBase
+﻿@using SmartTour.Web.Services
+@inject UserSessionService UserSession
+@inject AuthenticationStateProvider AuthStateProvider
+@inherits LayoutComponentBase
 
 <MudThemeProvider />
 <MudPopoverProvider />
@@ -44,5 +47,30 @@
     void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
+    }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AuthenticationStateTask != null)
+        {
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
+                             ?? user.FindFirst("UserId")?.Value;
+                UserSession.SetUser(userId, user.Identity.Name);
+            }
+            else
+            {
+                UserSession.SetUser(null, null);
+            }
+        }
+        
+        await base.OnParametersSetAsync();
     }
 }

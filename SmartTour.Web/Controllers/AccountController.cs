@@ -82,6 +82,7 @@ namespace SmartTour.Web.Controllers
                 new Claim(ClaimTypes.Name, user.FullName),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim("UserId", user.Id.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // IMPORTANT
                 new Claim(ClaimTypes.Role, user.RoleId.ToString()) 
             };
 
@@ -133,6 +134,7 @@ namespace SmartTour.Web.Controllers
                 new Claim(ClaimTypes.Name, user.FullName),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim("UserId", user.Id.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // IMPORTANT
             };
 
             var role = await _context.Roles.FindAsync(user.RoleId);

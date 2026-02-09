@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Google.Cloud.TextToSpeech.V1;
 using Google.Protobuf;
+using Google.Apis.Auth.OAuth2;
 using SmartTour.API.Services;
 
 namespace SmartTour.API.Controllers;
@@ -33,7 +34,11 @@ public class TtsController : ControllerBase
 
         try
         {
-            var clientBuilder = new TextToSpeechClientBuilder { CredentialsPath = credentialPath };
+            using var stream = new System.IO.FileStream(credentialPath, FileMode.Open, FileAccess.Read);
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+            var credential = GoogleCredential.FromJson(json);
+            var clientBuilder = new TextToSpeechClientBuilder { GoogleCredential = credential };
             var client = await clientBuilder.BuildAsync();
 
             var input = new SynthesisInput { Text = request.Text };

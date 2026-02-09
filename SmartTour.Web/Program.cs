@@ -1,6 +1,7 @@
 using SmartTour.Web.Components;
 using SmartTour.Web.Services;
 using MudBlazor.Services;
+using Microsoft.AspNetCore.DataProtection;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -18,18 +19,23 @@ builder.Services.AddRazorComponents()
         options.DetailedErrors = builder.Environment.IsDevelopment();
     });
 builder.Services.AddMudServices();
-builder.Services.AddHttpClient("SmartTourAPI", client => 
+builder.Services.AddScoped(sp => 
 {
-    client.BaseAddress = new Uri("http://localhost:5164/");
-})
-.AddTypedClient(httpClient => 
-{
-    httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-    return httpClient;
+    var authHandler = sp.GetRequiredService<ServerSideAuthHandler>();
+    authHandler.InnerHandler = new HttpClientHandler();
+    
+    var client = new HttpClient(authHandler)
+    {
+        BaseAddress = new Uri("http://localhost:5164/")
+    };
+    return client;
 });
 
-// Also register a default HttpClient for convenience
-builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("SmartTourAPI"));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<UserSessionService>(); // Add UserSessionService
+builder.Services.AddTransient<ServerSideAuthHandler>();
+builder.Services.AddTransient<CookieHandler>(); // Keep for backward compat or remove if unused
+builder.Services.AddDataProtection().SetApplicationName("SmartTourShared");
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -39,14 +45,18 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+        o => o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
 
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     })
-    .AddCookie()
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login";
+    })
     .AddGoogle(options =>
     {
         options.ClientId = builder.Configuration["GOOGLE_CLIENT_ID"] ?? "YOUR_GOOGLE_CLIENT_ID";

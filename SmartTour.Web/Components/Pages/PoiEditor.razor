@@ -691,8 +691,21 @@
             }
             else
             {
-                var error = await response.Content.ReadAsStringAsync();
-                Snackbar.Add("Lỗi khi lưu: " + error, Severity.Error);
+                var statusCode = response.StatusCode;
+                var errorContent = await response.Content.ReadAsStringAsync();
+                
+
+                
+                if (statusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    Snackbar.Add("Lỗi xác thực: Bạn chưa đăng nhập hoặc phiên đã hết hạn.", Severity.Error);
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(errorContent)) errorContent = $"Mã lỗi {statusCode}";
+                    if (errorContent.Length > 200) errorContent = errorContent.Substring(0, 200) + "...";
+                    Snackbar.Add($"Lỗi khi lưu: {errorContent}", Severity.Error);
+                }
             }
         }
         catch (Exception ex)

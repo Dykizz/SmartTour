@@ -18,6 +18,7 @@ public class LanguagesController : ControllerBase
 
     // GET: api/Languages
     [HttpGet]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     public async Task<ActionResult<IEnumerable<Language>>> GetLanguages()
     {
         // Trả về cả ngôn ngữ không hoạt động để quản lý? 
@@ -27,6 +28,7 @@ public class LanguagesController : ControllerBase
 
     // GET: api/Languages/5
     [HttpGet("{id}")]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     public async Task<ActionResult<Language>> GetLanguage(int id)
     {
         var language = await _context.Languages.FindAsync(id);
