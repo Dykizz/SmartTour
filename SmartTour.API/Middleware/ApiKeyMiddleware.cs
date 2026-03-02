@@ -31,7 +31,7 @@ public class ApiKeyMiddleware
                     
                     var claims = new[] 
                     { 
-                        new Claim(ClaimTypes.NameIdentifier, userId),
+                        new Claim(ClaimTypes.NameIdentifier, userId.ToString() ?? string.Empty),
                         new Claim(ClaimTypes.Name, "Server Proxy"), 
                         new Claim("IsServerSideRequest", "true")
                     };

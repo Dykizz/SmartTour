@@ -35,9 +35,7 @@ public class TtsController : ControllerBase
         try
         {
             using var stream = new System.IO.FileStream(credentialPath, FileMode.Open, FileAccess.Read);
-            using var reader = new StreamReader(stream);
-            var json = await reader.ReadToEndAsync();
-            var credential = GoogleCredential.FromJson(json);
+            var credential = GoogleCredential.FromStream(stream);
             var clientBuilder = new TextToSpeechClientBuilder { GoogleCredential = credential };
             var client = await clientBuilder.BuildAsync();
 

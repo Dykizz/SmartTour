@@ -23,9 +23,7 @@ public class CloudStorageService : ICloudStorageService
         {
             Console.WriteLine($"[GCS] Using credential file at: {credentialPath}");
             using var stream = new System.IO.FileStream(credentialPath, FileMode.Open, FileAccess.Read);
-            using var reader = new StreamReader(stream);
-            var json = reader.ReadToEnd();
-            var credential = GoogleCredential.FromJson(json);
+            var credential = GoogleCredential.FromStream(stream);
             _storageClient = StorageClient.Create(credential);
         }
         else
