@@ -80,16 +80,53 @@ public class PoisController : ControllerBase
 
     [HttpGet]
     [AllowAnonymous] // Cho phép khách xem danh sách POI
-    public async Task<ActionResult<IEnumerable<Poi>>> GetPois()
+    public async Task<ActionResult<IEnumerable<Poi>>> GetPois(
+        [FromQuery] int? categoryId = null,
+        [FromQuery] double? lat = null,
+        [FromQuery] double? lng = null,
+        [FromQuery] double? radius = null) // radius in meters
     {
-        return await _context.Pois
+        var query = _context.Pois
             .Include(p => p.Category)
             .Include(p => p.Images)
             .Include(p => p.Contents)
             .Include(p => p.OperatingHours)
             .Include(p => p.AudioFiles)
-            .OrderByDescending(p => p.CreatedAt)
+            .AsQueryable();
+
+        if (categoryId.HasValue && categoryId.Value > 0)
+        {
+            query = query.Where(p => p.CategoryId == categoryId.Value);
+        }
+
+        var pois = await query
+            .OrderByDescending(p => p.IsFeature)
+            .ThenByDescending(p => p.CreatedAt)
             .ToListAsync();
+
+        // Lọc theo khoảng cách nếu hỗ trợ tọa độ
+        if (lat.HasValue && lng.HasValue && radius.HasValue)
+        {
+            pois = pois.Where(p => CalculateDistance(lat.Value, lng.Value, p.Latitude, p.Longitude) <= radius.Value).ToList();
+        }
+
+        return pois;
+    }
+
+    private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+    {
+        var R = 6371e3; // metres
+        var phi1 = lat1 * Math.PI / 180;
+        var phi2 = lat2 * Math.PI / 180;
+        var deltaPhi = (lat2 - lat1) * Math.PI / 180;
+        var deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+        var a = Math.Sin(deltaPhi / 2) * Math.Sin(deltaPhi / 2) +
+                Math.Cos(phi1) * Math.Cos(phi2) *
+                Math.Sin(deltaLambda / 2) * Math.Sin(deltaLambda / 2);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+
+        return R * c;
     }
 
     [HttpGet("{id}")]

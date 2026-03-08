@@ -1,0 +1,112 @@
+@page "/login"
+@using SmartTour.Mobile.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<div class="login-container d-flex flex-column align-center justify-center" style="height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    
+    <MudPaper Class="pa-8 d-flex flex-column align-center gap-4" Elevation="12" Style="width: 85%; max-width: 400px; border-radius: 24px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);">
+        
+        <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Color="Color.Primary" Size="Size.Large" Style="font-size: 64px;" />
+        
+        <MudText Typo="Typo.h4" Style="font-weight: 800; color: #333; text-align: center;">SmartTour</MudText>
+        <MudText Typo="Typo.body2" Class="mb-4" Color="Color.Secondary" Style="text-align: center;">Khám phá Việt Nam theo cách thông minh nhất!</MudText>
+
+        <MudTextField @bind-Value="_username" Label="Tên đăng nhập / Email" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" FullWidth="true" Class="mb-2" />
+        <MudTextField @bind-Value="_password" Label="Mật khẩu" Variant="Variant.Outlined" InputType="InputType.Password" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" FullWidth="true" Class="mb-4" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true" OnClick="HandleLogin" Style="border-radius: 12px; font-weight: bold; text-transform: none; height: 50px;">
+            Đăng nhập
+        </MudButton>
+
+        <div class="d-flex align-center my-3" style="width: 100%">
+            <MudDivider Class="flex-grow-1" />
+            <MudText Typo="Typo.caption" Class="mx-2">HOẶC</MudText>
+            <MudDivider Class="flex-grow-1" />
+        </div>
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.AccountCircle" FullWidth="true" OnClick="LoginGoogle" Style="border-radius: 12px; text-transform: none;">
+            Đăng nhập bằng Google
+        </MudButton>
+
+        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="ExploreGuest" Class="mt-2" Style="text-transform: none;">
+            Chỉ muốn tham quan? Bỏ qua đăng nhập
+        </MudButton>
+
+    </MudPaper>
+
+    <MudText Typo="Typo.caption" Class="mt-6" Style="color: rgba(255,255,255,0.8);">
+        © 2024 SmartTour Tech
+    </MudText>
+</div>
+
+@code {
+    private string _username = "demo";
+    private string _password = "";
+
+    private void HandleLogin()
+    {
+        if (!string.IsNullOrWhiteSpace(_username))
+        {
+            var auth = (MobileAuthStateProvider)AuthStateProvider;
+            auth.MarkUserAsAuthenticated(_username, "1");
+            NavigationManager.NavigateTo("/");
+        }
+    }
+
+    private async Task LoginGoogle()
+    {
+        try
+        {
+            // Luôn dùng localhost cho cả Android nhờ 'adb reverse tcp:5139 tcp:5139'
+            string webUrl = "http://localhost:5139";
+
+            var authUrl = new Uri($"{webUrl}/account/login-google?returnUrl=smarttour://callback");
+            var callbackUrl = new Uri("smarttour://callback");
+
+            var result = await WebAuthenticator.Default.AuthenticateAsync(authUrl, callbackUrl);
+
+            await InvokeAsync(() => {
+                if (result != null && result.Properties.TryGetValue("email", out var email))
+                {
+                    result.Properties.TryGetValue("userId", out var userId);
+                    var auth = (MobileAuthStateProvider)AuthStateProvider;
+                    auth.MarkUserAsAuthenticated(email, userId ?? "");
+                    NavigationManager.NavigateTo("/");
+                }
+                else
+                {
+                    string error = result?.Properties.ContainsKey("error") == true ? result.Properties["error"] : "Thiếu email";
+                    Snackbar.Add($"Đăng nhập thất bại: {error}", Severity.Error);
+                    StateHasChanged();
+                }
+            });
+        }
+        catch (TaskCanceledException)
+        {
+            // Do not use StateHasChanged if component is being disposed
+            await InvokeAsync(() => {
+                try {
+                    Snackbar.Add("Đăng nhập đã bị hủy.", Severity.Info);
+                } catch { /* Component might be gone */ }
+            });
+        }
+        catch (Exception ex)
+        {
+            await InvokeAsync(() => {
+                try {
+                    Snackbar.Add($"Lỗi đăng nhập Google: {ex.Message}", Severity.Error);
+                } catch { /* Component might be gone */ }
+            });
+        }
+    }
+
+    private void ExploreGuest()
+    {
+        var auth = (MobileAuthStateProvider)AuthStateProvider;
+        auth.MarkUserAsAuthenticated("Guest", "0");
+        NavigationManager.NavigateTo("/");
+    }
+}

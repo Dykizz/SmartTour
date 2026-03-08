@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.Components.WebView.Maui;
+using Microsoft.AspNetCore.Components.Authorization;
+using SmartTour.Mobile.Services;
 
 namespace SmartTour.Mobile;
 
@@ -25,6 +27,24 @@ public static class MauiProgram
 		builder.Services.AddMauiBlazorWebView();
 		builder.Services.AddMudServices();
 
-		return builder.Build();
+		// Authentication & Authorization Services
+		builder.Services.AddAuthorizationCore();
+		builder.Services.AddScoped<AuthenticationStateProvider, MobileAuthStateProvider>();
+		builder.Services.AddSingleton<LanguageService>();
+
+		string baseUrl = "http://127.0.0.1:5164/";
+#if ANDROID
+		baseUrl = "http://10.0.2.2:5164/";
+#endif
+		builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(baseUrl) });
+
+		var app = builder.Build();
+
+        // Cấu hình bắt lỗi toàn cục cho luồng Task (nếu cần)
+        AppDomain.CurrentDomain.UnhandledException += (sender, args) => {
+            System.Diagnostics.Debug.WriteLine($"[CRITICAL ERROR] {args.ExceptionObject}");
+        };
+
+        return app;
 	}
 }

@@ -105,3 +105,5 @@ app.MapRazorComponents<SmartTour.Web.Components.App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+public partial class Program { }

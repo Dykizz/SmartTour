@@ -1,16 +1,49 @@
-@using Microsoft.JSInterop
-@using MudBlazor
+@using Microsoft.AspNetCore.Components.Authorization
+@using SmartTour.Mobile.Components.Pages
+@using Microsoft.AspNetCore.Components.Routing
 
-<MudThemeProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
+<MudThemeProvider/>
+<MudDialogProvider/>
+<MudSnackbarProvider/>
+<MudPopoverProvider/>
 
-<MudLayout>
-    <MudMainContent Class="pa-4">
-        <MudText Typo="Typo.h5">Xin chào SmartTour!</MudText>
-        <MudText Typo="Typo.body1">Bắt đầu code tại đây.</MudText>
-    </MudMainContent>
-</MudLayout>
+<CascadingAuthenticationState>
+    <ErrorBoundary @ref="_errorBoundary">
+        <ChildContent>
+            <Router AppAssembly="@typeof(Main).Assembly">
+                <Found Context="routeData">
+                    <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                        <NotAuthorized>
+                            <Login />
+                        </NotAuthorized>
+                    </AuthorizeRouteView>
+                </Found>
+                <NotFound>
+                    <LayoutView Layout="@typeof(MainLayout)">
+                        <MudText Typo="Typo.h5" Class="pa-4">Trang không tồn tại!</MudText>
+                    </LayoutView>
+                </NotFound>
+            </Router>
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <div class="pa-4 d-flex flex-column align-center justify-center" style="height: 80vh">
+                <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-4">
+                    Đã xảy ra lỗi hệ thống: @ex.Message
+                </MudAlert>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => _errorBoundary?.Recover()">
+                    Thử lại
+                </MudButton>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
+</CascadingAuthenticationState>
 
 @code {
+    private ErrorBoundary? _errorBoundary;
+
+    protected override void OnParametersSet()
+    {
+        // Mỗi khi chuyển trang, reset lỗi để ErrorBoundary thử lại
+        _errorBoundary?.Recover();
+    }
 }
