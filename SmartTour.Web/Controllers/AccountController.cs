@@ -34,14 +34,20 @@ namespace SmartTour.Web.Controllers
         [HttpGet("google-response")]
         public async Task<IActionResult> GoogleResponse(string returnUrl = "/")
         {
-            var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            // PHẢI dùng GoogleDefaults.AuthenticationScheme để lấy thông tin từ Google trả về
+            var result = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
+            if (!result.Succeeded) {
+                 result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
             
             if (!result.Succeeded)
             {
+                if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith("smarttour://"))
+                    return Redirect($"{returnUrl}?error=auth_failed");
                 return Redirect($"/login?error=google_auth_failed");
             }
 
-            var claims = result.Principal.Identities.FirstOrDefault()?.Claims;
+            var claims = result.Principal?.Claims;
             var email = claims?.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
             var name = claims?.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
             var identifier = claims?.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
@@ -95,7 +101,18 @@ namespace SmartTour.Web.Controllers
             var claimsIdentity = new ClaimsIdentity(localClaims, CookieAuthenticationDefaults.AuthenticationScheme);
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
 
-            return LocalRedirect(returnUrl ?? "/");
+            if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith("smarttour://"))
+            {
+                var finalUrl = $"{returnUrl}{(returnUrl.Contains("?") ? "&" : "?")}userId={user.Id}&email={user.Email}";
+                return Redirect(finalUrl);
+            }
+
+            if (Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+
+            return Redirect("/");
         }
 
         [HttpPost("login-local")]
@@ -146,7 +163,12 @@ namespace SmartTour.Web.Controllers
             var claimsIdentity = new ClaimsIdentity(localClaims, CookieAuthenticationDefaults.AuthenticationScheme);
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
 
-            return LocalRedirect(returnUrl ?? "/");
+            if (Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+
+            return Redirect("/");
         }
 
         [HttpGet("logout")]
