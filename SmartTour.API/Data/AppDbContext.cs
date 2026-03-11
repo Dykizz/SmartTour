@@ -19,6 +19,8 @@ public class AppDbContext : DbContext
     public DbSet<PoiImage> PoiImages => Set<PoiImage>();
     public DbSet<PoiContent> PoiContents => Set<PoiContent>();
     public DbSet<PoiAudioFile> PoiAudioFiles => Set<PoiAudioFile>();
+    public DbSet<ServicePackage> ServicePackages => Set<ServicePackage>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +43,11 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.UpdatedById)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ServicePackage>(entity =>
+        {
+            entity.Property(e => e.Price).HasPrecision(18, 2);
         });
 
         // Seed Roles
@@ -72,6 +79,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Language>().HasData(
             new Language { Id = 1, Code = "vi", Name = "Tiếng Việt", IsDefault = true, IsActive = true },
             new Language { Id = 2, Code = "en", Name = "English", IsDefault = false, IsActive = true }
+        );
+
+        modelBuilder.Entity<ServicePackage>().HasData(
+            new ServicePackage { Id = 1, Code = "FREE", Name = "Gói miễn phí", Price = 0, DurationDays = 365, Description = "Dành cho người dùng cá nhân phổ thông", MaxPoiAllowed = 1, CreatedAt = DateTime.UtcNow, IsActive = true },
+            new ServicePackage { Id = 2, Code = "PRO_MONTH", Name = "Vĩnh Khánh Pro (Tháng)", Price = 150000, DurationDays = 30, Description = "Phù hợp cho các quán kinh doanh nhỏ", MaxPoiAllowed = 5, CreatedAt = DateTime.UtcNow, IsActive = true },
+            new ServicePackage { Id = 3, Code = "VIP_YEAR", Name = "VIP Toàn Năng (Năm)", Price = 1200000, DurationDays = 365, Description = "Đầy đủ tính năng cao cấp", MaxPoiAllowed = 20, CreatedAt = DateTime.UtcNow, IsActive = true }
         );
 
     }
