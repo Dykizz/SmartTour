@@ -1,0 +1,73 @@
+@using SmartTour.Shared.Models
+@using MudBlazor
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <EditForm Model="@Model" OnValidSubmit="OnValidSubmit">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Mã gói (Code)" @bind-Value="Model.Code" For="@(() => Model.Code)" Required="true" Variant="Variant.Outlined" Placeholder="Ví dụ: VIP_MONTH" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Tên gói" @bind-Value="Model.Name" For="@(() => Model.Name)" Required="true" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField Label="Giá (VND)" @bind-Value="Model.Price" For="@(() => Model.Price)" Variant="Variant.Outlined" Min="0" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField Label="Thời hạn (Ngày)" @bind-Value="Model.DurationDays" For="@(() => Model.DurationDays)" Variant="Variant.Outlined" Min="1" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField Label="Số POI tối đa" @bind-Value="Model.MaxPoiAllowed" For="@(() => Model.MaxPoiAllowed)" Variant="Variant.Outlined" Min="1" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField Label="Mô tả" @bind-Value="Model.Description" For="@(() => Model.Description)" Lines="3" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSwitch T="bool" @bind-Value="Model.IsActive" Label="Trạng thái hoạt động" Color="Color.Primary" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Hủy</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Lưu</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public ServicePackage Model { get; set; } = new();
+    [Parameter] public bool IsEdit { get; set; }
+
+    private async Task OnValidSubmit()
+    {
+        HttpResponseMessage response;
+        if (IsEdit)
+        {
+            response = await Http.PutAsJsonAsync($"api/servicepackages/{Model.Id}", Model);
+        }
+        else
+        {
+            response = await Http.PostAsJsonAsync("api/servicepackages", Model);
+        }
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add(IsEdit ? "Đã cập nhật gói dịch vụ" : "Đã thêm gói dịch vụ mới", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Snackbar.Add("Lỗi: " + error, Severity.Error);
+        }
+    }
+
+    private async Task Submit() => await OnValidSubmit();
+    private void Cancel() => MudDialog.Cancel();
+}

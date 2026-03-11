@@ -1,0 +1,126 @@
+@page "/service-package-management"
+@using SmartTour.Shared.Models
+@inject HttpClient Http
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Quản lý Gói dịch vụ</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8">
+    <MudPaper Elevation="2" Class="pa-4">
+        <div class="d-flex align-center justify-space-between mb-4">
+            <MudText Typo="Typo.h5" Style="font-weight: bold;">Danh sách Gói dịch vụ (API)</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => OpenDialog()">
+                Thêm gói mới
+            </MudButton>
+        </div>
+
+        <MudTable Items="@_packages" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0">
+            <HeaderContent>
+                <MudTh>Mã gói</MudTh>
+                <MudTh>Tên gói</MudTh>
+                <MudTh>Giá (VND)</MudTh>
+                <MudTh>Thời hạn (Ngày)</MudTh>
+                <MudTh>Max POI</MudTh>
+                <MudTh>Trạng thái</MudTh>
+                <MudTh Style="width: 120px">Thao tác</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Mã gói">@context.Code</MudTd>
+                <MudTd DataLabel="Tên gói">@context.Name</MudTd>
+                <MudTd DataLabel="Giá">@context.Price.ToString("N0")</MudTd>
+                <MudTd DataLabel="Thời hạn">@context.DurationDays</MudTd>
+                <MudTd DataLabel="Max POI">@context.MaxPoiAllowed</MudTd>
+                <MudTd DataLabel="Trạng thái">
+                    <MudChip T="string" Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
+                        @(context.IsActive ? "Hoạt động" : "Khóa")
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenDialog(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeletePackage(context))" />
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText>Chưa có gói dịch vụ nào. Hãy thêm mới!</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<ServicePackage> _packages = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPackages();
+    }
+
+    private async Task LoadPackages()
+    {
+        _loading = true;
+        try 
+        {
+            _packages = await Http.GetFromJsonAsync<List<ServicePackage>>("api/servicepackages") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi kết nối API: " + ex.Message, Severity.Error);
+        }
+        _loading = false;
+    }
+
+    private async Task OpenDialog(ServicePackage? package = null)
+    {
+        bool isEdit = package != null;
+        var model = isEdit ? new ServicePackage { 
+            Id = package!.Id, 
+            Code = package.Code,
+            Name = package.Name, 
+            Price = package.Price,
+            DurationDays = package.DurationDays,
+            MaxPoiAllowed = package.MaxPoiAllowed,
+            Description = package.Description, 
+            IsActive = package.IsActive,
+            CreatedAt = package.CreatedAt
+        } : new ServicePackage();
+
+        var parameters = new DialogParameters<ServicePackageDialog>
+        {
+            { x => x.Model, model },
+            { x => x.IsEdit, isEdit }
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<ServicePackageDialog>(isEdit ? "Chỉnh sửa gói" : "Thêm gói mới", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            await LoadPackages();
+        }
+    }
+
+    private async Task DeletePackage(ServicePackage package)
+    {
+        bool? confirm = await DialogService.ShowMessageBox(
+            "Xác nhận xóa", 
+            $"Bạn có chắc chắn muốn xóa gói '{package.Name}' không?", 
+            yesText: "Xóa", cancelText: "Hủy");
+
+        if (confirm == true)
+        {
+            var response = await Http.DeleteAsync($"api/servicepackages/{package.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Đã xóa gói dịch vụ", Severity.Success);
+                await LoadPackages();
+            }
+            else
+            {
+                Snackbar.Add("Xóa thất bại", Severity.Error);
+            }
+        }
+    }
+}
