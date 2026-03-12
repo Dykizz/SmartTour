@@ -39,6 +39,7 @@ builder.Services.AddScoped<ILanguageService, LanguageService>();
 builder.Services.AddScoped<IPoiService, PoiService>();
 builder.Services.AddScoped<ITranslateService, TranslateService>();
 builder.Services.AddScoped<ITtsService, TtsService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

@@ -83,6 +83,31 @@ namespace SmartTour.Web.Controllers
 
             await _context.SaveChangesAsync();
 
+            // [SmartTour] Tự động gán gói mặc định nếu có và nếu user chưa có gói nào
+            var subscription = await _context.Subscriptions.FirstOrDefaultAsync(s => s.UserId == user.Id);
+            if (subscription == null && user.RoleId != 1)
+            {
+                var defaultPackage = await _context.ServicePackages.FirstOrDefaultAsync(p => p.IsDefault && p.SoftDeleteAt == null);
+                if (defaultPackage != null)
+                {
+                    subscription = new Subscription
+                    {
+                        UserId = user.Id,
+                        PackageId = defaultPackage.Id,
+                        PriceAtPurchase = defaultPackage.Price,
+                        StartDate = DateTime.UtcNow,
+                        EndDate = DateTime.UtcNow.AddDays(defaultPackage.DurationDays)
+                    };
+                    _context.Subscriptions.Add(subscription);
+                    
+                    if (user.RoleId == 3)
+                    {
+                        user.RoleId = 2; // Auto upgrade to SELLER
+                        _context.Users.Update(user);
+                    }
+                    await _context.SaveChangesAsync();
+                }
+            }
             var localClaims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.FullName),
@@ -101,75 +126,34 @@ namespace SmartTour.Web.Controllers
             var claimsIdentity = new ClaimsIdentity(localClaims, CookieAuthenticationDefaults.AuthenticationScheme);
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
 
+            // Chuyển hướng cho Mobile app
             if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith("smarttour://"))
             {
                 var finalUrl = $"{returnUrl}{(returnUrl.Contains("?") ? "&" : "?")}userId={user.Id}&email={user.Email}";
                 return Redirect(finalUrl);
             }
 
-            if (Url.IsLocalUrl(returnUrl))
+            if (Url.IsLocalUrl(returnUrl) && returnUrl != "/")
             {
                 return Redirect(returnUrl);
+            }
+
+            // [SmartTour] Phân tách Web và Mobile
+            // - Mobile: Đã được xử lý bởi if (returnUrl.StartsWith("smarttour://")) ở trên. Nếu người dùng mobile đăng nhập thì về app luôn.
+            // - Web: Bất kỳ ai vào web (không phải Admin - RoleId 1), nếu chưa có gói (SELLER) hoặc đang là VISITOR (RoleId 3) thì đều dẫn vào trang Bảng giá
+            if (user.RoleId != 1)
+            {
+                var currentSubscription = await _context.Subscriptions.FirstOrDefaultAsync(s => s.UserId == user.Id);
+                if (currentSubscription == null)
+                {
+                    // Truyền thêm thông tin để trang Pricing biết và thực hiện nâng cấp role
+                    return Redirect("/pricing?hideNav=true&upgrade=true");
+                }
             }
 
             return Redirect("/");
         }
 
-        [HttpPost("login-local")]
-        public async Task<IActionResult> LoginLocal([FromForm] string username, [FromForm] string password, [FromForm] string returnUrl = "/")
-        {
-            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-            {
-                return Redirect($"/login?error=invalid_credentials");
-            }
-
-            // Tìm user theo Username hoặc Email
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Username == username || u.Email == username);
-
-            if (user == null)
-            {
-                return Redirect($"/login?error=invalid_credentials");
-            }
-
-            // Kiểm tra mật khẩu bằng PasswordHasher
-            var passwordHasher = new PasswordHasher<User>();
-            var verificationResult = passwordHasher.VerifyHashedPassword(user, user.PasswordHash ?? "", password);
-
-            if (verificationResult == PasswordVerificationResult.Failed)
-            {
-                return Redirect($"/login?error=invalid_credentials");
-            }
-
-            if (!user.IsActive)
-            {
-                return Redirect($"/login?error=account_locked");
-            }
-
-            var localClaims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, user.FullName),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim("UserId", user.Id.ToString()),
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // IMPORTANT
-            };
-
-            var role = await _context.Roles.FindAsync(user.RoleId);
-            if (role != null)
-            {
-                localClaims.Add(new Claim(ClaimTypes.Role, role.Name));
-            }
-
-            var claimsIdentity = new ClaimsIdentity(localClaims, CookieAuthenticationDefaults.AuthenticationScheme);
-            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity));
-
-            if (Url.IsLocalUrl(returnUrl))
-            {
-                return Redirect(returnUrl);
-            }
-
-            return Redirect("/");
-        }
 
         [HttpGet("logout")]
         public async Task<IActionResult> Logout()

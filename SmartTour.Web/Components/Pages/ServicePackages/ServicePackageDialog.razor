@@ -26,8 +26,11 @@
                 <MudItem xs="12">
                     <MudTextField Label="Mô tả" @bind-Value="Model.Description" For="@(() => Model.Description)" Lines="3" Variant="Variant.Outlined" />
                 </MudItem>
-                <MudItem xs="12">
+                <MudItem xs="12" sm="6">
                     <MudSwitch T="bool" @bind-Value="Model.IsActive" Label="Trạng thái hoạt động" Color="Color.Primary" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSwitch T="bool" @bind-Value="Model.IsDefault" Label="Đặt làm mặc định" Color="Color.Tertiary" />
                 </MudItem>
             </MudGrid>
         </EditForm>

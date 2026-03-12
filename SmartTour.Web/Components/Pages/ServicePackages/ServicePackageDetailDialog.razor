@@ -30,6 +30,12 @@
                 <MudChip T="string" Color="@(Model.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
                     @(Model.IsActive ? "Đang hoạt động" : "Đã khóa")
                 </MudChip>
+                @if (Model.IsDefault)
+                {
+                    <MudChip T="string" Color="Color.Tertiary" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">
+                        Gói mặc định
+                    </MudChip>
+                }
             </MudItem>
         </MudGrid>
     </DialogContent>

@@ -35,6 +35,11 @@ public class ServicePackageService : IServicePackageService
         if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Name == package.Name))
             throw new Exception("Tên gói đã tồn tại.");
 
+        if (package.IsDefault)
+        {
+            await UnsetOtherDefaultsAsync();
+        }
+
         package.CreatedAt = DateTime.UtcNow;
         _context.ServicePackages.Add(package);
         await _context.SaveChangesAsync();
@@ -52,6 +57,11 @@ public class ServicePackageService : IServicePackageService
         if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Id != id && s.Name == servicePackage.Name))
             throw new Exception("Tên gói đã tồn tại.");
 
+        if (servicePackage.IsDefault)
+        {
+            await UnsetOtherDefaultsAsync();
+        }
+
         existingPackage.SoftDeleteAt = DateTime.UtcNow;
         _context.ServicePackages.Update(existingPackage);
 
@@ -64,12 +74,25 @@ public class ServicePackageService : IServicePackageService
             Description = servicePackage.Description,
             MaxPoiAllowed = servicePackage.MaxPoiAllowed,
             IsActive = servicePackage.IsActive,
+            IsDefault = servicePackage.IsDefault,
             CreatedAt = DateTime.UtcNow
         };
         _context.ServicePackages.Add(newPackage);
 
         await _context.SaveChangesAsync();
         return newPackage;
+    }
+
+    private async Task UnsetOtherDefaultsAsync()
+    {
+        var defaults = await _context.ServicePackages
+            .Where(s => s.SoftDeleteAt == null && s.IsDefault)
+            .ToListAsync();
+        
+        foreach (var d in defaults)
+        {
+            d.IsDefault = false;
+        }
     }
 
     public async Task<bool> DeleteAsync(int id)

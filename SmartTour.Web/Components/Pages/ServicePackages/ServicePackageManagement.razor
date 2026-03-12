@@ -19,6 +19,7 @@
             <HeaderContent>
                 <MudTh>Tên gói</MudTh>
                 <MudTh>Giá (VND)</MudTh>
+                <MudTh>Mặc định</MudTh>
                 <MudTh>Ngày tạo</MudTh>
                 <MudTh>Trạng thái</MudTh>
                 <MudTh Style="width: 140px">Thao tác</MudTh>
@@ -26,6 +27,12 @@
             <RowTemplate>
                 <MudTd DataLabel="Tên gói">@context.Name</MudTd>
                 <MudTd DataLabel="Giá">@context.Price.ToString("N0")</MudTd>
+                <MudTd DataLabel="Mặc định">
+                     @if (context.IsDefault)
+                     {
+                         <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                     }
+                </MudTd>
                 <MudTd DataLabel="Ngày tạo">@context.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
                 <MudTd DataLabel="Trạng thái">
                     <MudChip T="string" Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
@@ -33,9 +40,15 @@
                     </MudChip>
                 </MudTd>
                 <MudTd>
-                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => OpenViewDetail(context))" Tooltip="Xem chi tiết" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenDialog(context))" Tooltip="Sửa nhanh" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeletePackage(context))" Tooltip="Xóa" />
+                    <MudTooltip Text="Xem chi tiết">
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => OpenViewDetail(context))" />
+                    </MudTooltip>
+                    <MudTooltip Text="Sửa nhanh">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenDialog(context))" />
+                    </MudTooltip>
+                    <MudTooltip Text="Xóa">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeletePackage(context))" />
+                    </MudTooltip>
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent>
@@ -105,6 +118,7 @@
             MaxPoiAllowed = package.MaxPoiAllowed,
             Description = package.Description, 
             IsActive = package.IsActive,
+            IsDefault = package.IsDefault,
             CreatedAt = package.CreatedAt
         } : new ServicePackage();
 

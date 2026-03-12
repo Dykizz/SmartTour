@@ -4,6 +4,7 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Bảng giá dịch vụ - SmartTour</PageTitle>
 
@@ -12,6 +13,21 @@
         <MudText Typo="Typo.h4" Align="Align.Center" Style="font-weight: 800; color: var(--mud-palette-primary);">Lựa chọn gói dịch vụ</MudText>
         <MudText Typo="Typo.body1" Align="Align.Center" Class="mud-text-secondary mt-1">Nâng tầm trải nghiệm du lịch số của bạn với các tính năng chuyên nghiệp</MudText>
     </div>
+
+    @if (_currentSubscription != null)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="mb-8 rounded-xl pa-4" Icon="@Icons.Material.Filled.WorkspacePremium">
+            <div class="d-flex align-center justify-space-between flex-wrap">
+                <div>
+                    <MudText Typo="Typo.h6">Gói hiện tại: <b>@(_currentSubscription.ServicePackage?.Name ?? "N/A")</b></MudText>
+                    <MudText Typo="Typo.body2">Ngày hết hạn: <b>@_currentSubscription.EndDate.ToString("dd/MM/yyyy HH:mm")</b></MudText>
+                </div>
+                <MudChip T="string" Color="Color.Surface" Size="Size.Small" Variant="Variant.Text" Icon="@Icons.Material.Filled.Timer">
+                    @GetRemainingDays(_currentSubscription.EndDate)
+                </MudChip>
+            </div>
+        </MudAlert>
+    }
 
     <MudGrid Justify="Justify.Center" Spacing="4">
         @if (_loading)
@@ -76,6 +92,14 @@
             }
         }
     </MudGrid>
+    @if (_packages.Any(p => p.IsDefault))
+    {
+        <div class="d-flex justify-center mt-6">
+            <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="@ContinueWithDefault">
+                Tiếp tục với gói mặc định
+            </MudButton>
+        </div>
+    }
 </MudContainer>
 
 <style>
@@ -101,6 +125,8 @@
 
 @code {
     private List<ServicePackage> _packages = new();
+    private Subscription? _currentSubscription;
+    private int? _currentUserId;
     private bool _loading = true;
 
     protected override async Task OnInitializedAsync()
@@ -108,7 +134,18 @@
         try
         {
             _packages = await Http.GetFromJsonAsync<List<ServicePackage>>("api/servicepackages") ?? new();
-            // Lọc các gói còn hiệu lực nếu cần (mặc định API đã lọc SoftDeleteAt == null)
+            
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var userIdStr = user.FindFirst("UserId")?.Value ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            if (int.TryParse(userIdStr, out int userId))
+            {
+                _currentUserId = userId;
+                try {
+                    _currentSubscription = await Http.GetFromJsonAsync<Subscription>($"api/subscriptions/user/{userId}");
+                } catch { /* Bỏ qua nếu chưa có gói */ }
+            }
         }
         catch (Exception ex)
         {
@@ -151,10 +188,31 @@
 
     private async Task Subscribe(ServicePackage package)
     {
-        if (package.Price == 0)
+        if (package.Price == 0 || package.IsDefault)
         {
-            // Xử lý đăng ký gói Free trực tiếp
-            Snackbar.Add("Đã đăng ký gói miễn phí thành công!", Severity.Success);
+            try
+            {
+                _loading = true;
+                StateHasChanged();
+                if (_currentUserId == null) return;
+                
+                var request = new { UserId = _currentUserId.Value };
+                var res = await Http.PostAsJsonAsync("api/subscriptions/subscribe-default", request);
+                if (res.IsSuccessStatusCode)
+                {
+                    Snackbar.Add($"Đã đăng ký gói {package.Name} thành công!", Severity.Success);
+                    Navigation.NavigateTo("/", forceLoad: true); // Force reload to update roles
+                }
+                else
+                {
+                    Snackbar.Add("Lỗi khi đăng ký gói miễn phí.", Severity.Error);
+                }
+            }
+            finally
+            {
+                _loading = false;
+                StateHasChanged();
+            }
             return;
         }
 
@@ -170,8 +228,13 @@
                 _loading = true;
                 StateHasChanged();
 
-                // TODO: Lấy UserId thực tế từ AuthenticationState
-                var request = new { UserId = 1, PackageCode = package.Code, Type = "New" };
+                if (_currentUserId == null)
+                {
+                    Snackbar.Add("Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.", Severity.Error);
+                    return;
+                }
+
+                var request = new { UserId = _currentUserId.Value, PackageCode = package.Code, Type = "New" };
                 var response = await Http.PostAsJsonAsync("api/payments/create-payment", request);
                 
                 if (response.IsSuccessStatusCode)
@@ -198,6 +261,27 @@
                 _loading = false;
                 StateHasChanged();
             }
+        }
+    }
+
+    private string GetRemainingDays(DateTime endDate)
+    {
+        var remaining = endDate - DateTime.UtcNow;
+        if (remaining.TotalSeconds <= 0) return "Đã hết hạn";
+        if (remaining.TotalDays >= 1) return $"Còn {(int)remaining.TotalDays} ngày";
+        return $"Còn {(int)remaining.TotalHours} giờ";
+    }
+
+    private async Task ContinueWithDefault()
+    {
+        var defaultPackage = _packages.FirstOrDefault(p => p.IsDefault);
+        if (defaultPackage != null)
+        {
+            await Subscribe(defaultPackage);
+        }
+        else
+        {
+            Snackbar.Add("Không tìm thấy gói mặc định", Severity.Warning);
         }
     }
 

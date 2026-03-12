@@ -1,7 +1,6 @@
 @page "/login"
 @using Microsoft.AspNetCore.Authorization
 @attribute [AllowAnonymous]
-@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Authorization
 @layout EmptyLayout
 @inject NavigationManager NavigationManager
@@ -10,56 +9,25 @@
 <PageTitle>Đăng nhập - SmartTour</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center min-vh-100">
-    <MudPaper Elevation="4" Class="pa-8 rounded-lg w-100" Style="max-width: 600px; width: 100%;">
-        <div class="d-flex flex-column align-center mb-8">
-            <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Color="Color.Primary" Size="Size.Large" Class="mb-2" />
-            <MudText Typo="Typo.h4" Align="Align.Center" Style="font-weight: 700;">SmartTour</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">Chào mừng bạn quay trở lại!</MudText>
+    <MudPaper Elevation="4" Class="pa-8 rounded-lg w-100" Style="max-width: 450px;">
+        <div class="d-flex flex-column align-center mb-6">
+            <MudAvatar Color="Color.Primary" Size="Size.Large" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Size="Size.Medium" />
+            </MudAvatar>
+            <MudText Typo="Typo.h4" Align="Align.Center" Color="Color.Primary" Style="font-weight: 800; letter-spacing: -0.5px;">
+                SmartTour
+            </MudText>
+            
+            <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="mt-6 mb-2 rounded-lg">
+                <MudText Typo="Typo.body2" Style="line-height: 1.5;">
+                    Trang web SmartTour giúp bạn quản lý các điểm POI và như người hướng dẫn viên đa ngôn ngữ tiếp cận đến khách du lịch.
+                </MudText>
+            </MudAlert>
         </div>
 
-        @* Sử dụng form HTML thuần để POST lên Controller (Cookie Auth cần Full Request) *@
-        <form action="/account/login-local" method="post">
-            <MudTextField T="string" Label="Tên đăng nhập hoặc Email" 
-                          @bind-Value="_loginModel.Username" 
-                          For="@(() => _loginModel.Username)"
-                          Variant="Variant.Outlined" 
-                          Margin="Margin.Normal"
-                          Adornment="Adornment.Start" 
-                          AdornmentIcon="@Icons.Material.Filled.Email"
-                          FullWidth="true"
-                          UserAttributes="@(new Dictionary<string, object> { { "name", "username" } })" />
-
-            <MudTextField Label="Mật khẩu" 
-                          @bind-Value="_loginModel.Password" 
-                          For="@(() => _loginModel.Password)"
-                          InputType="@(_passwordVisibility ? InputType.Text : InputType.Password)"
-                          Variant="Variant.Outlined" 
-                          Margin="Margin.Normal"
-                          Adornment="Adornment.End" 
-                          AdornmentIcon="@(_passwordVisibility ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
-                          OnAdornmentClick="TogglePasswordVisibility"
-                          FullWidth="true"
-                          UserAttributes="@(new Dictionary<string, object> { { "name", "password" } })" />
-
-            <div class="d-flex justify-space-between align-center mt-2 mb-6">
-                <MudCheckBox T="bool" Label="Ghi nhớ" Color="Color.Primary" Dense="true" />
-                <MudLink href="/forgot-password" Underline="Underline.None" Typo="Typo.body2">Quên mật khẩu?</MudLink>
-            </div>
-
-            <MudButton ButtonType="ButtonType.Submit" 
-                       Variant="Variant.Filled" 
-                       Color="Color.Primary" 
-                       FullWidth="true" 
-                       Size="Size.Large"
-                       Class="py-3">
-                ĐĂNG NHẬP
-            </MudButton>
-        </form>
-
-        <div class="d-flex align-center my-8">
-            <hr class="flex-grow-1 mr-2" style="border: 0; border-top: 1px solid #ddd;" />
-            <MudText Typo="Typo.caption" Color="Color.Secondary">HOẶC</MudText>
-            <hr class="flex-grow-1 ml-2" style="border: 0; border-top: 1px solid #ddd;" />
+        <div class="mb-6 text-center">
+            <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Đăng nhập để bắt đầu quản lý</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Vui lòng sử dụng tài khoản Google để bắt đầu</MudText>
         </div>
 
         <MudButton Variant="Variant.Outlined" 
@@ -67,29 +35,28 @@
                    StartIcon="@Icons.Custom.Brands.Google" 
                    Color="Color.Inherit" 
                    Class="py-3"
+                   Style="font-weight: 600; font-size: 1rem;"
                    Href="/account/login-google"
                    Target="_self">
             Tiếp tục với Google
         </MudButton>
 
-        <div class="mt-8 d-flex justify-center">
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Bạn chưa có tài khoản?</MudText>
-            <MudLink href="/register" Class="ml-2" Style="font-weight: 600;" Color="Color.Primary" Underline="Underline.None">Đăng ký ngay</MudLink>
+        <div class="mt-8 text-center">
+            <MudText Typo="Typo.caption" Color="Color.Default">
+                Bằng cách đăng nhập, bạn đồng ý với Điều khoản & Chính sách.
+            </MudText>
         </div>
     </MudPaper>
 </MudContainer>
 
 <style>
     .min-vh-100 { min-height: 100vh; }
-    body { background-color: #f5f5f5; }
+    body { background-color: var(--mud-palette-background-grey); }
 </style>
 
 @code {
     [CascadingParameter]
     private Task<AuthenticationState>? AuthStateTask { get; set; }
-
-    private LoginModel _loginModel = new();
-    private bool _passwordVisibility;
 
     protected override async Task OnInitializedAsync()
     {
@@ -115,24 +82,7 @@
                 case "email_not_provided":
                     Snackbar.Add("Google không cung cấp địa chỉ email.", Severity.Warning);
                     break;
-                case "invalid_credentials":
-                    Snackbar.Add("Tên đăng nhập hoặc mật khẩu không đúng.", Severity.Error);
-                    break;
-                case "account_locked":
-                    Snackbar.Add("Tài khoản của bạn đã bị khóa.", Severity.Warning);
-                    break;
             }
         }
-    }
-
-    private void TogglePasswordVisibility() => _passwordVisibility = !_passwordVisibility;
-
-    public class LoginModel
-    {
-        [Required(ErrorMessage = "Vui lòng nhập tên đăng nhập hoặc email")]
-        public string Username { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "Vui lòng nhập mật khẩu")]
-        public string Password { get; set; } = string.Empty;
     }
 }

@@ -153,9 +153,16 @@ public class PaymentService : IPaymentService
             subscription.PackageId = package.Id;
             subscription.LastPaymentId = payment.Id;
             subscription.PriceAtPurchase = payment.Amount;
-            subscription.StartDate = DateTime.UtcNow;
             subscription.EndDate = DateTime.UtcNow.AddDays(package.DurationDays);
             _context.Subscriptions.Update(subscription);
+        }
+
+        // [SmartTour] Cập nhật Role của User thành SELLER (2) nếu họ đang là VISITOR (3)
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == payment.UserId);
+        if (user != null && user.RoleId == 3)
+        {
+            user.RoleId = 2; // Nâng cấp thành SELLER
+            _context.Users.Update(user);
         }
     }
 }
