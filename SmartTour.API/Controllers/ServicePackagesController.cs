@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SmartTour.API.Data;
+using SmartTour.API.Interfaces;
 using SmartTour.Shared.Models;
 
 namespace SmartTour.API.Controllers;
@@ -9,34 +8,26 @@ namespace SmartTour.API.Controllers;
 [Route("api/[controller]")]
 public class ServicePackagesController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IServicePackageService _packageService;
 
-    public ServicePackagesController(AppDbContext context)
+    public ServicePackagesController(IServicePackageService packageService)
     {
-        _context = context;
+        _packageService = packageService;
     }
 
     // GET: api/ServicePackages
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ServicePackage>>> GetServicePackages()
     {
-        return await _context.ServicePackages
-            .Where(s => s.SoftDeleteAt == null)
-            .OrderByDescending(s => s.CreatedAt)
-            .ToListAsync();
+        return Ok(await _packageService.GetAllActiveAsync());
     }
 
     // GET: api/ServicePackages/5
     [HttpGet("{id}")]
     public async Task<ActionResult<ServicePackage>> GetServicePackage(int id)
     {
-        var package = await _context.ServicePackages.FindAsync(id);
-
-        if (package == null)
-        {
-            return NotFound();
-        }
-
+        var package = await _packageService.GetByIdAsync(id);
+        if (package == null) return NotFound();
         return package;
     }
 
@@ -44,90 +35,39 @@ public class ServicePackagesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> PutServicePackage(int id, ServicePackage servicePackage)
     {
-        var existingPackage = await _context.ServicePackages.FindAsync(id);
-        if (existingPackage == null)
+        try
         {
-            return NotFound();
+            var updated = await _packageService.UpdateAsync(id, servicePackage);
+            if (updated == null) return NotFound();
+            return CreatedAtAction(nameof(GetServicePackage), new { id = updated.Id }, updated);
         }
-
-        // Kiểm tra trùng mã (Code) với các gói khác đang hoạt động
-        if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Id != id && s.Code == servicePackage.Code))
+        catch (Exception ex)
         {
-            return BadRequest("Mã gói (Code) đã tồn tại.");
+            return BadRequest(ex.Message);
         }
-
-        // Kiểm tra trùng tên (Name) với các gói khác đang hoạt động
-        if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Id != id && s.Name == servicePackage.Name))
-        {
-            return BadRequest("Tên gói đã tồn tại.");
-        }
-
-        // Xóa mềm bản cũ
-        existingPackage.SoftDeleteAt = DateTime.UtcNow;
-        _context.ServicePackages.Update(existingPackage);
-
-        // Tạo bản mới dựa trên thông tin cập nhật
-        var newPackage = new ServicePackage
-        {
-            Code = servicePackage.Code,
-            Name = servicePackage.Name,
-            Price = servicePackage.Price,
-            DurationDays = servicePackage.DurationDays,
-            Description = servicePackage.Description,
-            MaxPoiAllowed = servicePackage.MaxPoiAllowed,
-            IsActive = servicePackage.IsActive,
-            CreatedAt = DateTime.UtcNow
-        };
-        _context.ServicePackages.Add(newPackage);
-
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetServicePackage), new { id = newPackage.Id }, newPackage);
     }
 
     // POST: api/ServicePackages
     [HttpPost]
     public async Task<ActionResult<ServicePackage>> PostServicePackage(ServicePackage servicePackage)
     {
-        // Kiểm tra trùng mã (Code) trong các gói đang hoạt động
-        if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Code == servicePackage.Code))
+        try
         {
-            return BadRequest("Mã gói (Code) đã tồn tại.");
+            var created = await _packageService.CreateAsync(servicePackage);
+            return CreatedAtAction(nameof(GetServicePackage), new { id = created.Id }, created);
         }
-
-        // Kiểm tra trùng tên (Name) trong các gói đang hoạt động
-        if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Name == servicePackage.Name))
+        catch (Exception ex)
         {
-            return BadRequest("Tên gói đã tồn tại.");
+            return BadRequest(ex.Message);
         }
-
-        servicePackage.CreatedAt = DateTime.UtcNow;
-        _context.ServicePackages.Add(servicePackage);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetServicePackage), new { id = servicePackage.Id }, servicePackage);
     }
 
     // DELETE: api/ServicePackages/5
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteServicePackage(int id)
     {
-        var package = await _context.ServicePackages.FindAsync(id);
-        if (package == null)
-        {
-            return NotFound();
-        }
-
-        // Thay đổi từ xóa cứng sang xóa mềm
-        package.SoftDeleteAt = DateTime.UtcNow;
-        _context.ServicePackages.Update(package);
-        await _context.SaveChangesAsync();
-
+        var result = await _packageService.DeleteAsync(id);
+        if (!result) return NotFound();
         return NoContent();
-    }
-
-    private bool ServicePackageExists(int id)
-    {
-        return _context.ServicePackages.Any(e => e.Id == id);
     }
 }

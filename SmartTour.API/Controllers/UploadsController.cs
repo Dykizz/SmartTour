@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using SmartTour.API.Services;
+using SmartTour.API.Interfaces;
 
 namespace SmartTour.API.Controllers;
 

@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Google.Cloud.Translation.V2;
-using Google.Apis.Auth.OAuth2;
+using SmartTour.API.Interfaces;
 
 namespace SmartTour.API.Controllers;
 
@@ -8,11 +7,11 @@ namespace SmartTour.API.Controllers;
 [Route("api/[controller]")]
 public class TranslateController : ControllerBase
 {
-    private readonly IWebHostEnvironment _env;
+    private readonly ITranslateService _translateService;
 
-    public TranslateController(IWebHostEnvironment env)
+    public TranslateController(ITranslateService translateService)
     {
-        _env = env;
+        _translateService = translateService;
     }
 
     [HttpPost]
@@ -24,34 +23,15 @@ public class TranslateController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.TargetLanguage))
             return BadRequest("Target language is required");
 
-        var credentialPath = Path.Combine(_env.ContentRootPath, "google-credentials.json");
-        
-        if (!System.IO.File.Exists(credentialPath))
-        {
-            return StatusCode(500, "Google Credentials not found");
-        }
-
         try
         {
-            // Load credentials and create translation client
-            using var stream = new System.IO.FileStream(credentialPath, FileMode.Open, FileAccess.Read);
-            var googleCredential = GoogleCredential.FromStream(stream);
-            var client = TranslationClient.Create(googleCredential);
-
-            var response = await client.TranslateTextAsync(
-                text: request.Text,
-                targetLanguage: request.TargetLanguage
-            );
-
-            Console.WriteLine($"Translated text: {response.TranslatedText}");
-            Console.WriteLine($"Source language: {response.DetectedSourceLanguage}");
-            Console.WriteLine($"Target language: {response.TargetLanguage}");
-
+            var result = await _translateService.TranslateTextAsync(request.Text, request.TargetLanguage);
+            
             return Ok(new 
             { 
-                translatedText = response.TranslatedText,
-                sourceLanguage = response.DetectedSourceLanguage,
-                targetLanguage = response.TargetLanguage
+                translatedText = result.TranslatedText,
+                sourceLanguage = result.DetectedSourceLanguage,
+                targetLanguage = request.TargetLanguage
             });
         }
         catch (Exception ex)

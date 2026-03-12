@@ -1,13 +1,8 @@
 using Google.Cloud.Storage.V1;
 using Google.Apis.Auth.OAuth2;
+using SmartTour.API.Interfaces;
 
 namespace SmartTour.API.Services;
-
-public interface ICloudStorageService
-{
-    Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType);
-    Task<string> UploadBytesAsync(byte[] data, string fileName, string contentType);
-}
 
 public class CloudStorageService : ICloudStorageService
 {

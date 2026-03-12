@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SmartTour.API.Data;
 using Microsoft.AspNetCore.DataProtection;
+using SmartTour.API.Interfaces;
+using SmartTour.API.Services;
 
 DotNetEnv.Env.Load(Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"));
 
@@ -27,7 +29,17 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
-builder.Services.AddScoped<SmartTour.API.Services.ICloudStorageService, SmartTour.API.Services.CloudStorageService>();
+
+// DI Registration - Clean Architecture Style
+builder.Services.AddScoped<ICloudStorageService, CloudStorageService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IServicePackageService, ServicePackageService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<ILanguageService, LanguageService>();
+builder.Services.AddScoped<IPoiService, PoiService>();
+builder.Services.AddScoped<ITranslateService, TranslateService>();
+builder.Services.AddScoped<ITtsService, TtsService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
