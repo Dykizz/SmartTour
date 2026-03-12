@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<PoiContent> PoiContents => Set<PoiContent>();
     public DbSet<PoiAudioFile> PoiAudioFiles => Set<PoiAudioFile>();
     public DbSet<ServicePackage> ServicePackages => Set<ServicePackage>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

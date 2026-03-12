@@ -20,7 +20,10 @@ public class ServicePackagesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ServicePackage>>> GetServicePackages()
     {
-        return await _context.ServicePackages.OrderByDescending(s => s.CreatedAt).ToListAsync();
+        return await _context.ServicePackages
+            .Where(s => s.SoftDeleteAt == null)
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync();
     }
 
     // GET: api/ServicePackages/5
@@ -41,36 +44,63 @@ public class ServicePackagesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> PutServicePackage(int id, ServicePackage servicePackage)
     {
-        if (id != servicePackage.Id)
+        var existingPackage = await _context.ServicePackages.FindAsync(id);
+        if (existingPackage == null)
         {
-            return BadRequest();
+            return NotFound();
         }
 
-        _context.Entry(servicePackage).State = EntityState.Modified;
-
-        try
+        // Kiểm tra trùng mã (Code) với các gói khác đang hoạt động
+        if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Id != id && s.Code == servicePackage.Code))
         {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!ServicePackageExists(id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
+            return BadRequest("Mã gói (Code) đã tồn tại.");
         }
 
-        return NoContent();
+        // Kiểm tra trùng tên (Name) với các gói khác đang hoạt động
+        if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Id != id && s.Name == servicePackage.Name))
+        {
+            return BadRequest("Tên gói đã tồn tại.");
+        }
+
+        // Xóa mềm bản cũ
+        existingPackage.SoftDeleteAt = DateTime.UtcNow;
+        _context.ServicePackages.Update(existingPackage);
+
+        // Tạo bản mới dựa trên thông tin cập nhật
+        var newPackage = new ServicePackage
+        {
+            Code = servicePackage.Code,
+            Name = servicePackage.Name,
+            Price = servicePackage.Price,
+            DurationDays = servicePackage.DurationDays,
+            Description = servicePackage.Description,
+            MaxPoiAllowed = servicePackage.MaxPoiAllowed,
+            IsActive = servicePackage.IsActive,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.ServicePackages.Add(newPackage);
+
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetServicePackage), new { id = newPackage.Id }, newPackage);
     }
 
     // POST: api/ServicePackages
     [HttpPost]
     public async Task<ActionResult<ServicePackage>> PostServicePackage(ServicePackage servicePackage)
     {
+        // Kiểm tra trùng mã (Code) trong các gói đang hoạt động
+        if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Code == servicePackage.Code))
+        {
+            return BadRequest("Mã gói (Code) đã tồn tại.");
+        }
+
+        // Kiểm tra trùng tên (Name) trong các gói đang hoạt động
+        if (await _context.ServicePackages.AnyAsync(s => s.SoftDeleteAt == null && s.Name == servicePackage.Name))
+        {
+            return BadRequest("Tên gói đã tồn tại.");
+        }
+
         servicePackage.CreatedAt = DateTime.UtcNow;
         _context.ServicePackages.Add(servicePackage);
         await _context.SaveChangesAsync();
@@ -88,7 +118,9 @@ public class ServicePackagesController : ControllerBase
             return NotFound();
         }
 
-        _context.ServicePackages.Remove(package);
+        // Thay đổi từ xóa cứng sang xóa mềm
+        package.SoftDeleteAt = DateTime.UtcNow;
+        _context.ServicePackages.Update(package);
         await _context.SaveChangesAsync();
 
         return NoContent();

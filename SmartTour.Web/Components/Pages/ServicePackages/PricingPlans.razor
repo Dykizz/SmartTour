@@ -1,0 +1,208 @@
+@page "/pricing"
+@using SmartTour.Shared.Models
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+
+<PageTitle>Bảng giá dịch vụ - SmartTour</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8 mb-12">
+    <div class="text-center mb-10">
+        <MudText Typo="Typo.h4" Align="Align.Center" Style="font-weight: 800; color: var(--mud-palette-primary);">Lựa chọn gói dịch vụ</MudText>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="mud-text-secondary mt-1">Nâng tầm trải nghiệm du lịch số của bạn với các tính năng chuyên nghiệp</MudText>
+    </div>
+
+    <MudGrid Justify="Justify.Center" Spacing="4">
+        @if (_loading)
+        {
+            @for (int i = 0; i < 3; i++)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="4" Class="rounded-lg pa-5">
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="150px" />
+                        <MudSkeleton Class="mt-4" Height="30px" />
+                        <MudSkeleton Class="mt-2" Height="15px" Width="80%" />
+                    </MudCard>
+                </MudItem>
+            }
+        }
+        else
+        {
+            @foreach (var package in _packages)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="8" Class="@($"{GetCardClass(package.Code)} rounded-xl overflow-hidden hover-raised")">
+                        <div class="pa-6 d-flex flex-column align-center text-center fill-height">
+                            <MudAvatar Color="@GetAvatarColor(package.Code)" Size="Size.Medium" Variant="Variant.Filled" Class="mb-3">
+                                <MudIcon Icon="@GetPackageIcon(package.Code)" Size="Size.Small" />
+                            </MudAvatar>
+                            
+                            <MudText Typo="Typo.h6" Style="font-weight: 700;">@package.Name</MudText>
+                            
+                            <div class="d-flex align-end justify-center my-4">
+                                <MudText Typo="Typo.h4" Style="font-weight: 900;">@package.Price.ToString("N0")</MudText>
+                                <MudText Typo="Typo.body2" Class="ml-1 pb-1 mud-text-secondary">VND</MudText>
+                            </div>
+                            
+                            <MudDivider DividerType="DividerType.Middle" Class="w-100 my-3" />
+                            
+                            <div class="flex-grow-1 w-100 mt-1">
+                                <div class="d-flex align-center mb-2">
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" Class="mr-2" />
+                                    <MudText Typo="Typo.body2">Hiệu lực: <b>@package.DurationDays ngày</b></MudText>
+                                </div>
+                                <div class="d-flex align-center mb-2">
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" Class="mr-2" />
+                                    <MudText Typo="Typo.body2">Tối đa: <b>@package.MaxPoiAllowed POI</b></MudText>
+                                </div>
+                                <div class="d-flex align-start mb-2 text-left">
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" Class="mr-2 mt-1" />
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@package.Description</MudText>
+                                </div>
+                            </div>
+
+                            <MudButton Variant="Variant.Filled" 
+                                       Color="@GetButtonColor(package.Code)" 
+                                       FullWidth="true" 
+                                       Size="Size.Large" 
+                                       Class="rounded-pill mt-8 py-3 font-bold"
+                                       OnClick="@(() => Subscribe(package))">
+                                @(package.Price == 0 ? "Bắt đầu miễn phí" : "Đăng ký ngay")
+                            </MudButton>
+                        </div>
+                    </MudCard>
+                </MudItem>
+            }
+        }
+    </MudGrid>
+</MudContainer>
+
+<style>
+    .hover-raised {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .hover-raised:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.15) !important;
+    }
+    .card-pro {
+        border: 2px solid var(--mud-palette-primary-lighten);
+        background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
+    }
+    .card-vip {
+        border: 2px solid #FFD700;
+        background: linear-gradient(135deg, #ffffff 0%, #fffdf0 100%);
+    }
+    .font-bold {
+        font-weight: 700 !important;
+    }
+</style>
+
+@code {
+    private List<ServicePackage> _packages = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _packages = await Http.GetFromJsonAsync<List<ServicePackage>>("api/servicepackages") ?? new();
+            // Lọc các gói còn hiệu lực nếu cần (mặc định API đã lọc SoftDeleteAt == null)
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Không thể tải danh sách gói: " + ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string GetCardClass(string code) => code switch
+    {
+        "PRO_MONTH" => "card-pro",
+        "VIP_YEAR" => "card-vip",
+        _ => "card-basic"
+    };
+
+    private Color GetAvatarColor(string code) => code switch
+    {
+        "PRO_MONTH" => Color.Primary,
+        "VIP_YEAR" => Color.Warning,
+        _ => Color.Default
+    };
+
+    private Color GetButtonColor(string code) => code switch
+    {
+        "PRO_MONTH" => Color.Primary,
+        "VIP_YEAR" => Color.Warning,
+        _ => Color.Tertiary
+    };
+
+    private string GetPackageIcon(string code) => code switch
+    {
+        "FREE" => Icons.Material.Filled.Person,
+        "PRO_MONTH" => Icons.Material.Filled.Star,
+        "VIP_YEAR" => Icons.Material.Filled.WorkspacePremium,
+        _ => Icons.Material.Filled.CardMembership
+    };
+
+    private async Task Subscribe(ServicePackage package)
+    {
+        if (package.Price == 0)
+        {
+            // Xử lý đăng ký gói Free trực tiếp
+            Snackbar.Add("Đã đăng ký gói miễn phí thành công!", Severity.Success);
+            return;
+        }
+
+        bool? confirm = await DialogService.ShowMessageBox(
+            "Xác nhận đăng ký", 
+            (MarkupString)$"Bạn muốn đăng ký gói <b>{package.Name}</b> với giá <b>{package.Price:N0} VND</b>?", 
+            yesText: "Xác nhận", cancelText: "Hủy");
+
+        if (confirm == true)
+        {
+            try 
+            {
+                _loading = true;
+                StateHasChanged();
+
+                // TODO: Lấy UserId thực tế từ AuthenticationState
+                var request = new { UserId = 1, PackageCode = package.Code, Type = "New" };
+                var response = await Http.PostAsJsonAsync("api/payments/create-payment", request);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<PaymentRedirectResponse>();
+                    if (result != null && !string.IsNullOrEmpty(result.PaymentUrl))
+                    {
+                        // Chuyển hướng sang trang thanh toán PayOS
+                        Navigation.NavigateTo(result.PaymentUrl);
+                    }
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    Snackbar.Add($"Lỗi: {error}", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add("Lỗi kết nối: " + ex.Message, Severity.Error);
+            }
+            finally
+            {
+                _loading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    public class PaymentRedirectResponse
+    {
+        public string PaymentUrl { get; set; } = "";
+    }
+}

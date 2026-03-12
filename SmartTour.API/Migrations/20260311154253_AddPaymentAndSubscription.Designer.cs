@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartTour.API.Data;
 
@@ -11,9 +12,11 @@ using SmartTour.API.Data;
 namespace SmartTour.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260311154253_AddPaymentAndSubscription")]
+    partial class AddPaymentAndSubscription
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -53,7 +56,7 @@ namespace SmartTour.API.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 3, 11, 18, 2, 29, 104, DateTimeKind.Utc).AddTicks(5843),
+                            CreatedAt = new DateTime(2026, 3, 11, 15, 42, 52, 905, DateTimeKind.Utc).AddTicks(8334),
                             Description = "Các quán chuyên phục vụ cà phê và đồ uống",
                             IsActive = true,
                             Name = "Cà phê"
@@ -61,7 +64,7 @@ namespace SmartTour.API.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 3, 11, 18, 2, 29, 104, DateTimeKind.Utc).AddTicks(5845),
+                            CreatedAt = new DateTime(2026, 3, 11, 15, 42, 52, 905, DateTimeKind.Utc).AddTicks(8336),
                             Description = "Nơi phục vụ các món ăn chính, đặc sản",
                             IsActive = true,
                             Name = "Nhà hàng"
@@ -69,7 +72,7 @@ namespace SmartTour.API.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 3, 11, 18, 2, 29, 104, DateTimeKind.Utc).AddTicks(5846),
+                            CreatedAt = new DateTime(2026, 3, 11, 15, 42, 52, 905, DateTimeKind.Utc).AddTicks(8337),
                             Description = "Đồ ăn nhanh, đồ ăn vặt",
                             IsActive = true,
                             Name = "Quán ăn nhanh"
@@ -77,7 +80,7 @@ namespace SmartTour.API.Migrations
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 3, 11, 18, 2, 29, 104, DateTimeKind.Utc).AddTicks(5847),
+                            CreatedAt = new DateTime(2026, 3, 11, 15, 42, 52, 905, DateTimeKind.Utc).AddTicks(8338),
                             Description = "Không gian âm nhạc và đồ uống có cồn",
                             IsActive = true,
                             Name = "Quán Bar/Pub"
@@ -85,7 +88,7 @@ namespace SmartTour.API.Migrations
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 3, 11, 18, 2, 29, 104, DateTimeKind.Utc).AddTicks(5848),
+                            CreatedAt = new DateTime(2026, 3, 11, 15, 42, 52, 905, DateTimeKind.Utc).AddTicks(8338),
                             Description = "Các loại hình kinh doanh khác",
                             IsActive = true,
                             Name = "Khác"
@@ -185,9 +188,6 @@ namespace SmartTour.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("ExternalTransactionNo")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PackageCode")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -202,6 +202,9 @@ namespace SmartTour.API.Migrations
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
+
+                    b.Property<string>("VnpayTransactionNo")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -450,7 +453,7 @@ namespace SmartTour.API.Migrations
                         {
                             Id = 1,
                             Code = "FREE",
-                            CreatedAt = new DateTime(2026, 3, 11, 18, 2, 29, 104, DateTimeKind.Utc).AddTicks(5914),
+                            CreatedAt = new DateTime(2026, 3, 11, 15, 42, 52, 905, DateTimeKind.Utc).AddTicks(8392),
                             Description = "Dành cho người dùng cá nhân phổ thông",
                             DurationDays = 365,
                             IsActive = true,
@@ -462,7 +465,7 @@ namespace SmartTour.API.Migrations
                         {
                             Id = 2,
                             Code = "PRO_MONTH",
-                            CreatedAt = new DateTime(2026, 3, 11, 18, 2, 29, 104, DateTimeKind.Utc).AddTicks(5920),
+                            CreatedAt = new DateTime(2026, 3, 11, 15, 42, 52, 905, DateTimeKind.Utc).AddTicks(8395),
                             Description = "Phù hợp cho các quán kinh doanh nhỏ",
                             DurationDays = 30,
                             IsActive = true,
@@ -474,7 +477,7 @@ namespace SmartTour.API.Migrations
                         {
                             Id = 3,
                             Code = "VIP_YEAR",
-                            CreatedAt = new DateTime(2026, 3, 11, 18, 2, 29, 104, DateTimeKind.Utc).AddTicks(5921),
+                            CreatedAt = new DateTime(2026, 3, 11, 15, 42, 52, 905, DateTimeKind.Utc).AddTicks(8397),
                             Description = "Đầy đủ tính năng cao cấp",
                             DurationDays = 365,
                             IsActive = true,

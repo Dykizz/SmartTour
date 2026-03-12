@@ -1,0 +1,101 @@
+@page "/payment-response"
+@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="4" Class="pa-8 d-flex flex-column align-center rounded-xl">
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+            <MudText Class="mt-4">Đang xác thực giao dịch...</MudText>
+        }
+        else
+        {
+            @if (_isSuccess)
+            {
+                <MudAvatar Color="Color.Success" Size="Size.Large" Variant="Variant.Filled" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" />
+                </MudAvatar>
+                <MudText Typo="Typo.h5" Class="mb-2" Style="font-weight: 700;">Thanh toán thành công!</MudText>
+                <MudText Align="Align.Center">Cảm ơn bạn đã tin dùng dịch vụ SmartTour. Gói của bạn đã được kích hoạt.</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-8 rounded-pill py-3 px-8" OnClick="@(() => Navigation.NavigateTo("/"))">
+                    Quay về trang chủ
+                </MudButton>
+            }
+            else
+            {
+                <MudAvatar Color="Color.Error" Size="Size.Large" Variant="Variant.Filled" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Large" />
+                </MudAvatar>
+                <MudText Typo="Typo.h5" Class="mb-2" Style="font-weight: 700;">Thanh toán thất bại</MudText>
+                <MudText Align="Align.Center">Rất tiếc, đã có lỗi xảy ra trong quá trình thanh toán hoặc giao dịch bị hủy.</MudText>
+                <MudText Color="Color.Error" Class="mt-2">Mã lỗi: @_responseCode</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-8 rounded-pill py-3 px-8" OnClick="@(() => Navigation.NavigateTo("/pricing"))">
+                    Thử lại
+                </MudButton>
+            }
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private bool _loading = true;
+    private bool _isSuccess = false;
+    private string? _responseCode;
+    private string? _paymentId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var queryParams = QueryHelpers.ParseQuery(uri.Query);
+
+        // Đọc tham số từ PayOS
+        if (queryParams.TryGetValue("status", out var status) && status == "PAID")
+        {
+            _isSuccess = true;
+            _responseCode = "PAID";
+        }
+        else if (queryParams.TryGetValue("code", out var code))
+        {
+            _responseCode = code;
+            _isSuccess = code == "00";
+        }
+
+        if (queryParams.TryGetValue("orderCode", out var orderCode))
+        {
+            _paymentId = orderCode;
+            // Kiểm tra lại với server để đảm bảo dữ liệu đã được cập nhật qua Webhook hoặc Sync
+            await VerifyWithServer(orderCode!);
+        }
+        else
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task VerifyWithServer(string paymentId)
+    {
+        try
+        {
+            // Đợi một chút để Webhook kịp xử lý
+            await Task.Delay(500);
+            var result = await Http.GetFromJsonAsync<PaymentStatusResponse>($"api/payments/verify-payment/{paymentId}");
+            _isSuccess = result?.Status == "Success";
+        }
+        catch (Exception)
+        {
+            // Fallback nếu API lỗi
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    public class PaymentStatusResponse
+    {
+        public string Status { get; set; } = "";
+    }
+}

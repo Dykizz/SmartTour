@@ -1,0 +1,53 @@
+@using SmartTour.Shared.Models
+@using MudBlazor
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudField Label="Mã gói" Variant="Variant.Outlined">@Model.Code</MudField>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudField Label="Tên gói" Variant="Variant.Outlined">@Model.Name</MudField>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudField Label="Giá" Variant="Variant.Outlined">@Model.Price.ToString("N0") VND</MudField>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudField Label="Thời hạn" Variant="Variant.Outlined">@Model.DurationDays ngày</MudField>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudField Label="Số POI tối đa" Variant="Variant.Outlined">@Model.MaxPoiAllowed</MudField>
+            </MudItem>
+            <MudItem xs="12">
+                <MudField Label="Ngày tạo" Variant="Variant.Outlined">@Model.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudField>
+            </MudItem>
+            <MudItem xs="12">
+                <MudField Label="Mô tả" Variant="Variant.Outlined">@Model.Description</MudField>
+            </MudItem>
+            <MudItem xs="12">
+                <MudChip T="string" Color="@(Model.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
+                    @(Model.IsActive ? "Đang hoạt động" : "Đã khóa")
+                </MudChip>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Variant="Variant.Text">Đóng</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Edit" Color="Color.Primary" Variant="Variant.Filled" OnClick="Edit">Chỉnh sửa</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public ServicePackage Model { get; set; } = new();
+
+    private void Close() => MudDialog.Close();
+
+    private void Edit()
+    {
+        // Close detail dialog and signal parent to open edit dialog
+        MudDialog.Close(DialogResult.Ok("edit"));
+    }
+}

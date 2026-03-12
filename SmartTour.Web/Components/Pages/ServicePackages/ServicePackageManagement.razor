@@ -17,28 +17,25 @@
 
         <MudTable Items="@_packages" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0">
             <HeaderContent>
-                <MudTh>Mã gói</MudTh>
                 <MudTh>Tên gói</MudTh>
                 <MudTh>Giá (VND)</MudTh>
-                <MudTh>Thời hạn (Ngày)</MudTh>
-                <MudTh>Max POI</MudTh>
+                <MudTh>Ngày tạo</MudTh>
                 <MudTh>Trạng thái</MudTh>
-                <MudTh Style="width: 120px">Thao tác</MudTh>
+                <MudTh Style="width: 140px">Thao tác</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="Mã gói">@context.Code</MudTd>
                 <MudTd DataLabel="Tên gói">@context.Name</MudTd>
                 <MudTd DataLabel="Giá">@context.Price.ToString("N0")</MudTd>
-                <MudTd DataLabel="Thời hạn">@context.DurationDays</MudTd>
-                <MudTd DataLabel="Max POI">@context.MaxPoiAllowed</MudTd>
+                <MudTd DataLabel="Ngày tạo">@context.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</MudTd>
                 <MudTd DataLabel="Trạng thái">
                     <MudChip T="string" Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
                         @(context.IsActive ? "Hoạt động" : "Khóa")
                     </MudChip>
                 </MudTd>
                 <MudTd>
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenDialog(context))" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeletePackage(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => OpenViewDetail(context))" Tooltip="Xem chi tiết" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="@(() => OpenDialog(context))" Tooltip="Sửa nhanh" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeletePackage(context))" Tooltip="Xóa" />
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent>
@@ -69,6 +66,31 @@
             Snackbar.Add("Lỗi kết nối API: " + ex.Message, Severity.Error);
         }
         _loading = false;
+    }
+
+    private async Task OpenViewDetail(ServicePackage package)
+    {
+        var parameters = new DialogParameters<ServicePackageDetailDialog>
+        {
+            { x => x.Model, package }
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<ServicePackageDetailDialog>("Chi tiết gói dịch vụ", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            if (result.Data as string == "edit")
+            {
+                // If the detail dialog signaled to edit, open the edit dialog
+                await OpenDialog(package);
+            }
+            else
+            {
+                await LoadPackages();
+            }
+        }
     }
 
     private async Task OpenDialog(ServicePackage? package = null)
