@@ -14,7 +14,7 @@ public class PoiService : IPoiService
         _context = context;
     }
 
-    public async Task<IEnumerable<Poi>> GetPoisAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null)
+    public async Task<IEnumerable<Poi>> GetPoisAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false)
     {
         var query = _context.Pois
             .Include(p => p.Category)
@@ -24,10 +24,14 @@ public class PoiService : IPoiService
             .Include(p => p.AudioFiles)
             .AsQueryable();
 
+        if (onlyActive)
+            query = query.Where(p => p.IsActive);
+
         if (categoryId.HasValue && categoryId.Value > 0)
-        {
             query = query.Where(p => p.CategoryId == categoryId.Value);
-        }
+
+        if (createdById.HasValue)
+            query = query.Where(p => p.CreatedById == createdById.Value);
 
         var pois = await query
             .OrderByDescending(p => p.IsFeature)
@@ -35,9 +39,7 @@ public class PoiService : IPoiService
             .ToListAsync();
 
         if (lat.HasValue && lng.HasValue && radius.HasValue)
-        {
             pois = pois.Where(p => CalculateDistance(lat.Value, lng.Value, p.Latitude, p.Longitude) <= radius.Value).ToList();
-        }
 
         return pois;
     }

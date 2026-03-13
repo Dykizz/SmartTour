@@ -1,0 +1,44 @@
+@using SmartTour.Shared.Models
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudText Class="mb-4">
+            Nhập lý do từ chối yêu cầu của <b>@RequesterName</b>:
+        </MudText>
+        <MudTextField @bind-Value="_note" Label="Lý do từ chối" Lines="3"
+                      Variant="Variant.Outlined" Required="true"
+                      RequiredError="Vui lòng nhập lý do" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="SubmitReject"
+                   Disabled="string.IsNullOrWhiteSpace(_note)">Xác nhận từ chối</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public int RequestId { get; set; }
+    [Parameter] public string RequesterName { get; set; } = "";
+
+    private string _note = "";
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SubmitReject()
+    {
+        var response = await Http.PostAsJsonAsync($"api/poi-requests/{RequestId}/reject", new { Note = _note });
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Đã từ chối yêu cầu.", Severity.Warning);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add("Lỗi: " + await response.Content.ReadAsStringAsync(), Severity.Error);
+        }
+    }
+}

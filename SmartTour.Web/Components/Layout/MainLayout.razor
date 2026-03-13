@@ -1,4 +1,4 @@
-﻿@using SmartTour.Web.Services
+@using SmartTour.Web.Services
 @inject UserSessionService UserSession
 @inject AuthenticationStateProvider AuthStateProvider
 @inherits LayoutComponentBase
@@ -63,11 +63,17 @@
             {
                 var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value 
                              ?? user.FindFirst("UserId")?.Value;
-                UserSession.SetUser(userId, user.Identity.Name);
+
+                // Lấy role tên (ADMIN/SELLER) - ưu tiên tên chữ, bỏ qua role dạng số (RoleId)
+                var role = user.FindAll(System.Security.Claims.ClaimTypes.Role)
+                               .Select(c => c.Value)
+                               .FirstOrDefault(v => !int.TryParse(v, out _));
+
+                UserSession.SetUser(userId, user.Identity.Name, role);
             }
             else
             {
-                UserSession.SetUser(null, null);
+                UserSession.SetUser(null, null, null);
             }
         }
         

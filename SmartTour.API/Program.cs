@@ -37,6 +37,7 @@ builder.Services.AddScoped<IServicePackageService, ServicePackageService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ILanguageService, LanguageService>();
 builder.Services.AddScoped<IPoiService, PoiService>();
+builder.Services.AddScoped<IPoiRequestService, PoiRequestService>();
 builder.Services.AddScoped<ITranslateService, TranslateService>();
 builder.Services.AddScoped<ITtsService, TtsService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();

@@ -27,15 +27,22 @@ public class ApiKeyMiddleware
                 // Key hợp lệ - Kiểm tra xem có gửi kèm User ID để "mạo danh" hợp pháp không
                 if (context.Request.Headers.TryGetValue("X-SmartTour-User-Id", out var userId))
                 {
-                    // _logger.LogInformation($"[ApiKeyMiddleware] Authenticated as Server-Side Proxy for User ID: {userId}");
-                    
-                    var claims = new[] 
-                    { 
+                    var claimsList = new List<Claim>
+                    {
                         new Claim(ClaimTypes.NameIdentifier, userId.ToString() ?? string.Empty),
-                        new Claim(ClaimTypes.Name, "Server Proxy"), 
+                        new Claim(ClaimTypes.Name, "Server Proxy"),
                         new Claim("IsServerSideRequest", "true")
                     };
-                    var identity = new ClaimsIdentity(claims, "ApiKey"); // Ensure AuthenticationType is set
+
+                    // Inject role so [Authorize(Roles=...)] and User.IsInRole() work correctly
+                    if (context.Request.Headers.TryGetValue("X-SmartTour-User-Role", out var userRole)
+                        && !string.IsNullOrEmpty(userRole))
+                    {
+                        claimsList.Add(new Claim(ClaimTypes.Role, userRole.ToString()));
+                        // _logger.LogInformation($"[ApiKeyMiddleware] Role injected: {userRole}");
+                    }
+
+                    var identity = new ClaimsIdentity(claimsList, "ApiKey");
                     context.User = new ClaimsPrincipal(identity);
                 }
                 else

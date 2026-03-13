@@ -1,153 +1,305 @@
 @page "/poi-management"
+@using Microsoft.AspNetCore.Components.Authorization
 @using SmartTour.Shared.Models
 @using System.Net.Http.Json
+@using System.Text.Json
 @inject HttpClient Http
 @inject IDialogService DialogService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Quản lý POI</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8">
-    <MudPaper Elevation="2" Class="pa-4" Style="border-radius: 12px;">
-        <div class="d-flex align-center justify-space-between mb-6">
-            <div>
-                <MudText Typo="Typo.h5" Style="font-weight: bold;">Danh sách điểm POI</MudText>
-                <MudText Typo="Typo.body2" Color="@Color.Secondary">Quản lý các điểm đến trên bản đồ và cấu hình bán kính kích hoạt</MudText>
+
+    @if (_isAdmin)
+    {
+        <!-- ============ ADMIN VIEW ============ -->
+        <MudPaper Elevation="2" Class="pa-4">
+            <div class="d-flex align-center justify-space-between mb-4">
+                <MudText Typo="Typo.h5" Style="font-weight:bold;">Danh sách điểm POI</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="NavigateToCreate">Thêm điểm mới</MudButton>
             </div>
-            <MudButton Variant="Variant.Filled" Color="@Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="NavigateToCreate">
-                Thêm điểm mới
-            </MudButton>
+            <MudTable Items="_pois" Hover="true" Breakpoint="Breakpoint.Sm"
+                      Loading="_loading" Elevation="0">
+                <HeaderContent>
+                    <MudTh>Tên điểm đến</MudTh>
+                    <MudTh>Loại hình</MudTh>
+                    <MudTh>Tọa độ</MudTh>
+                    <MudTh>Bán kính</MudTh>
+                    <MudTh>Trạng thái</MudTh>
+                    <MudTh Style="width:120px">Thao tác</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="poi">
+                    <MudTd DataLabel="Tên">@poi.Name</MudTd>
+                    <MudTd DataLabel="Loại">@(poi.Category?.Name ?? "N/A")</MudTd>
+                    <MudTd DataLabel="Tọa độ">@poi.Latitude.ToString("F4"), @poi.Longitude.ToString("F4")</MudTd>
+                    <MudTd DataLabel="Bán kính">@poi.GeofenceRadius m</MudTd>
+                    <MudTd DataLabel="Trạng thái">
+                        <MudChip T="string" Color="@(poi.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
+                            @(poi.IsActive ? "Hoạt động" : "Tạm dừng")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd>
+                        <MudTooltip Text="Chỉnh sửa">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                           Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
+                        </MudTooltip>
+                        <MudTooltip Text="Xóa">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                           Size="Size.Small" OnClick="@(() => DeletePoi(poi))" />
+                        </MudTooltip>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="pa-4">@(_loading ? "Đang tải..." : "Chưa có điểm POI nào.")</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+    }
+    else
+    {
+        <!-- ============ SELLER VIEW ============ -->
+        <div class="d-flex align-center justify-space-between mb-4">
+            <MudText Typo="Typo.h5" Style="font-weight:bold;">POI của tôi</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="NavigateToCreate">Gửi yêu cầu tạo mới</MudButton>
         </div>
 
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
 
-
-        <MudTable Items="@_pois" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0">
-            <HeaderContent>
-                <MudTh>Tên điểm đến</MudTh>
-                <MudTh>Loại hình</MudTh>
-                <MudTh>Tọa độ (Lat/Lng)</MudTh>
-                <MudTh>Bán kính (m)</MudTh>
-                <MudTh>Trạng thái</MudTh>
-                <MudTh>QR Value</MudTh>
-                <MudTh Style="width: 120px; text-align: right;">Thao tác</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="Tên">
-                    <MudText Typo="Typo.body2" Style="font-weight: bold;">@context.Name</MudText>
-                </MudTd>
-                <MudTd DataLabel="Loại hình">
-                    <MudText Typo="Typo.body2">@(context.Category?.Name ?? "N/A")</MudText>
-                </MudTd>
-                <MudTd DataLabel="Tọa độ">
-                    <MudText Typo="Typo.body2">@context.Latitude.ToString("F6"), @context.Longitude.ToString("F6")</MudText>
-                </MudTd>
-                <MudTd DataLabel="Bán kính">
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@context.GeofenceRadius m</MudChip>
-                </MudTd>
-                <MudTd DataLabel="Trạng thái">
-                    <div class="d-flex align-center gap-2">
-                        <MudChip T="string" Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small" Variant="Variant.Filled">
-                            @(context.IsActive ? "Hoạt động" : "Tạm dừng")
-                        </MudChip>
-                        @if (context.IsFeature)
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.Star" Color="@Color.Warning" Size="Size.Small" />
-                        }
-                    </div>
-                </MudTd>
-                <MudTd DataLabel="QR">
-                    <MudText Typo="Typo.caption" Style="font-family: monospace;">@context.QrValue</MudText>
-                </MudTd>
-                <MudTd Style="text-align: right;">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="@Color.Primary" Size="Size.Small" OnClick="@(() => NavigateToEdit(context.Id))" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="@Color.Error" Size="Size.Small" OnClick="@(() => DeletePoi(context))" />
-                </MudTd>
-            </RowTemplate>
-            <NoRecordsContent>
-                @if (_loading)
+            <!-- Tab 1: Đã duyệt → hiển thị POI thực tế -->
+            <MudTabPanel Text="Đã duyệt" Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success">
+                @if (_loadingMyPois)
                 {
-                    <MudText Class="pa-4">Đang tải dữ liệu...</MudText>
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else if (!_myPois.Any())
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">Bạn chưa có POI nào được duyệt.</MudAlert>
                 }
                 else
                 {
-                    <MudText Class="pa-4">Chưa có điểm POI nào. Hãy thêm mới!</MudText>
+                    <MudTable Items="_myPois" Hover="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Tên điểm đến</MudTh>
+                            <MudTh>Loại hình</MudTh>
+                            <MudTh>Bán kính</MudTh>
+                            <MudTh>Trạng thái</MudTh>
+                            <MudTh Style="width:120px">Thao tác</MudTh>
+                        </HeaderContent>
+                        <RowTemplate Context="poi">
+                            <MudTd DataLabel="Tên">@poi.Name</MudTd>
+                            <MudTd DataLabel="Loại">@(poi.Category?.Name ?? "N/A")</MudTd>
+                            <MudTd DataLabel="Bán kính">@poi.GeofenceRadius m</MudTd>
+                            <MudTd DataLabel="Trạng thái">
+                                <MudChip T="string" Color="@(poi.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
+                                    @(poi.IsActive ? "Hoạt động" : "Tạm dừng")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd>
+                                <MudTooltip Text="Gửi yêu cầu chỉnh sửa">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                                   Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
+                                </MudTooltip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
                 }
-            </NoRecordsContent>
-        </MudTable>
-    </MudPaper>
+            </MudTabPanel>
+
+            <!-- Tab 2: Chờ duyệt -->
+            <MudTabPanel Text="Chờ duyệt" Icon="@Icons.Material.Filled.HourglassEmpty" IconColor="Color.Warning"
+                         BadgeData="@(_pendingRequests.Count > 0 ? _pendingRequests.Count.ToString() : null)"
+                         BadgeColor="Color.Warning">
+                @if (_loadingRequests)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Warning" />
+                }
+                else if (!_pendingRequests.Any())
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">Không có yêu cầu nào đang chờ duyệt.</MudAlert>
+                }
+                else
+                {
+                    <MudTable Items="_pendingRequests" Hover="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>#</MudTh>
+                            <MudTh>Tên POI đề xuất</MudTh>
+                            <MudTh>Loại yêu cầu</MudTh>
+                            <MudTh>Ngày gửi</MudTh>
+                        </HeaderContent>
+                        <RowTemplate Context="req">
+                            <MudTd>#@req.Id</MudTd>
+                            <MudTd>@GetPoiNameFromRequest(req)</MudTd>
+                            <MudTd>
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@(req.Type == RequestType.Create ? Color.Primary : Color.Info)">
+                                    @(req.Type == RequestType.Create ? "Tạo mới" : "Cập nhật")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd>@req.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudTabPanel>
+
+            <!-- Tab 3: Bị từ chối → có nút Gửi lại -->
+            <MudTabPanel Text="Bị từ chối" Icon="@Icons.Material.Filled.Cancel" IconColor="Color.Error">
+                @if (_loadingRequests)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Error" />
+                }
+                else if (!_rejectedRequests.Any())
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">Không có yêu cầu nào bị từ chối.</MudAlert>
+                }
+                else
+                {
+                    <MudTable Items="_rejectedRequests" Hover="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>#</MudTh>
+                            <MudTh>Tên POI đề xuất</MudTh>
+                            <MudTh>Loại yêu cầu</MudTh>
+                            <MudTh>Lý do từ chối</MudTh>
+                            <MudTh>Ngày gửi</MudTh>
+                            <MudTh Style="width:120px">Thao tác</MudTh>
+                        </HeaderContent>
+                        <RowTemplate Context="req">
+                            <MudTd>#@req.Id</MudTd>
+                            <MudTd>@GetPoiNameFromRequest(req)</MudTd>
+                            <MudTd>
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@(req.Type == RequestType.Create ? Color.Primary : Color.Info)">
+                                    @(req.Type == RequestType.Create ? "Tạo mới" : "Cập nhật")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd>@(req.AdminNote ?? "—")</MudTd>
+                            <MudTd>@req.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                            <MudTd>
+                                <MudTooltip Text="Gửi lại yêu cầu">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Warning"
+                                                   Size="Size.Small"
+                                                   OnClick="@(() => NavigationManager.NavigateTo($"/poi/editor?fromRequestId={req.Id}"))" />
+                                </MudTooltip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudTabPanel>
+
+        </MudTabs>
+    }
+
 </MudContainer>
 
 @code {
+    // ── Admin data ────────────────────────────────────────────
     private List<Poi> _pois = new();
     private bool _loading = true;
 
+    // ── Seller: POI thực (đã được duyệt và tạo) ──────────────
+    private List<Poi> _myPois = new();
+    private bool _loadingMyPois = true;
+    private int _myUserId = 0;
+
+    // ── Seller: Requests đang xử lý ───────────────────────────
+    private List<PoiRequest> _pendingRequests  = new();
+    private List<PoiRequest> _rejectedRequests = new();
+    private bool _loadingRequests = true;
+
+    private bool _isAdmin = false;
+
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
+
     protected override async Task OnInitializedAsync()
     {
-        await LoadPois();
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAdmin = auth.User.IsInRole("ADMIN");
+
+        if (_isAdmin)
+        {
+            await LoadPois();
+        }
+        else
+        {
+            // Lấy userId của seller từ claims
+            var userIdStr = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            int.TryParse(userIdStr, out _myUserId);
+
+            // Load song song để nhanh hơn
+            await Task.WhenAll(LoadMyPois(), LoadMyRequests());
+        }
     }
 
+    // ─── Admin methods ─────────────────────────────────────────
     private async Task LoadPois()
     {
         _loading = true;
-        try 
-        {
-            _pois = await Http.GetFromJsonAsync<List<Poi>>("api/pois") ?? new();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add("Lỗi tải danh sách POI: " + ex.Message, Severity.Error);
-        }
-        finally
-        {
-            _loading = false;
-        }
+        try { _pois = await Http.GetFromJsonAsync<List<Poi>>("api/pois?onlyActive=false") ?? new(); }
+        catch (Exception ex) { Snackbar.Add("Lỗi tải POI: " + ex.Message, Severity.Error); }
+        finally { _loading = false; }
     }
 
     private void NavigateToCreate() => NavigationManager.NavigateTo("/poi/editor");
-    
     private void NavigateToEdit(int id) => NavigationManager.NavigateTo($"/poi/editor/{id}");
 
     private async Task DeletePoi(Poi poi)
     {
         bool? confirm = await DialogService.ShowMessageBox(
-            "Xác nhận xóa", 
-            $"Bạn có chắc chắn muốn xóa POI #{poi.Id} không? Hành động này không thể hoàn tác.", 
+            "Xác nhận xóa",
+            $"Bạn có chắc muốn xóa POI \"{poi.Name}\" không?",
             yesText: "Xóa", cancelText: "Hủy");
+        if (confirm != true) return;
 
-        if (confirm == true)
+        var response = await Http.DeleteAsync($"api/pois/{poi.Id}");
+        if (response.IsSuccessStatusCode)
         {
-            try 
-            {
-                var response = await Http.DeleteAsync($"api/pois/{poi.Id}");
-                if (response.IsSuccessStatusCode)
-                {
-                    Snackbar.Add("Đã xóa POI thành công", Severity.Success);
-                    await LoadPois();
-                }
-                else
-                {
-                    var statusCode = response.StatusCode;
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    
-
-
-                    if (statusCode == System.Net.HttpStatusCode.Unauthorized)
-                    {
-                        Snackbar.Add("Bạn chưa đăng nhập hoặc phiên làm việc hết hạn.", Severity.Error);
-                    }
-                    else
-                    {
-                        if (string.IsNullOrWhiteSpace(errorContent)) errorContent = $"Mã lỗi {statusCode}";
-                        if (errorContent.Length > 100) errorContent = errorContent.Substring(0, 100) + "...";
-                        Snackbar.Add($"Lỗi khi xóa POI: {errorContent}", Severity.Error);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Snackbar.Add("Lỗi hệ thống: " + ex.Message, Severity.Error);
-            }
+            Snackbar.Add("Đã xóa POI thành công", Severity.Success);
+            await LoadPois();
         }
+        else
+        {
+            Snackbar.Add(response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                ? "Phiên đăng nhập hết hạn."
+                : "Lỗi khi xóa POI.", Severity.Error);
+        }
+    }
+
+    // ─── Seller methods ────────────────────────────────────────
+    private async Task LoadMyPois()
+    {
+        _loadingMyPois = true;
+        try
+        {
+            if (_myUserId > 0)
+                _myPois = await Http.GetFromJsonAsync<List<Poi>>($"api/pois?createdById={_myUserId}&onlyActive=false") ?? new();
+        }
+        catch (Exception ex) { Snackbar.Add("Lỗi tải POI: " + ex.Message, Severity.Error); }
+        finally { _loadingMyPois = false; }
+    }
+
+    private async Task LoadMyRequests()
+    {
+        _loadingRequests = true;
+        try
+        {
+            var all = await Http.GetFromJsonAsync<List<PoiRequest>>("api/poi-requests") ?? new();
+            _pendingRequests  = all.Where(r => r.Status == RequestStatus.Pending).ToList();
+            _rejectedRequests = all.Where(r => r.Status == RequestStatus.Rejected).ToList();
+        }
+        catch (Exception ex) { Snackbar.Add("Lỗi tải yêu cầu: " + ex.Message, Severity.Error); }
+        finally { _loadingRequests = false; }
+    }
+
+    // ─── Helpers ───────────────────────────────────────────────
+    private string GetPoiNameFromRequest(PoiRequest req)
+    {
+        try { return JsonSerializer.Deserialize<Poi>(req.RequestData, _jsonOpts)?.Name ?? "—"; }
+        catch { return "—"; }
     }
 }

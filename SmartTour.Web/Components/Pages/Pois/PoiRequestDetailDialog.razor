@@ -1,0 +1,102 @@
+@using SmartTour.Shared.Models
+@using System.Text.Json
+
+<MudDialog>
+    <DialogContent>
+        @if (Request != null)
+        {
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Người gửi</MudText>
+                    <MudText>@(Request.User?.FullName ?? Request.UserId.ToString())</MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Loại yêu cầu</MudText>
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@(Request.Type == RequestType.Create ? Color.Primary : Color.Info)"
+                             Variant="Variant.Filled">
+                        @(Request.Type == RequestType.Create ? "Tạo mới" : "Cập nhật")
+                    </MudChip>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Trạng thái</MudText>
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@StatusColor(Request.Status)"
+                             Variant="Variant.Filled">
+                        @StatusText(Request.Status)
+                    </MudChip>
+                </MudItem>
+                @if (Request.POIId.HasValue)
+                {
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.subtitle2" Color="Color.Secondary">POI cần cập nhật</MudText>
+                        <MudText>@(Request.OriginalPoi?.Name ?? $"ID: {Request.POIId}")</MudText>
+                    </MudItem>
+                }
+                <MudItem xs="12">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Dữ liệu POI đề xuất</MudText>
+                    <MudPaper Elevation="0" Class="pa-3 mt-1" Style="background:#f9f9f9; border-radius:8px; font-family: monospace; white-space: pre-wrap; font-size: 0.8rem; max-height: 300px; overflow-y: auto;">
+                        @PrettyJson(Request.RequestData)
+                    </MudPaper>
+                </MudItem>
+                @if (!string.IsNullOrEmpty(Request.AdminNote))
+                {
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Ghi chú Admin</MudText>
+                        <MudText>@Request.AdminNote</MudText>
+                    </MudItem>
+                }
+                <MudItem xs="6">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Ngày gửi</MudText>
+                    <MudText>@Request.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudText>
+                </MudItem>
+                @if (Request.UpdatedAt.HasValue)
+                {
+                    <MudItem xs="6">
+                        <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Ngày xử lý</MudText>
+                        <MudText>@Request.UpdatedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudText>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Variant="Variant.Filled" Color="Color.Default">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public PoiRequest? Request { get; set; }
+
+    private void Close() => MudDialog.Close();
+
+    private string PrettyJson(string json)
+    {
+        try
+        {
+            var obj = JsonSerializer.Deserialize<object>(json);
+            return JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return json;
+        }
+    }
+
+    private Color StatusColor(RequestStatus s) => s switch
+    {
+        RequestStatus.Pending => Color.Warning,
+        RequestStatus.Approved => Color.Success,
+        RequestStatus.Rejected => Color.Error,
+        _ => Color.Default
+    };
+
+    private string StatusText(RequestStatus s) => s switch
+    {
+        RequestStatus.Pending => "Đang chờ",
+        RequestStatus.Approved => "Đã duyệt",
+        RequestStatus.Rejected => "Đã từ chối",
+        _ => s.ToString()
+    };
+}

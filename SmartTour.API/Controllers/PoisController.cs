@@ -25,9 +25,11 @@ public class PoisController : ControllerBase
         [FromQuery] int? categoryId = null,
         [FromQuery] double? lat = null,
         [FromQuery] double? lng = null,
-        [FromQuery] double? radius = null)
+        [FromQuery] double? radius = null,
+        [FromQuery] int? createdById = null,
+        [FromQuery] bool onlyActive = true)
     {
-        return Ok(await _poiService.GetPoisAsync(categoryId, lat, lng, radius));
+        return Ok(await _poiService.GetPoisAsync(categoryId, lat, lng, radius, createdById, onlyActive));
     }
 
     [HttpGet("{id}")]

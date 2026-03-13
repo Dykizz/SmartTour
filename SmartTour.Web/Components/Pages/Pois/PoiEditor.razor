@@ -3,12 +3,15 @@
 @using SmartTour.Shared.Models
 @using SmartTour.Web.Services
 @using System.Net.Http.Json
+@using System.Text.Json
 @using System.Text.RegularExpressions
+@using Microsoft.AspNetCore.Components.Authorization
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IMapService MapService
 @inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
 <PageTitle>@(IsEdit ? "Chỉnh sửa POI" : "Thêm mới POI")</PageTitle>
@@ -30,9 +33,9 @@
             </div>
             <div class="d-none d-sm-flex gap-3">
                 <MudButton Variant="Variant.Outlined" OnClick="GoBack" Size="Size.Medium" Class="px-8">Hủy</MudButton>
-                <MudButton Variant="Variant.Filled" Color="@Color.Primary" OnClick="SavePoi" Size="Size.Medium" Class="px-10" StartIcon="@Icons.Material.Filled.Save">
+                <MudButton Variant="Variant.Filled" Color="@Color.Primary" OnClick="SavePoi" Size="Size.Medium" Class="px-10" StartIcon="@(_isAdmin ? Icons.Material.Filled.Save : Icons.Material.Filled.Send)">
                     @if (_saving) { <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" /> }
-                    else { <span>Lưu thay đổi</span> }
+                    else { <span>@(_isAdmin ? "Lưu thay đổi" : "Gửi yêu cầu")</span> }
                 </MudButton>
             </div>
         </div>
@@ -586,7 +589,7 @@
     <MudButton Variant="Variant.Outlined" OnClick="GoBack" Class="px-10 py-2 rounded-lg" Style="border: 1.5px solid var(--mud-palette-divider);">Hủy bỏ</MudButton>
     <MudButton Variant="Variant.Filled" Color="@Color.Primary" OnClick="SavePoi" Size="Size.Large" Class="px-20 py-2 rounded-lg shadow-lg" DropShadow="false">
         @if (_saving) { <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" /> }
-        else { <MudText Typo="Typo.button">LƯU THÔNG TIN POI</MudText> }
+        else { <MudText Typo="Typo.button">@(_isAdmin ? "LƯU THÔNG TIN POI" : "GỬI YÊU CẦU DUYỆT")</MudText> }
     </MudButton>
 </div>
 
@@ -594,13 +597,14 @@
 <MudOverlay Visible="@(_generatingAllAudio || _saving)" DarkBackground="true" ZIndex="9999">
     <MudStack AlignItems="AlignItems.Center">
         <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
-        <MudText Typo="Typo.h6" Color="Color.Inherit">@( _saving ? "Đang lưu dữ liệu..." : "Đang xử lý Audio đa ngôn ngữ...")</MudText>
+        <MudText Typo="Typo.h6" Color="Color.Inherit">@(_saving ? (_isAdmin ? "Đang lưu dữ liệu..." : "Đang gửi yêu cầu...") : "Đang xử lý Audio đa ngôn ngữ...")</MudText>
         <MudText Typo="Typo.body2" Color="Color.Inherit">Vui lòng đợi trong giây lát, kịch bản đang được AI dịch và chuyển đổi sang giọng nói.</MudText>
     </MudStack>
 </MudOverlay>
 
 @code {
     [Parameter] public int? Id { get; set; }
+    [SupplyParameterFromQuery] public int? FromRequestId { get; set; }
 
     private bool IsEdit => Id.HasValue && Id.Value > 0;
     private Poi _model = new() { GeofenceRadius = 50, IsActive = true };
@@ -610,6 +614,7 @@
     private bool _translatingAllDesc = false;
     private Dictionary<string, bool> _translatingDesc = new();
     private Dictionary<PoiImage, bool> _uploadingImages = new();
+    private bool _isAdmin = false;
     private List<Category> _categories = new();
     private List<Language> _languages = new();
     
@@ -620,6 +625,8 @@
     protected override async Task OnInitializedAsync()
     {
         _loading = true;
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAdmin = auth.User.IsInRole("ADMIN");
         try 
         {
             _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new();
@@ -641,9 +648,31 @@
             }
             else
             {
-                if (_categories.Any()) _model.CategoryId = _categories.First().Id;
-                _model.Latitude = 10.762622;
-                _model.Longitude = 106.660172;
+                // Gửi lại từ request bị từ chối: pre-fill dữ liệu
+                if (FromRequestId.HasValue)
+                {
+                    try
+                    {
+                        var rejectedReq = await Http.GetFromJsonAsync<PoiRequest>($"api/poi-requests/{FromRequestId.Value}");
+                        if (rejectedReq?.RequestData != null)
+                        {
+                            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                            _model = JsonSerializer.Deserialize<Poi>(rejectedReq.RequestData, opts)
+                                     ?? new Poi { GeofenceRadius = 50, IsActive = true };
+                            // Reset ID để tạo request mới
+                            _model.Id = 0;
+                            EnsureAllDaysPresent();
+                            Snackbar.Add("Đã nạp lại dữ liệu từ yêu cầu bị từ chối. Vui lòng chỉnh sửa và gửi lại.", Severity.Info);
+                        }
+                    }
+                    catch { /* Bỏ qua, để form trống */ }
+                }
+                else
+                {
+                    if (_categories.Any()) _model.CategoryId = _categories.First().Id;
+                    _model.Latitude = 10.762622;
+                    _model.Longitude = 106.660172;
+                }
                 InitializeDefaultOperatingHours();
             }
         }
@@ -680,31 +709,45 @@
             foreach (var audio in _model.AudioFiles) audio.Poi = null;
             _model.Category = null;
 
-            HttpResponseMessage response;
-            if (IsEdit) response = await Http.PutAsJsonAsync($"api/pois/{Id}", _model);
-            else response = await Http.PostAsJsonAsync("api/pois", _model);
-
-            if (response.IsSuccessStatusCode)
+            if (_isAdmin)
             {
-                Snackbar.Add("Đã lưu thông tin POI thành công", Severity.Success);
-                NavigationManager.NavigateTo("/poi-management");
-            }
-            else
-            {
-                var statusCode = response.StatusCode;
-                var errorContent = await response.Content.ReadAsStringAsync();
-                
+                // Admin: Lưu thẳng vào DB
+                HttpResponseMessage response;
+                if (IsEdit) response = await Http.PutAsJsonAsync($"api/pois/{Id}", _model);
+                else response = await Http.PostAsJsonAsync("api/pois", _model);
 
-                
-                if (statusCode == System.Net.HttpStatusCode.Unauthorized)
+                if (response.IsSuccessStatusCode)
                 {
-                    Snackbar.Add("Lỗi xác thực: Bạn chưa đăng nhập hoặc phiên đã hết hạn.", Severity.Error);
+                    Snackbar.Add("Đã lưu thông tin POI thành công", Severity.Success);
+                    NavigationManager.NavigateTo("/poi-management");
                 }
                 else
                 {
-                    if (string.IsNullOrWhiteSpace(errorContent)) errorContent = $"Mã lỗi {statusCode}";
-                    if (errorContent.Length > 200) errorContent = errorContent.Substring(0, 200) + "...";
-                    Snackbar.Add($"Lỗi khi lưu: {errorContent}", Severity.Error);
+                    await HandleErrorResponse(response);
+                }
+            }
+            else
+            {
+                // Seller: Gửi yêu cầu chờ Admin duyệt
+                var jsonOptions = new JsonSerializerOptions { ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles };
+                var requestData = JsonSerializer.Serialize(_model, jsonOptions);
+
+                var request = new PoiRequest
+                {
+                    Type = IsEdit ? RequestType.Update : RequestType.Create,
+                    POIId = IsEdit ? Id : null,
+                    RequestData = requestData
+                };
+
+                var response = await Http.PostAsJsonAsync("api/poi-requests", request);
+                if (response.IsSuccessStatusCode)
+                {
+                    Snackbar.Add("Yêu cầu đã được gửi! Admin sẽ xem xét và phê duyệt sớm.", Severity.Success);
+                    NavigationManager.NavigateTo("/poi-management");
+                }
+                else
+                {
+                    await HandleErrorResponse(response);
                 }
             }
         }
@@ -715,6 +758,21 @@
         finally
         {
             _saving = false;
+        }
+    }
+
+    private async Task HandleErrorResponse(HttpResponseMessage response)
+    {
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Snackbar.Add("Lỗi xác thực: Bạn chưa đăng nhập hoặc phiên đã hết hạn.", Severity.Error);
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(errorContent)) errorContent = $"Mã lỗi {response.StatusCode}";
+            if (errorContent.Length > 200) errorContent = errorContent[..200] + "...";
+            Snackbar.Add($"Lỗi: {errorContent}", Severity.Error);
         }
     }
 

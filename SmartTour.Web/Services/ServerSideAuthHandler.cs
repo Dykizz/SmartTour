@@ -33,6 +33,12 @@ public class ServerSideAuthHandler : DelegatingHandler
                 {
                     request.Headers.Add("X-SmartTour-User-Id", userId);
                 }
+
+                var role = _userSessionService.UserRole;
+                if (!string.IsNullOrEmpty(role))
+                {
+                    request.Headers.Add("X-SmartTour-User-Role", role);
+                }
             }
         }
         catch (Exception ex)

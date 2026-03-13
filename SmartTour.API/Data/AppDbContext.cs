@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<PoiImage> PoiImages => Set<PoiImage>();
     public DbSet<PoiContent> PoiContents => Set<PoiContent>();
     public DbSet<PoiAudioFile> PoiAudioFiles => Set<PoiAudioFile>();
+    public DbSet<PoiRequest> PoiRequests => Set<PoiRequest>();
     public DbSet<ServicePackage> ServicePackages => Set<ServicePackage>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
@@ -45,6 +46,23 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.UpdatedById)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PoiRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RequestData).IsRequired();
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.OriginalPoi)
+                .WithMany()
+                .HasForeignKey(e => e.POIId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<ServicePackage>(entity =>
