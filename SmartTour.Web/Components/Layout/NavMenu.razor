@@ -1,9 +1,33 @@
-<MudNavMenu>
+@using Microsoft.AspNetCore.Components.Authorization
+
+<MudNavMenu Bordered="true" Class="mud-width-full">
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Trang chủ</MudNavLink>
-    <MudNavLink Href="/pricing" Icon="@Icons.Material.Filled.WorkspacePremium">Dịch vụ & Nâng cấp</MudNavLink>
-    <MudNavLink Href="/poi-management" Icon="@Icons.Material.Filled.Place">Quản lý POI</MudNavLink>
-    <MudNavLink Href="/category-management" Icon="@Icons.Material.Filled.Category">Quản lý Loại hình</MudNavLink>
-    <MudNavLink Href="/service-package-management" Icon="@Icons.Material.Filled.CardMembership">Quản lý Gói dịch vụ</MudNavLink>
-    <MudNavLink Href="/language-management" Icon="@Icons.Material.Filled.Language">Quản lý Ngôn ngữ</MudNavLink>
-    <MudNavLink Href="/login" Icon="@Icons.Material.Filled.Login">Đăng nhập</MudNavLink>
+
+    <AuthorizeView Roles="ADMIN">
+        <Authorized>
+            <MudDivider Class="my-2" />
+            <MudNavLink Href="/category-management" Icon="@Icons.Material.Filled.Category">Quản lý Loại hình</MudNavLink>
+            <MudNavLink Href="/service-package-management" Icon="@Icons.Material.Filled.CardMembership">Quản lý Gói dịch vụ</MudNavLink>
+            <MudNavLink Href="/language-management" Icon="@Icons.Material.Filled.Language">Quản lý Ngôn ngữ</MudNavLink>
+            <MudNavLink Href="/poi-management" Icon="@Icons.Material.Filled.Place">Quản lý POI</MudNavLink>
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="SELLER">
+        <Authorized>
+            <MudDivider Class="my-2" />
+            <MudNavLink Href="/pricing" Icon="@Icons.Material.Filled.WorkspacePremium">Gói dịch vụ & Nâng cấp</MudNavLink>
+            <MudNavLink Href="/poi-management" Icon="@Icons.Material.Filled.Place">Quản lý POI</MudNavLink>
+        </Authorized>
+    </AuthorizeView>
+
+    <MudDivider Class="my-2" />
+    <AuthorizeView>
+        <Authorized>
+            <MudNavLink Href="/account/logout" Icon="@Icons.Material.Filled.Logout" IconColor="Color.Error">Đăng xuất</MudNavLink>
+        </Authorized>
+        <NotAuthorized>
+            <MudNavLink Href="/login" Icon="@Icons.Material.Filled.Login" IconColor="Color.Primary">Đăng nhập</MudNavLink>
+        </NotAuthorized>
+    </AuthorizeView>
 </MudNavMenu>

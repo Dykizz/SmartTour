@@ -1,6 +1,58 @@
-﻿@page "/"
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
 
-<PageTitle>SmartTour Web</PageTitle>
+<PageTitle>SmartTour Management</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Chào mừng bạn đến với trang quản trị SmartTour</MudText>
-<MudText Typo="Typo.body1">Bắt đầu phát triển giao diện quản lý tại đây.</MudText>
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
+    <AuthorizeView>
+        <Authorized>
+            @{
+                var user = context.User;
+                var name = user.Identity?.Name ?? "Người dùng";
+                var roleDisplay = user.IsInRole("ADMIN") ? "Admin" : (user.IsInRole("SELLER") ? "Seller" : "Thành viên");
+            }
+            <MudText Typo="Typo.h4" Class="mb-2" Style="font-weight: 700;">
+                Xin chào <span class="mud-primary-text">@roleDisplay</span>, @name! 👋
+            </MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-8">
+                Chào mừng bạn đến với hệ thống quản trị dự án SmartTour.
+            </MudText>
+
+            <MudGrid>
+                <AuthorizeView Roles="ADMIN" Context="adminContext">
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudPaper Class="pa-6 rounded-lg" Elevation="2" Style="border-left: 6px solid var(--mud-palette-primary);">
+                            <MudIcon Icon="@Icons.Material.Filled.Shield" Color="Color.Primary" Size="Size.Large" Class="mb-3"/>
+                            <MudText Typo="Typo.h6">Bộ máy Quản trị</MudText>
+                            <MudText Typo="Typo.body2">Bạn có toàn quyền kiểm soát dữ liệu hệ thống.</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </AuthorizeView>
+                
+                <AuthorizeView Roles="SELLER" Context="sellerContext">
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudPaper Class="pa-6 rounded-lg" Elevation="2" Style="border-left: 6px solid var(--mud-palette-secondary);">
+                            <MudIcon Icon="@Icons.Material.Filled.Storefront" Color="Color.Secondary" Size="Size.Large" Class="mb-3"/>
+                            <MudText Typo="Typo.h6"> Gian hàng Seller</MudText>
+                            <MudText Typo="Typo.body2">Quản lý các nội dung du lịch và dịch vụ của bạn.</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </AuthorizeView>
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudPaper Class="pa-6 rounded-lg" Elevation="2" Style="border-left: 6px solid var(--mud-palette-info);">
+                        <MudIcon Icon="@Icons.Material.Filled.BarChart" Color="Color.Info" Size="Size.Large" Class="mb-3"/>
+                        <MudText Typo="Typo.h6">Phân tích</MudText>
+                        <MudText Typo="Typo.body2">Xem các số liệu thống kê mới nhất.</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </Authorized>
+        <NotAuthorized>
+            <MudText Typo="Typo.h4" Class="mb-4">Hệ thống Quản trị SmartTour</MudText>
+            <MudText Typo="Typo.body1">Vui lòng đăng nhập để truy cập các tính năng quản lý.</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/login" Class="mt-4">Đăng nhập ngay</MudButton>
+        </NotAuthorized>
+    </AuthorizeView>
+</MudContainer>
