@@ -47,6 +47,14 @@
     }
     else
     {
+        @if (!string.IsNullOrEmpty(_adminNote))
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Class="mb-6 rounded-lg shadow-sm" Style="border: 1px solid rgba(255,152,0,0.3);">
+                <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Ghi chú từ quản trị viên:</MudText>
+                <MudText Typo="Typo.body2">@_adminNote</MudText>
+            </MudAlert>
+        }
+
         <MudExpansionPanels MultiExpansion="true" Elevation="0" Class="rounded-xl">
             <MudPaper Elevation="2" Class="mb-4 rounded-xl overflow-hidden stagger-item" Style="border: 1px solid rgba(0,0,0,0.08);">
             <MudExpansionPanel Expanded="true" Style="background: white;">
@@ -605,8 +613,10 @@
 @code {
     [Parameter] public int? Id { get; set; }
     [SupplyParameterFromQuery] public int? FromRequestId { get; set; }
+    [SupplyParameterFromQuery] public int? EditingRequestId { get; set; }
 
     private bool IsEdit => Id.HasValue && Id.Value > 0;
+    private bool IsEditingRequest => EditingRequestId.HasValue && EditingRequestId.Value > 0;
     private Poi _model = new() { GeofenceRadius = 50, IsActive = true };
     private bool _loading = true;
     private bool _saving = false;
@@ -617,6 +627,8 @@
     private bool _isAdmin = false;
     private List<Category> _categories = new();
     private List<Language> _languages = new();
+    private string? _adminNote;
+    private RequestStatus? _requestStatus;
     
     private string _mapSearch = "";
     private bool _mapInitialized = false;
@@ -646,33 +658,42 @@
                     NavigationManager.NavigateTo("/poi-management");
                 }
             }
+            else if (IsEditingRequest)
+            {
+                var req = await Http.GetFromJsonAsync<PoiRequest>($"api/poi-requests/{EditingRequestId}");
+                if (req?.RequestData != null)
+                {
+                    var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    _model = JsonSerializer.Deserialize<Poi>(req.RequestData, opts) ?? new();
+                    _adminNote = req.AdminNote;
+                    _requestStatus = req.Status;
+                    EnsureAllDaysPresent();
+                }
+            }
+            else if (FromRequestId.HasValue)
+            {
+                try
+                {
+                    var rejectedReq = await Http.GetFromJsonAsync<PoiRequest>($"api/poi-requests/{FromRequestId.Value}");
+                    if (rejectedReq?.RequestData != null)
+                    {
+                        var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        _model = JsonSerializer.Deserialize<Poi>(rejectedReq.RequestData, opts)
+                                 ?? new Poi { GeofenceRadius = 50, IsActive = true };
+                        // Reset ID để tạo request mới
+                        _model.Id = 0;
+                        EnsureAllDaysPresent();
+                        _adminNote = rejectedReq.AdminNote;
+                        Snackbar.Add("Đã nạp lại dữ liệu từ yêu cầu bị từ chối. Vui lòng chỉnh sửa và gửi lại.", Severity.Info);
+                    }
+                }
+                catch { /* Bỏ qua */ }
+            }
             else
             {
-                // Gửi lại từ request bị từ chối: pre-fill dữ liệu
-                if (FromRequestId.HasValue)
-                {
-                    try
-                    {
-                        var rejectedReq = await Http.GetFromJsonAsync<PoiRequest>($"api/poi-requests/{FromRequestId.Value}");
-                        if (rejectedReq?.RequestData != null)
-                        {
-                            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                            _model = JsonSerializer.Deserialize<Poi>(rejectedReq.RequestData, opts)
-                                     ?? new Poi { GeofenceRadius = 50, IsActive = true };
-                            // Reset ID để tạo request mới
-                            _model.Id = 0;
-                            EnsureAllDaysPresent();
-                            Snackbar.Add("Đã nạp lại dữ liệu từ yêu cầu bị từ chối. Vui lòng chỉnh sửa và gửi lại.", Severity.Info);
-                        }
-                    }
-                    catch { /* Bỏ qua, để form trống */ }
-                }
-                else
-                {
-                    if (_categories.Any()) _model.CategoryId = _categories.First().Id;
-                    _model.Latitude = 10.762622;
-                    _model.Longitude = 106.660172;
-                }
+                if (_categories.Any()) _model.CategoryId = _categories.First().Id;
+                _model.Latitude = 10.762622;
+                _model.Longitude = 106.660172;
                 InitializeDefaultOperatingHours();
             }
         }
@@ -732,17 +753,28 @@
                 var jsonOptions = new JsonSerializerOptions { ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles };
                 var requestData = JsonSerializer.Serialize(_model, jsonOptions);
 
-                var request = new PoiRequest
+                HttpResponseMessage response;
+                if (IsEditingRequest)
                 {
-                    Type = IsEdit ? RequestType.Update : RequestType.Create,
-                    POIId = IsEdit ? Id : null,
-                    RequestData = requestData
-                };
+                    // Cập nhật yêu cầu hiện có
+                    var updateReq = new PoiRequest { RequestData = requestData };
+                    response = await Http.PutAsJsonAsync($"api/poi-requests/{EditingRequestId}", updateReq);
+                }
+                else
+                {
+                    // Tạo yêu cầu mới
+                    var request = new PoiRequest
+                    {
+                        Type = IsEdit ? RequestType.Update : RequestType.Create,
+                        POIId = IsEdit ? Id : null,
+                        RequestData = requestData
+                    };
+                    response = await Http.PostAsJsonAsync("api/poi-requests", request);
+                }
 
-                var response = await Http.PostAsJsonAsync("api/poi-requests", request);
                 if (response.IsSuccessStatusCode)
                 {
-                    Snackbar.Add("Yêu cầu đã được gửi! Admin sẽ xem xét và phê duyệt sớm.", Severity.Success);
+                    Snackbar.Add(IsEditingRequest ? "Đã cập nhật yêu cầu thành công!" : "Yêu cầu đã được gửi! Admin sẽ xem xét và phê duyệt sớm.", Severity.Success);
                     NavigationManager.NavigateTo("/poi-management");
                 }
                 else

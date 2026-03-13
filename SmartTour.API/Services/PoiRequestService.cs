@@ -97,4 +97,33 @@ public class PoiRequestService : IPoiRequestService
         await _context.SaveChangesAsync();
         return true;
     }
+
+    public async Task<bool> DeleteAsync(int id, int userId, bool isAdmin)
+    {
+        var request = await _context.PoiRequests.FindAsync(id);
+        if (request == null) return false;
+
+        // Nếu không phải admin, chỉ được xóa yêu cầu của chính mình
+        if (!isAdmin && request.UserId != userId) return false;
+
+        _context.PoiRequests.Remove(request);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> UpdateRequestAsync(int id, string requestData, int userId)
+    {
+        var request = await _context.PoiRequests.FindAsync(id);
+        if (request == null || request.UserId != userId) return false;
+
+        // Cho phép sửa nếu đang Pending hoặc Rejected
+        if (request.Status == RequestStatus.Approved) return false;
+
+        request.RequestData = requestData;
+        request.Status = RequestStatus.Pending; // Gửi lại thì thành Pending
+        request.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
 }

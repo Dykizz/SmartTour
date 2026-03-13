@@ -10,4 +10,6 @@ public interface IPoiRequestService
     Task<PoiRequest> SubmitRequestAsync(PoiRequest request, int userId);
     Task<bool> ApproveAsync(int requestId, int adminId, string? note);
     Task<bool> RejectAsync(int requestId, int adminId, string note);
+    Task<bool> DeleteAsync(int id, int userId, bool isAdmin);
+    Task<bool> UpdateRequestAsync(int id, string requestData, int userId);
 }

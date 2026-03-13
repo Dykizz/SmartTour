@@ -16,49 +16,58 @@
     @if (_isAdmin)
     {
         <!-- ============ ADMIN VIEW ============ -->
-        <MudPaper Elevation="2" Class="pa-4">
-            <div class="d-flex align-center justify-space-between mb-4">
-                <MudText Typo="Typo.h5" Style="font-weight:bold;">Danh sách điểm POI</MudText>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="NavigateToCreate">Thêm điểm mới</MudButton>
-            </div>
-            <MudTable Items="_pois" Hover="true" Breakpoint="Breakpoint.Sm"
-                      Loading="_loading" Elevation="0">
-                <HeaderContent>
-                    <MudTh>Tên điểm đến</MudTh>
-                    <MudTh>Loại hình</MudTh>
-                    <MudTh>Tọa độ</MudTh>
-                    <MudTh>Bán kính</MudTh>
-                    <MudTh>Trạng thái</MudTh>
-                    <MudTh Style="width:120px">Thao tác</MudTh>
-                </HeaderContent>
-                <RowTemplate Context="poi">
-                    <MudTd DataLabel="Tên">@poi.Name</MudTd>
-                    <MudTd DataLabel="Loại">@(poi.Category?.Name ?? "N/A")</MudTd>
-                    <MudTd DataLabel="Tọa độ">@poi.Latitude.ToString("F4"), @poi.Longitude.ToString("F4")</MudTd>
-                    <MudTd DataLabel="Bán kính">@poi.GeofenceRadius m</MudTd>
-                    <MudTd DataLabel="Trạng thái">
-                        <MudChip T="string" Color="@(poi.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
-                            @(poi.IsActive ? "Hoạt động" : "Tạm dừng")
-                        </MudChip>
-                    </MudTd>
-                    <MudTd>
-                        <MudTooltip Text="Chỉnh sửa">
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
-                                           Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
-                        </MudTooltip>
-                        <MudTooltip Text="Xóa">
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
-                                           Size="Size.Small" OnClick="@(() => DeletePoi(poi))" />
-                        </MudTooltip>
-                    </MudTd>
-                </RowTemplate>
-                <NoRecordsContent>
-                    <MudText Class="pa-4">@(_loading ? "Đang tải..." : "Chưa có điểm POI nào.")</MudText>
-                </NoRecordsContent>
-            </MudTable>
-        </MudPaper>
+        <div class="d-flex align-center justify-space-between mb-4">
+            <MudText Typo="Typo.h5" Style="font-weight:bold;">Quản lý toàn bộ POI</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="NavigateToCreate">Thêm điểm mới</MudButton>
+        </div>
+
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+            <MudTabPanel Text="Tất cả POI" Icon="@Icons.Material.Filled.List" IconColor="Color.Primary"
+                         BadgeData="@(_pois.Count > 0 ? _pois.Count.ToString() : null)"
+                         BadgeColor="Color.Primary">
+                <MudTable Items="_pois" Hover="true" Breakpoint="Breakpoint.Sm"
+                          Loading="_loading" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>STT</MudTh>
+                        <MudTh>Tên điểm đến</MudTh>
+                        <MudTh>Loại hình</MudTh>
+                        <MudTh>Tọa độ</MudTh>
+                        <MudTh>Bán kính</MudTh>
+                        <MudTh>Trạng thái</MudTh>
+                        <MudTh Style="width:120px">Thao tác</MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="poi">
+                        <MudTd>@(_pois.IndexOf(poi) + 1)</MudTd>
+                        <MudTd DataLabel="Tên">@poi.Name</MudTd>
+                        <MudTd DataLabel="Loại">@(poi.Category?.Name ?? "N/A")</MudTd>
+                        <MudTd DataLabel="Tọa độ">@poi.Latitude.ToString("F4"), @poi.Longitude.ToString("F4")</MudTd>
+                        <MudTd DataLabel="Bán kính">@poi.GeofenceRadius m</MudTd>
+                        <MudTd DataLabel="Trạng thái">
+                            <MudChip T="string" Color="@(poi.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
+                                @(poi.IsActive ? "Hoạt động" : "Tạm dừng")
+                            </MudChip>
+                        </MudTd>
+                        <MudTd>
+                            <div class="d-flex">
+                                <MudTooltip Text="Chỉnh sửa">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                                   Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Xóa">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                                   Size="Size.Small" OnClick="@(() => DeletePoi(poi))" />
+                                </MudTooltip>
+                            </div>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Class="pa-4">@(_loading ? "Đang tải..." : "Chưa có điểm POI nào.")</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudTabPanel>
+        </MudTabs>
     }
     else
     {
@@ -73,7 +82,9 @@
         <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
 
             <!-- Tab 1: Đã duyệt → hiển thị POI thực tế -->
-            <MudTabPanel Text="Đã duyệt" Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success">
+            <MudTabPanel Text="Đã duyệt" Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success"
+                         BadgeData="@(_myPois.Count > 0 ? _myPois.Count.ToString() : null)"
+                         BadgeColor="Color.Success">
                 @if (_loadingMyPois)
                 {
                     <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
@@ -84,8 +95,9 @@
                 }
                 else
                 {
-                    <MudTable Items="_myPois" Hover="true" Elevation="0">
+                    <MudTable Items="_myPois" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
                         <HeaderContent>
+                            <MudTh>STT</MudTh>
                             <MudTh>Tên điểm đến</MudTh>
                             <MudTh>Loại hình</MudTh>
                             <MudTh>Bán kính</MudTh>
@@ -93,6 +105,7 @@
                             <MudTh Style="width:120px">Thao tác</MudTh>
                         </HeaderContent>
                         <RowTemplate Context="poi">
+                            <MudTd>@(_myPois.IndexOf(poi) + 1)</MudTd>
                             <MudTd DataLabel="Tên">@poi.Name</MudTd>
                             <MudTd DataLabel="Loại">@(poi.Category?.Name ?? "N/A")</MudTd>
                             <MudTd DataLabel="Bán kính">@poi.GeofenceRadius m</MudTd>
@@ -102,10 +115,16 @@
                                 </MudChip>
                             </MudTd>
                             <MudTd>
-                                <MudTooltip Text="Gửi yêu cầu chỉnh sửa">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
-                                                   Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
-                                </MudTooltip>
+                                <div class="d-flex">
+                                    <MudTooltip Text="Gửi yêu cầu chỉnh sửa">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                                                       Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Xóa POI">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                                       Size="Size.Small" OnClick="@(() => DeletePoi(poi))" />
+                                    </MudTooltip>
+                                </div>
                             </MudTd>
                         </RowTemplate>
                     </MudTable>
@@ -126,30 +145,45 @@
                 }
                 else
                 {
-                    <MudTable Items="_pendingRequests" Hover="true" Elevation="0">
+                    <MudTable Items="_pendingRequests" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
                         <HeaderContent>
-                            <MudTh>#</MudTh>
+                            <MudTh>STT</MudTh>
                             <MudTh>Tên POI đề xuất</MudTh>
                             <MudTh>Loại yêu cầu</MudTh>
                             <MudTh>Ngày gửi</MudTh>
+                            <MudTh Style="width:120px">Thao tác</MudTh>
                         </HeaderContent>
                         <RowTemplate Context="req">
-                            <MudTd>#@req.Id</MudTd>
+                            <MudTd>@(_pendingRequests.IndexOf(req) + 1)</MudTd>
                             <MudTd>@GetPoiNameFromRequest(req)</MudTd>
                             <MudTd>
                                 <MudChip T="string" Size="Size.Small"
                                          Color="@(req.Type == RequestType.Create ? Color.Primary : Color.Info)">
-                                    @(req.Type == RequestType.Create ? "Tạo mới" : "Cập nhật")
+                                     @(req.Type == RequestType.Create ? "Tạo mới" : "Cập nhật")
                                 </MudChip>
                             </MudTd>
                             <MudTd>@req.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                            <MudTd>
+                                <div class="d-flex">
+                                    <MudTooltip Text="Chỉnh sửa yêu cầu">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" 
+                                                       Size="Size.Small" OnClick="@(() => NavigationManager.NavigateTo($"/poi/editor?editingRequestId={req.Id}"))" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Hủy yêu cầu">
+                                        <MudIconButton Icon="@Icons.Material.Filled.DeleteForever" Color="Color.Error" 
+                                                       Size="Size.Small" OnClick="@(() => CancelRequest(req))" />
+                                    </MudTooltip>
+                                </div>
+                            </MudTd>
                         </RowTemplate>
                     </MudTable>
                 }
             </MudTabPanel>
 
             <!-- Tab 3: Bị từ chối → có nút Gửi lại -->
-            <MudTabPanel Text="Bị từ chối" Icon="@Icons.Material.Filled.Cancel" IconColor="Color.Error">
+            <MudTabPanel Text="Bị từ chối" Icon="@Icons.Material.Filled.Cancel" IconColor="Color.Error"
+                         BadgeData="@(_rejectedRequests.Count > 0 ? _rejectedRequests.Count.ToString() : null)"
+                         BadgeColor="Color.Error">
                 @if (_loadingRequests)
                 {
                     <MudProgressLinear Indeterminate="true" Color="Color.Error" />
@@ -160,9 +194,9 @@
                 }
                 else
                 {
-                    <MudTable Items="_rejectedRequests" Hover="true" Elevation="0">
+                    <MudTable Items="_rejectedRequests" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
                         <HeaderContent>
-                            <MudTh>#</MudTh>
+                            <MudTh>STT</MudTh>
                             <MudTh>Tên POI đề xuất</MudTh>
                             <MudTh>Loại yêu cầu</MudTh>
                             <MudTh>Lý do từ chối</MudTh>
@@ -170,7 +204,7 @@
                             <MudTh Style="width:120px">Thao tác</MudTh>
                         </HeaderContent>
                         <RowTemplate Context="req">
-                            <MudTd>#@req.Id</MudTd>
+                            <MudTd>@(_rejectedRequests.IndexOf(req) + 1)</MudTd>
                             <MudTd>@GetPoiNameFromRequest(req)</MudTd>
                             <MudTd>
                                 <MudChip T="string" Size="Size.Small"
@@ -181,11 +215,17 @@
                             <MudTd>@(req.AdminNote ?? "—")</MudTd>
                             <MudTd>@req.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
                             <MudTd>
-                                <MudTooltip Text="Gửi lại yêu cầu">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Warning"
-                                                   Size="Size.Small"
-                                                   OnClick="@(() => NavigationManager.NavigateTo($"/poi/editor?fromRequestId={req.Id}"))" />
-                                </MudTooltip>
+                                <div class="d-flex">
+                                    <MudTooltip Text="Chỉnh sửa & Gửi lại">
+                                        <MudIconButton Icon="@Icons.Material.Filled.EditNote" Color="Color.Warning"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => NavigationManager.NavigateTo($"/poi/editor?editingRequestId={req.Id}"))" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Xóa yêu cầu">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                                       Size="Size.Small" OnClick="@(() => CancelRequest(req))" />
+                                    </MudTooltip>
+                                </div>
                             </MudTd>
                         </RowTemplate>
                     </MudTable>
@@ -260,7 +300,8 @@
         if (response.IsSuccessStatusCode)
         {
             Snackbar.Add("Đã xóa POI thành công", Severity.Success);
-            await LoadPois();
+            if (_isAdmin) await LoadPois();
+            else await LoadMyPois();
         }
         else
         {
@@ -294,6 +335,26 @@
         }
         catch (Exception ex) { Snackbar.Add("Lỗi tải yêu cầu: " + ex.Message, Severity.Error); }
         finally { _loadingRequests = false; }
+    }
+
+    private async Task CancelRequest(PoiRequest req)
+    {
+        bool? confirm = await DialogService.ShowMessageBox(
+            "Xác nhận hủy",
+            $"Bạn có chắc muốn hủy yêu cầu \"{GetPoiNameFromRequest(req)}\" không? Hành động này sẽ xóa vĩnh viễn yêu cầu này.",
+            yesText: "Hủy yêu cầu", cancelText: "Quay lại");
+        if (confirm != true) return;
+
+        var response = await Http.DeleteAsync($"api/poi-requests/{req.Id}");
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Đã hủy yêu cầu thành công", Severity.Success);
+            await LoadMyRequests();
+        }
+        else
+        {
+            Snackbar.Add("Lỗi khi hủy yêu cầu.", Severity.Error);
+        }
     }
 
     // ─── Helpers ───────────────────────────────────────────────

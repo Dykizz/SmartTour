@@ -16,7 +16,6 @@ public class CloudStorageService : ICloudStorageService
         
         if (File.Exists(credentialPath))
         {
-            Console.WriteLine($"[GCS] Using credential file at: {credentialPath}");
             using var stream = new System.IO.FileStream(credentialPath, FileMode.Open, FileAccess.Read);
             var credential = GoogleCredential.FromStream(stream);
             _storageClient = StorageClient.Create(credential);
@@ -56,6 +55,25 @@ public class CloudStorageService : ICloudStorageService
             Console.WriteLine($"[GCS] UPLOAD ERROR (Bytes): {ex.Message}");
             if (ex.InnerException != null) Console.WriteLine($"[GCS] Inner Error: {ex.InnerException.Message}");
             throw;
+        }
+    }
+
+    public async Task DeleteFileAsync(string fileUrl)
+    {
+        try
+        {
+            // URL dạng: https://storage.googleapis.com/{bucket}/{objectName}
+            var prefix = $"https://storage.googleapis.com/{_bucketName}/";
+            if (!fileUrl.StartsWith(prefix)) return; // URL ngoài bucket → bỏ qua
+
+            var objectName = fileUrl[prefix.Length..];
+            await _storageClient.DeleteObjectAsync(_bucketName, objectName);
+            Console.WriteLine($"[GCS] Deleted: {objectName}");
+        }
+        catch (Exception ex)
+        {
+            // Không throw — file có thể đã bị xóa, không block quá trình xóa DB
+            Console.WriteLine($"[GCS] DELETE WARNING: {ex.Message}");
         }
     }
 }

@@ -19,7 +19,7 @@
     <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
 
         <!-- TAB 1: Đang chờ xử lý -->
-        <MudTabPanel Text="Đang chờ" Icon="@Icons.Material.Filled.HourglassEmpty"
+        <MudTabPanel Text="Chờ duyệt" Icon="@Icons.Material.Filled.HourglassEmpty" IconColor="Color.Warning"
                      BadgeData="@(_pending.Count > 0 ? _pending.Count.ToString() : null)"
                      BadgeColor="Color.Warning">
             @if (_loading)
@@ -32,17 +32,17 @@
             }
             else
             {
-                <MudTable Items="_pending" Hover="true" Elevation="0" Class="mt-2">
+                <MudTable Items="_pending" Hover="true" Elevation="0" Class="mt-2" Breakpoint="Breakpoint.Sm">
                     <HeaderContent>
-                        <MudTh>#</MudTh>
+                        <MudTh>STT</MudTh>
                         <MudTh>Người gửi</MudTh>
                         <MudTh>Tên POI đề xuất</MudTh>
                         <MudTh>Loại</MudTh>
                         <MudTh>Gửi lúc</MudTh>
-                        <MudTh Style="text-align:right">Thao tác</MudTh>
+                        <MudTh Style="width:120px">Thao tác</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="req">
-                        <MudTd>#@req.Id</MudTd>
+                        <MudTd>@(_pending.IndexOf(req) + 1)</MudTd>
                         <MudTd>@(req.User?.FullName ?? req.UserId.ToString())</MudTd>
                         <MudTd><MudText Typo="Typo.body2" Style="font-weight:600;">@GetPoiName(req)</MudText></MudTd>
                         <MudTd>
@@ -53,16 +53,18 @@
                             </MudChip>
                         </MudTd>
                         <MudTd>@req.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
-                        <MudTd Style="text-align:right">
-                            <MudTooltip Text="Xem chi tiết">
-                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => OpenViewDetail(req))" />
-                            </MudTooltip>
-                            <MudTooltip Text="Duyệt nhanh">
-                                <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" OnClick="@(() => ApproveRequest(req))" />
-                            </MudTooltip>
-                            <MudTooltip Text="Từ chối">
-                                <MudIconButton Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" OnClick="@(() => RejectRequest(req))" />
-                            </MudTooltip>
+                        <MudTd>
+                            <div class="d-flex">
+                                <MudTooltip Text="Xem chi tiết">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => OpenViewDetail(req))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Duyệt nhanh">
+                                    <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" OnClick="@(() => ApproveRequest(req))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Từ chối">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" OnClick="@(() => RejectRequest(req))" />
+                                </MudTooltip>
+                            </div>
                         </MudTd>
                     </RowTemplate>
                 </MudTable>
@@ -70,32 +72,36 @@
         </MudTabPanel>
 
         <!-- TAB 2: Đã duyệt -->
-        <MudTabPanel Text="Đã duyệt" Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success">
+        <MudTabPanel Text="Đã duyệt" Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success"
+                     BadgeData="@(_approved.Count > 0 ? _approved.Count.ToString() : null)"
+                     BadgeColor="Color.Success">
             @if (!_approved.Any())
             {
                 <MudAlert Severity="Severity.Info" Dense="true">Chưa có yêu cầu nào được duyệt.</MudAlert>
             }
             else
             {
-                <MudTable Items="_approved" Hover="true" Elevation="0">
+                <MudTable Items="_approved" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
                     <HeaderContent>
-                        <MudTh>#</MudTh>
+                        <MudTh>STT</MudTh>
                         <MudTh>Người gửi</MudTh>
                         <MudTh>Tên POI</MudTh>
                         <MudTh>Ghi chú Admin</MudTh>
                         <MudTh>Cập nhật lúc</MudTh>
-                        <MudTh Style="text-align:right">Chi tiết</MudTh>
+                        <MudTh Style="width:120px">Thao tác</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="req">
-                        <MudTd>#@req.Id</MudTd>
+                        <MudTd>@(_approved.IndexOf(req) + 1)</MudTd>
                         <MudTd>@(req.User?.FullName ?? req.UserId.ToString())</MudTd>
                         <MudTd><MudText Typo="Typo.body2" Style="font-weight:600;">@GetPoiName(req)</MudText></MudTd>
                         <MudTd>@(req.AdminNote ?? "—")</MudTd>
                         <MudTd>@(req.UpdatedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</MudTd>
-                        <MudTd Style="text-align:right">
-                            <MudTooltip Text="Xem chi tiết">
-                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => OpenViewDetail(req))" />
-                            </MudTooltip>
+                        <MudTd>
+                            <div class="d-flex">
+                                <MudTooltip Text="Xem chi tiết">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => OpenViewDetail(req))" />
+                                </MudTooltip>
+                            </div>
                         </MudTd>
                     </RowTemplate>
                 </MudTable>
@@ -103,32 +109,36 @@
         </MudTabPanel>
 
         <!-- TAB 3: Đã từ chối -->
-        <MudTabPanel Text="Đã từ chối" Icon="@Icons.Material.Filled.Cancel" IconColor="Color.Error">
+        <MudTabPanel Text="Bị từ chối" Icon="@Icons.Material.Filled.Cancel" IconColor="Color.Error"
+                     BadgeData="@(_rejected.Count > 0 ? _rejected.Count.ToString() : null)"
+                     BadgeColor="Color.Error">
             @if (!_rejected.Any())
             {
                 <MudAlert Severity="Severity.Info" Dense="true">Chưa có yêu cầu nào bị từ chối.</MudAlert>
             }
             else
             {
-                <MudTable Items="_rejected" Hover="true" Elevation="0">
+                <MudTable Items="_rejected" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
                     <HeaderContent>
-                        <MudTh>#</MudTh>
+                        <MudTh>STT</MudTh>
                         <MudTh>Người gửi</MudTh>
                         <MudTh>Tên POI</MudTh>
                         <MudTh>Lý do từ chối</MudTh>
                         <MudTh>Cập nhật lúc</MudTh>
-                        <MudTh Style="text-align:right">Chi tiết</MudTh>
+                        <MudTh Style="width:120px">Thao tác</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="req">
-                        <MudTd>#@req.Id</MudTd>
+                        <MudTd>@(_rejected.IndexOf(req) + 1)</MudTd>
                         <MudTd>@(req.User?.FullName ?? req.UserId.ToString())</MudTd>
                         <MudTd><MudText Typo="Typo.body2" Style="font-weight:600;">@GetPoiName(req)</MudText></MudTd>
                         <MudTd>@(req.AdminNote ?? "—")</MudTd>
                         <MudTd>@(req.UpdatedAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</MudTd>
-                        <MudTd Style="text-align:right">
-                            <MudTooltip Text="Xem chi tiết">
-                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => OpenViewDetail(req))" />
-                            </MudTooltip>
+                        <MudTd>
+                            <div class="d-flex">
+                                <MudTooltip Text="Xem chi tiết">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" OnClick="@(() => OpenViewDetail(req))" />
+                                </MudTooltip>
+                            </div>
                         </MudTd>
                     </RowTemplate>
                 </MudTable>

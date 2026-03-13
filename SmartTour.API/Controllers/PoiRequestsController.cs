@@ -91,6 +91,30 @@ public class PoiRequestsController : ControllerBase
         return NoContent();
     }
 
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var success = await _requestService.DeleteAsync(id, userId.Value, User.IsInRole("ADMIN"));
+        if (!success) return NotFound();
+
+        return NoContent();
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] PoiRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var success = await _requestService.UpdateRequestAsync(id, request.RequestData, userId.Value);
+        if (!success) return NotFound("Yêu cầu không tìm thấy hoặc đã được duyệt.");
+
+        return NoContent();
+    }
+
     private int? GetCurrentUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

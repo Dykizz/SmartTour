@@ -8,10 +8,12 @@ namespace SmartTour.API.Services;
 public class PoiService : IPoiService
 {
     private readonly AppDbContext _context;
+    private readonly ICloudStorageService _storage;
 
-    public PoiService(AppDbContext context)
+    public PoiService(AppDbContext context, ICloudStorageService storage)
     {
         _context = context;
+        _storage = storage;
     }
 
     public async Task<IEnumerable<Poi>> GetPoisAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false)
@@ -98,9 +100,33 @@ public class PoiService : IPoiService
 
     public async Task<bool> DeleteAsync(int id)
     {
-        var poi = await _context.Pois.FindAsync(id);
+        // Load đầy đủ ảnh và audio để xóa file trên GCS
+        var poi = await _context.Pois
+            .Include(p => p.Images)
+            .Include(p => p.AudioFiles)
+            .Include(p => p.Contents)
+            .Include(p => p.OperatingHours)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
         if (poi == null) return false;
 
+        // 1. Xóa file thực trên Google Cloud Storage
+        var deleteFileTasks = new List<Task>();
+        foreach (var img in poi.Images)
+            if (!string.IsNullOrEmpty(img.ImageUrl))
+                deleteFileTasks.Add(_storage.DeleteFileAsync(img.ImageUrl));
+        foreach (var audio in poi.AudioFiles)
+            if (!string.IsNullOrEmpty(audio.FileUrl))
+                deleteFileTasks.Add(_storage.DeleteFileAsync(audio.FileUrl));
+        await Task.WhenAll(deleteFileTasks);
+
+        // 2. Xóa các bảng con trong DB (EF cascade sẽ xử lý nếu đã cấu hình, nhưng xóa tường minh cho chắc)
+        _context.PoiImages.RemoveRange(poi.Images);
+        _context.PoiAudioFiles.RemoveRange(poi.AudioFiles);
+        _context.PoiContents.RemoveRange(poi.Contents);
+        _context.OperatingHours.RemoveRange(poi.OperatingHours);
+
+        // 3. Xóa POI
         _context.Pois.Remove(poi);
         await _context.SaveChangesAsync();
         return true;
