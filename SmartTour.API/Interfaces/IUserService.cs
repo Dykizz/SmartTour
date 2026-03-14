@@ -1,0 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using SmartTour.Shared.Models;
+
+namespace SmartTour.API.Interfaces;
+
+public interface IUserService
+{
+    Task<PagedResponse<UserDto>> GetUsersPagedAsync(int roleId = 0, int pageNumber = 1, int pageSize = 10);
+}

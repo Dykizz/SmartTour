@@ -42,6 +42,7 @@ builder.Services.AddScoped<ITranslateService, TranslateService>();
 builder.Services.AddScoped<ITtsService, TtsService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IRevenueService, RevenueService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHostedService<PaymentCleanupService>();
 
 builder.Services.AddEndpointsApiExplorer();

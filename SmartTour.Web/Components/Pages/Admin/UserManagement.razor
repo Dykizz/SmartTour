@@ -1,0 +1,172 @@
+@page "/users"
+@using SmartTour.Shared.Models
+@attribute [Authorize(Roles = "ADMIN")]
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<PageTitle>Quản lý Người dùng - SmartTour Admin</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8 mb-12">
+    <div class="d-flex align-center justify-space-between mb-6">
+        <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Quản lý Người dùng</MudText>
+    </div>
+
+    <MudPaper Elevation="2" Class="pa-4 mt-4 rounded-lg" Style="width: 100%;">
+        <MudTabs Elevation="0" Rounded="true" PanelClass="pt-4" Style="width: 100%;" @bind-ActivePanelIndex="_activeTab">
+            <MudTabPanel Text="Tất cả" Icon="@Icons.Material.Filled.People"
+                         BadgeData="@(_allCount > 0 ? _allCount.ToString() : null)"
+                         BadgeColor="MudBlazor.Color.Primary">
+                <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<UserDto>>>((s, t) => ServerReload(s, 0)))"
+                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" @ref="_tableAll" Style="width: 100%;">
+                    <HeaderContent>
+                        <MudTh>STT</MudTh>
+                        <MudTh>Tên</MudTh>
+                        <MudTh>Email</MudTh>
+                        <MudTh>Vai trò</MudTh>
+                        <MudTh>Gói dịch vụ</MudTh>
+                        <MudTh>Ngày tạo</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="STT">@((_tableAll.CurrentPage * _tableAll.RowsPerPage) + _usersAll.IndexOf(context) + 1)</MudTd>
+                        <MudTd DataLabel="Tên"><MudText Typo="Typo.body2" Style="font-weight: 600;">@context.FullName</MudText></MudTd>
+                        <MudTd DataLabel="Email">@context.Email</MudTd>
+                        <MudTd DataLabel="Vai trò"><MudChip T="string" Color="@GetRoleColor(context.RoleId)" Size="MudBlazor.Size.Small" Variant="Variant.Filled">@context.RoleName.ToUpper()</MudChip></MudTd>
+                        <MudTd DataLabel="Gói dịch vụ">
+                            @if (context.CurrentPackageName == "Chưa có gói") { <MudText Typo="Typo.caption" Color="MudBlazor.Color.Error">@context.CurrentPackageName</MudText> }
+                            else { <MudText Typo="Typo.caption" Color="MudBlazor.Color.Success" Style="font-weight: 600;">@context.CurrentPackageName</MudText> }
+                        </MudTd>
+                        <MudTd DataLabel="Ngày tạo">@context.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                    </RowTemplate>
+                    <PagerContent><MudTablePager RowsPerPageString="Số dòng mỗi trang:" InfoFormat="{first_item}-{last_item} trong {all_items}" /></PagerContent>
+                    <NoRecordsContent><MudText>Không tìm thấy người dùng nào.</MudText></NoRecordsContent>
+                    <LoadingContent><MudText>Đang tải dữ liệu...</MudText></LoadingContent>
+                </MudTable>
+            </MudTabPanel>
+            
+            <MudTabPanel Text="Seller" Icon="@Icons.Material.Filled.Storefront"
+                         BadgeData="@(_sellerCount > 0 ? _sellerCount.ToString() : null)"
+                         BadgeColor="MudBlazor.Color.Secondary">
+                <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<UserDto>>>((s, t) => ServerReload(s, 2)))"
+                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" @ref="_tableSeller" Style="width: 100%;">
+                    <HeaderContent>
+                        <MudTh>STT</MudTh>
+                        <MudTh>Tên</MudTh>
+                        <MudTh>Email</MudTh>
+                        <MudTh>Vai trò</MudTh>
+                        <MudTh>Gói dịch vụ</MudTh>
+                        <MudTh>Ngày tạo</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="STT">@((_tableSeller.CurrentPage * _tableSeller.RowsPerPage) + _usersSeller.IndexOf(context) + 1)</MudTd>
+                        <MudTd DataLabel="Tên"><MudText Typo="Typo.body2" Style="font-weight: 600;">@context.FullName</MudText></MudTd>
+                        <MudTd DataLabel="Email">@context.Email</MudTd>
+                        <MudTd DataLabel="Vai trò"><MudChip T="string" Color="@GetRoleColor(context.RoleId)" Size="MudBlazor.Size.Small" Variant="Variant.Filled">@context.RoleName.ToUpper()</MudChip></MudTd>
+                        <MudTd DataLabel="Gói dịch vụ">
+                            @if (context.CurrentPackageName == "Chưa có gói") { <MudText Typo="Typo.caption" Color="MudBlazor.Color.Error">@context.CurrentPackageName</MudText> }
+                            else { <MudText Typo="Typo.caption" Color="MudBlazor.Color.Success" Style="font-weight: 600;">@context.CurrentPackageName</MudText> }
+                        </MudTd>
+                        <MudTd DataLabel="Ngày tạo">@context.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                    </RowTemplate>
+                    <PagerContent><MudTablePager RowsPerPageString="Số dòng mỗi trang:" InfoFormat="{first_item}-{last_item} trong {all_items}" /></PagerContent>
+                    <NoRecordsContent><MudText>Không tìm thấy người dùng nào.</MudText></NoRecordsContent>
+                    <LoadingContent><MudText>Đang tải dữ liệu...</MudText></LoadingContent>
+                </MudTable>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Visitor" Icon="@Icons.Material.Filled.PersonOutline"
+                         BadgeData="@(_visitorCount > 0 ? _visitorCount.ToString() : null)"
+                         BadgeColor="MudBlazor.Color.Info">
+                <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<UserDto>>>((s, t) => ServerReload(s, 3)))"
+                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" @ref="_tableVisitor" Style="width: 100%;">
+                    <HeaderContent>
+                        <MudTh>STT</MudTh>
+                        <MudTh>Tên</MudTh>
+                        <MudTh>Email</MudTh>
+                        <MudTh>Vai trò</MudTh>
+                        <MudTh>Gói dịch vụ</MudTh>
+                        <MudTh>Ngày tạo</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="STT">@((_tableVisitor.CurrentPage * _tableVisitor.RowsPerPage) + _usersVisitor.IndexOf(context) + 1)</MudTd>
+                        <MudTd DataLabel="Tên"><MudText Typo="Typo.body2" Style="font-weight: 600;">@context.FullName</MudText></MudTd>
+                        <MudTd DataLabel="Email">@context.Email</MudTd>
+                        <MudTd DataLabel="Vai trò"><MudChip T="string" Color="@GetRoleColor(context.RoleId)" Size="MudBlazor.Size.Small" Variant="Variant.Filled">@context.RoleName.ToUpper()</MudChip></MudTd>
+                        <MudTd DataLabel="Gói dịch vụ">
+                            @if (context.CurrentPackageName == "Chưa có gói") { <MudText Typo="Typo.caption" Color="MudBlazor.Color.Error">@context.CurrentPackageName</MudText> }
+                            else { <MudText Typo="Typo.caption" Color="MudBlazor.Color.Success" Style="font-weight: 600;">@context.CurrentPackageName</MudText> }
+                        </MudTd>
+                        <MudTd DataLabel="Ngày tạo">@context.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                    </RowTemplate>
+                    <PagerContent><MudTablePager RowsPerPageString="Số dòng mỗi trang:" InfoFormat="{first_item}-{last_item} trong {all_items}" /></PagerContent>
+                    <NoRecordsContent><MudText>Không tìm thấy người dùng nào.</MudText></NoRecordsContent>
+                    <LoadingContent><MudText>Đang tải dữ liệu...</MudText></LoadingContent>
+                </MudTable>
+            </MudTabPanel>
+        </MudTabs>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudTable<UserDto> _tableAll, _tableSeller, _tableVisitor;
+    private int _activeTab = 0;
+    private int _allCount, _sellerCount, _visitorCount;
+    
+    private List<UserDto> _usersAll = new();
+    private List<UserDto> _usersSeller = new();
+    private List<UserDto> _usersVisitor = new();
+
+    protected override async Task OnInitializedAsync() => await LoadCounts();
+
+    private async Task LoadCounts()
+    {
+        try 
+        {
+            var p0 = await Http.GetFromJsonAsync<PagedResponse<UserDto>>("api/users?roleId=0&pageSize=1");
+            var p2 = await Http.GetFromJsonAsync<PagedResponse<UserDto>>("api/users?roleId=2&pageSize=1");
+            var p3 = await Http.GetFromJsonAsync<PagedResponse<UserDto>>("api/users?roleId=3&pageSize=1");
+            _allCount = p0?.TotalCount ?? 0;
+            _sellerCount = p2?.TotalCount ?? 0;
+            _visitorCount = p3?.TotalCount ?? 0;
+        }
+        catch { }
+    }
+
+    private async Task<TableData<UserDto>> ServerReload(TableState state, int roleId)
+    {
+        try
+        {
+            var url = $"api/users?roleId={roleId}&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
+            var response = await Http.GetFromJsonAsync<PagedResponse<UserDto>>(url);
+
+            if (response != null && response.Items != null)
+            {
+                var list = response.Items.ToList();
+                if (roleId == 0) { _usersAll = list; _allCount = response.TotalCount; }
+                else if (roleId == 2) { _usersSeller = list; _sellerCount = response.TotalCount; }
+                else if (roleId == 3) { _usersVisitor = list; _visitorCount = response.TotalCount; }
+                
+                StateHasChanged();
+                return new TableData<UserDto> { TotalItems = response.TotalCount, Items = response.Items };
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi khi tải dữ liệu người dùng: " + ex.Message, Severity.Error);
+        }
+
+        if (roleId == 0) { _usersAll.Clear(); _allCount = 0; }
+        else if (roleId == 2) { _usersSeller.Clear(); _sellerCount = 0; }
+        else if (roleId == 3) { _usersVisitor.Clear(); _visitorCount = 0; }
+        StateHasChanged();
+
+        return new TableData<UserDto> { TotalItems = 0, Items = new List<UserDto>() };
+    }
+
+    private MudBlazor.Color GetRoleColor(int roleId) => roleId switch
+    {
+        1 => MudBlazor.Color.Error,    // ADMIN
+        2 => MudBlazor.Color.Secondary,// SELLER
+        3 => MudBlazor.Color.Info,     // VISITOR
+        _ => MudBlazor.Color.Default
+    };
+}
