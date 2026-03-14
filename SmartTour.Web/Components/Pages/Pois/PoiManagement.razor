@@ -254,7 +254,7 @@
     {
         try
         {
-            var url = $"api/pois/paged?onlyActive=false&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
+            var url = $"api/pois?onlyActive=false&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
             var response = await Http.GetFromJsonAsync<PagedResponse<Poi>>(url);
             if (response != null)
             {
@@ -272,7 +272,7 @@
         if (_myUserId <= 0) return new TableData<Poi> { TotalItems = 0, Items = Enumerable.Empty<Poi>() };
         try
         {
-            var url = $"api/pois/paged?createdById={_myUserId}&onlyActive=false&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
+            var url = $"api/pois?createdById={_myUserId}&onlyActive=false&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
             var response = await Http.GetFromJsonAsync<PagedResponse<Poi>>(url);
             if (response != null)
             {

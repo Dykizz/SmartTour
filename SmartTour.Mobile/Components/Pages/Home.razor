@@ -119,7 +119,7 @@
         </div>
 
         <MudGrid>
-            @if (_loadingPois)
+            @if (_loadingPois && _pois.Count == 0)
             {
                 <MudItem xs="12" Class="d-flex justify-center pa-8">
                     <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
@@ -132,8 +132,8 @@
                     <MudItem xs="@(poi.IsFeature ? 12 : 6)">
                         <MudCard Elevation="4" Style="border-radius: 16px; overflow: hidden; height: 100%;" Class="mud-ripple" @onclick="@(() => NavigationManager.NavigateTo($"/poi-details/{poi.Id}"))">
                             @{
-                                var thumbnail = poi.Images.FirstOrDefault(i => i.IsThumbnail)?.ImageUrl 
-                                               ?? poi.Images.FirstOrDefault()?.ImageUrl 
+                                var thumbnail = poi.Images?.FirstOrDefault(i => i.IsThumbnail)?.ImageUrl 
+                                               ?? poi.Images?.FirstOrDefault()?.ImageUrl 
                                                ?? "https://via.placeholder.com/400x200?text=No+Image";
                             }
                             <MudCardMedia Image="@thumbnail" Height="@(poi.IsFeature ? 180 : 120)" />
@@ -160,6 +160,20 @@
                         </MudCard>
                     </MudItem>
                 }
+
+                @if (_hasMore)
+                {
+                    <MudItem xs="12" Class="d-flex justify-center pa-4">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" OnClick="LoadMore" 
+                                   Disabled="_loadingPois" Class="rounded-pill py-2">
+                            @if (_loadingPois)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                            }
+                            @(_selectedLanguage == "en" ? "Load More" : "Xem thêm")
+                        </MudButton>
+                    </MudItem>
+                }
             }
             else
             {
@@ -182,7 +196,7 @@
             }
         </MudGrid>
         
-        <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-8 mb-4" Color="Color.Secondary">
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-8 mb-4" Color="Color.Secondary" Style="@(_hasMore ? "display:none" : "")">
             @(_selectedLanguage == "en" ? "End of list" : "Hết danh sách")
         </MudText>
         
@@ -197,7 +211,7 @@
     </MudMainContent>
 
     <!-- Bottom Navigation Mock -->
-    <MudPaper Elevation="8" Class="fixed-bottom py-2" Style="position: fixed; bottom: 0; width: 100%; border-top-left-radius: 20px; border-top-right-radius: 20px;">
+    <MudPaper Elevation="8" Class="fixed-bottom py-2" Style="position: fixed; bottom: 0; width: 100%; border-top-left-radius: 20px; border-top-right-radius: 20px; z-index: 100;">
         <div class="d-flex justify-space-around">
             <div class="d-flex flex-column align-center">
                 <MudIcon Icon="@Icons.Material.Filled.Home" Color="Color.Primary" />
@@ -241,6 +255,11 @@
     private List<Language> _languages = new();
     private string _selectedLanguage = "vi";
     
+    // Pagination attributes
+    private int _currentPage = 1;
+    private int _pageSize = 6; // Để thấy hiệu ứng load more rõ hơn
+    private bool _hasMore = false;
+
     // Remote Tracking
     private double? _userLat;
     private double? _userLng;
@@ -263,11 +282,10 @@
             
             _selectedLanguage = LanguageService.SelectedLanguage;
 
-            await Task.WhenAll(LoadCategories(), LoadPois(), LoadLanguages());
+            await Task.WhenAll(LoadCategories(), RefreshList(), LoadLanguages());
         }
         catch (Exception ex)
         {
-            // Bắt lỗi tổng quát để tránh crash trang
             Snackbar.Add("Lỗi khởi tạo trang: " + ex.Message, Severity.Error);
         }
     }
@@ -275,18 +293,9 @@
     private async Task LoadCategories()
     {
         _loadingCategories = true;
-        try
-        {
-            _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add("Lỗi tải danh mục: " + ex.Message, Severity.Error);
-        }
-        finally
-        {
-            _loadingCategories = false;
-        }
+        try { _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new(); }
+        catch (Exception ex) { Snackbar.Add("Lỗi tải danh mục: " + ex.Message, Severity.Error); }
+        finally { _loadingCategories = false; }
     }
 
     private async Task LoadLanguages()
@@ -297,10 +306,7 @@
             var defaultLang = _languages.FirstOrDefault(l => l.IsDefault)?.Code ?? "vi";
             _selectedLanguage = defaultLang;
         }
-        catch (Exception ex)
-        {
-            Snackbar.Add("Lỗi tải ngôn ngữ: " + ex.Message, Severity.Warning);
-        }
+        catch { }
     }
 
     private void ChangeLanguage(string code)
@@ -308,15 +314,25 @@
         _selectedLanguage = code;
         LanguageService.SetLanguage(code);
         Snackbar.Add($"Đã chuyển sang ngôn ngữ: {code.ToUpper()}", Severity.Info);
-        // Có thể reload lại POI nếu API hỗ trợ trả về tên theo ngôn ngữ
+    }
+
+    private async Task RefreshList()
+    {
+        _currentPage = 1;
+        _pois.Clear();
+        await LoadPois();
     }
 
     private async Task LoadPois()
     {
+        if (_loadingPois && _currentPage > 1) return;
         _loadingPois = true;
         try
         {
             var queryParams = new List<string>();
+            queryParams.Add($"pageNumber={_currentPage}");
+            queryParams.Add($"pageSize={_pageSize}");
+            
             if (_selectedCategoryId > 0) queryParams.Add($"categoryId={_selectedCategoryId}");
             
             if (_locationActive && _userLat.HasValue && _userLng.HasValue && _selectedRadius.HasValue)
@@ -326,40 +342,40 @@
                 queryParams.Add($"radius={_selectedRadius}");
             }
 
-            string url = "api/pois";
-            if (queryParams.Any()) url += "?" + string.Join("&", queryParams);
+            string url = $"api/pois?{string.Join("&", queryParams)}";
+            var response = await Http.GetFromJsonAsync<PagedResponse<Poi>>(url);
+            
+            if (response != null)
+            {
+                if (_currentPage == 1) _pois = response.Items.ToList();
+                else _pois.AddRange(response.Items);
+                
+                _hasMore = _pois.Count < response.TotalCount;
+            }
+        }
+        catch (Exception ex) { Snackbar.Add("Lỗi tải địa điểm: " + ex.Message, Severity.Error); }
+        finally { _loadingPois = false; }
+    }
 
-            _pois = await Http.GetFromJsonAsync<List<Poi>>(url) ?? new();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add("Lỗi tải địa điểm: " + ex.Message, Severity.Error);
-        }
-        finally
-        {
-            _loadingPois = false;
-        }
+    private async Task LoadMore()
+    {
+        if (!_hasMore || _loadingPois) return;
+        _currentPage++;
+        await LoadPois();
     }
 
     private async Task FilterByCategory(int categoryId)
     {
         if (_selectedCategoryId == categoryId) return;
         _selectedCategoryId = categoryId;
-        await LoadPois();
+        await RefreshList();
     }
 
     private async Task OnRadiusChanged(double? radius)
     {
         _selectedRadius = radius;
-        if (radius.HasValue)
-        {
-            await GetCurrentLocation();
-        }
-        else
-        {
-            _locationActive = false;
-            await LoadPois();
-        }
+        if (radius.HasValue) await GetCurrentLocation();
+        else { _locationActive = false; await RefreshList(); }
     }
 
     private async Task GetCurrentLocation()
@@ -374,26 +390,17 @@
                 _userLat = location.Latitude;
                 _userLng = location.Longitude;
                 _locationActive = true;
-                await LoadPois();
-            }
-            else
-            {
-                Snackbar.Add("Không lấy được tọa độ hiện tại", Severity.Warning);
+                await RefreshList();
             }
         }
-        catch (Exception ex)
-        {
-            Snackbar.Add("Lỗi định vị: Vui lòng bật GPS và cấp quyền.", Severity.Error);
-            _selectedRadius = null;
-            _locationActive = false;
-        }
+        catch { _selectedRadius = null; _locationActive = false; }
     }
 
     private async Task DisableLocation()
     {
         _locationActive = false;
         _selectedRadius = null;
-        await LoadPois();
+        await RefreshList();
     }
 
     private async Task ResetFilters()
@@ -401,7 +408,7 @@
         _selectedCategoryId = 0;
         _selectedRadius = null;
         _locationActive = false;
-        await LoadPois();
+        await RefreshList();
     }
 
     private string DisplayRadius(double m) => m >= 1000 ? $"{m/1000:0.#} km" : $"{m} m";
@@ -413,8 +420,5 @@
         NavigationManager.NavigateTo("/login");
     }
 
-    private void NavigateToLogin()
-    {
-        NavigationManager.NavigateTo("/login");
-    }
+    private void NavigateToLogin() => NavigationManager.NavigateTo("/login");
 }

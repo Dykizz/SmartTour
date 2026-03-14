@@ -21,27 +21,17 @@ public class PoisController : ControllerBase
 
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<IEnumerable<Poi>>> GetPois(
+    public async Task<ActionResult<PagedResponse<Poi>>> GetPois(
         [FromQuery] int? categoryId = null,
         [FromQuery] double? lat = null,
         [FromQuery] double? lng = null,
         [FromQuery] double? radius = null,
         [FromQuery] int? createdById = null,
-        [FromQuery] bool onlyActive = true)
-    {
-        return Ok(await _poiService.GetPoisAsync(categoryId, lat, lng, radius, createdById, onlyActive));
-    }
-
-    [HttpGet("paged")]
-    [AllowAnonymous]
-    public async Task<ActionResult<PagedResponse<Poi>>> GetPoisPaged(
-        [FromQuery] int? categoryId = null,
-        [FromQuery] int? createdById = null,
         [FromQuery] bool onlyActive = true,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10)
     {
-        return Ok(await _poiService.GetPoisPagedAsync(categoryId, createdById, onlyActive, pageNumber, pageSize));
+        return Ok(await _poiService.GetPoisPagedAsync(categoryId, lat, lng, radius, createdById, onlyActive, pageNumber, pageSize));
     }
 
     [HttpGet("{id}")]

@@ -46,10 +46,11 @@ public class PoiService : IPoiService
         return pois;
     }
 
-    public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10)
+    public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10)
     {
         var query = _context.Pois
             .Include(p => p.Category)
+            .Include(p => p.Images) // Cần thiết cho Mobile Home
             .AsQueryable();
 
         if (onlyActive)
@@ -61,13 +62,38 @@ public class PoiService : IPoiService
         if (createdById.HasValue)
             query = query.Where(p => p.CreatedById == createdById.Value);
 
-        var totalCount = await query.CountAsync();
-        var items = await query
-            .OrderByDescending(p => p.IsFeature)
-            .ThenByDescending(p => p.CreatedAt)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        List<Poi> items;
+        int totalCount;
+
+        if (lat.HasValue && lng.HasValue && radius.HasValue)
+        {
+            // Lọc theo tọa độ (phải load về memory vì CalculateDistance là hàm C#)
+            var allFiltered = await query
+                .OrderByDescending(p => p.IsFeature)
+                .ThenByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            var geoFiltered = allFiltered
+                .Where(p => CalculateDistance(lat.Value, lng.Value, p.Latitude, p.Longitude) <= radius.Value)
+                .ToList();
+
+            totalCount = geoFiltered.Count;
+            items = geoFiltered
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+        }
+        else
+        {
+            // Phân trang chuẩn tại Database
+            totalCount = await query.CountAsync();
+            items = await query
+                .OrderByDescending(p => p.IsFeature)
+                .ThenByDescending(p => p.CreatedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
 
         return new PagedResponse<Poi>
         {
