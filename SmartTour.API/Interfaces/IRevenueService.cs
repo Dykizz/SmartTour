@@ -5,5 +5,5 @@ namespace SmartTour.API.Interfaces;
 public interface IRevenueService
 {
     Task<RevenueStatistics> GetStatisticsAsync(DateTime? startDate = null, DateTime? endDate = null);
-    Task<IEnumerable<Payment>> GetPaymentsAsync(DateTime? startDate = null, DateTime? endDate = null, int count = 100);
+    Task<PagedResponse<Payment>> GetPaymentsAsync(DateTime? startDate = null, DateTime? endDate = null, int pageNumber = 1, int pageSize = 10);
 }

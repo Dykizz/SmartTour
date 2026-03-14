@@ -24,8 +24,8 @@ public class RevenueController : ControllerBase
     }
 
     [HttpGet("payments")]
-    public async Task<ActionResult<IEnumerable<Payment>>> GetPayments([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null, [FromQuery] int count = 100)
+    public async Task<ActionResult<PagedResponse<Payment>>> GetPayments([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
-        return Ok(await _revenueService.GetPaymentsAsync(startDate, endDate, count));
+        return Ok(await _revenueService.GetPaymentsAsync(startDate, endDate, pageNumber, pageSize));
     }
 }

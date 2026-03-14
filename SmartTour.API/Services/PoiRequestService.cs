@@ -26,6 +26,32 @@ public class PoiRequestService : IPoiRequestService
             .ToListAsync();
     }
 
+    public async Task<PagedResponse<PoiRequest>> GetAllPagedAsync(RequestStatus? status = null, int pageNumber = 1, int pageSize = 10)
+    {
+        var query = _context.PoiRequests
+            .Include(r => r.User)
+            .Include(r => r.OriginalPoi)
+            .AsQueryable();
+
+        if (status.HasValue)
+            query = query.Where(r => r.Status == status.Value);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return new PagedResponse<PoiRequest>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+    }
+
     public async Task<IEnumerable<PoiRequest>> GetByUserAsync(int userId)
     {
         return await _context.PoiRequests
@@ -33,6 +59,31 @@ public class PoiRequestService : IPoiRequestService
             .Where(r => r.UserId == userId)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task<PagedResponse<PoiRequest>> GetByUserPagedAsync(int userId, RequestStatus? status = null, int pageNumber = 1, int pageSize = 10)
+    {
+        var query = _context.PoiRequests
+            .Include(r => r.OriginalPoi)
+            .Where(r => r.UserId == userId);
+
+        if (status.HasValue)
+            query = query.Where(r => r.Status == status.Value);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return new PagedResponse<PoiRequest>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
     }
 
     public async Task<PoiRequest?> GetByIdAsync(int id)

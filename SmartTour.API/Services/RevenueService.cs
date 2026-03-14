@@ -106,7 +106,7 @@ public class RevenueService : IRevenueService
         return stats;
     }
 
-    public async Task<IEnumerable<Payment>> GetPaymentsAsync(DateTime? startDate = null, DateTime? endDate = null, int count = 100)
+    public async Task<PagedResponse<Payment>> GetPaymentsAsync(DateTime? startDate = null, DateTime? endDate = null, int pageNumber = 1, int pageSize = 10)
     {
         var query = _context.Payments
             .Include(p => p.User)
@@ -117,9 +117,19 @@ public class RevenueService : IRevenueService
         if (endDate.HasValue)
             query = query.Where(p => p.CreatedAt <= endDate.Value);
 
-        return await query
+        var totalCount = await query.CountAsync();
+        var items = await query
             .OrderByDescending(p => p.CreatedAt)
-            .Take(count)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
+
+        return new PagedResponse<Payment>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
     }
 }

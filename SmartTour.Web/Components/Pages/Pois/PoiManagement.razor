@@ -25,12 +25,12 @@
 
         <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
             <MudTabPanel Text="Tất cả POI" Icon="@Icons.Material.Filled.List" IconColor="Color.Primary"
-                         BadgeData="@(_pois.Count > 0 ? _pois.Count.ToString() : null)"
+                         BadgeData="@(_adminPoisCount > 0 ? _adminPoisCount.ToString() : null)"
                          BadgeColor="Color.Primary">
-                <MudTable Items="_pois" Hover="true" Breakpoint="Breakpoint.Sm"
-                          Loading="_loading" Elevation="0">
+                <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<Poi>>>(ReloadAdminPois))" 
+                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" @ref="_adminTable">
                     <HeaderContent>
-                        <MudTh>STT</MudTh>
+                        <MudTh>ID</MudTh>
                         <MudTh>Tên điểm đến</MudTh>
                         <MudTh>Loại hình</MudTh>
                         <MudTh>Tọa độ</MudTh>
@@ -39,7 +39,7 @@
                         <MudTh Style="width:120px">Thao tác</MudTh>
                     </HeaderContent>
                     <RowTemplate Context="poi">
-                        <MudTd>@(_pois.IndexOf(poi) + 1)</MudTd>
+                        <MudTd DataLabel="ID">@poi.Id</MudTd>
                         <MudTd DataLabel="Tên">@poi.Name</MudTd>
                         <MudTd DataLabel="Loại">@(poi.Category?.Name ?? "N/A")</MudTd>
                         <MudTd DataLabel="Tọa độ">@poi.Latitude.ToString("F4"), @poi.Longitude.ToString("F4")</MudTd>
@@ -62,8 +62,11 @@
                             </div>
                         </MudTd>
                     </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager RowsPerPageString="Số dòng mỗi trang:" InfoFormat="{first_item}-{last_item} của {all_items}" />
+                    </PagerContent>
                     <NoRecordsContent>
-                        <MudText Class="pa-4">@(_loading ? "Đang tải..." : "Chưa có điểm POI nào.")</MudText>
+                        <MudText Class="pa-4">Chưa có điểm POI nào.</MudText>
                     </NoRecordsContent>
                 </MudTable>
             </MudTabPanel>
@@ -83,21 +86,12 @@
 
             <!-- Tab 1: Đã duyệt → hiển thị POI thực tế -->
             <MudTabPanel Text="Đã duyệt" Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success"
-                         BadgeData="@(_myPois.Count > 0 ? _myPois.Count.ToString() : null)"
+                         BadgeData="@(_myPoisCount > 0 ? _myPoisCount.ToString() : null)"
                          BadgeColor="Color.Success">
-                @if (_loadingMyPois)
-                {
-                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
-                }
-                else if (!_myPois.Any())
-                {
-                    <MudAlert Severity="Severity.Info" Dense="true">Bạn chưa có POI nào được duyệt.</MudAlert>
-                }
-                else
-                {
-                    <MudTable Items="_myPois" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+                    <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<Poi>>>(ReloadSellerPois))" 
+                              Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm" @ref="_sellerPoisTable">
                         <HeaderContent>
-                            <MudTh>STT</MudTh>
+                            <MudTh>ID</MudTh>
                             <MudTh>Tên điểm đến</MudTh>
                             <MudTh>Loại hình</MudTh>
                             <MudTh>Bán kính</MudTh>
@@ -105,7 +99,7 @@
                             <MudTh Style="width:120px">Thao tác</MudTh>
                         </HeaderContent>
                         <RowTemplate Context="poi">
-                            <MudTd>@(_myPois.IndexOf(poi) + 1)</MudTd>
+                            <MudTd DataLabel="ID">@poi.Id</MudTd>
                             <MudTd DataLabel="Tên">@poi.Name</MudTd>
                             <MudTd DataLabel="Loại">@(poi.Category?.Name ?? "N/A")</MudTd>
                             <MudTd DataLabel="Bán kính">@poi.GeofenceRadius m</MudTd>
@@ -127,43 +121,39 @@
                                 </div>
                             </MudTd>
                         </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager RowsPerPageString="Số dòng mỗi trang:" InfoFormat="{first_item}-{last_item} của {all_items}" />
+                        </PagerContent>
+                        <NoRecordsContent>
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-4">Bạn chưa có POI nào được duyệt.</MudAlert>
+                        </NoRecordsContent>
                     </MudTable>
-                }
             </MudTabPanel>
 
             <!-- Tab 2: Chờ duyệt -->
             <MudTabPanel Text="Chờ duyệt" Icon="@Icons.Material.Filled.HourglassEmpty" IconColor="Color.Warning"
-                         BadgeData="@(_pendingRequests.Count > 0 ? _pendingRequests.Count.ToString() : null)"
+                         BadgeData="@(_pendingRequestsCount > 0 ? _pendingRequestsCount.ToString() : null)"
                          BadgeColor="Color.Warning">
-                @if (_loadingRequests)
-                {
-                    <MudProgressLinear Indeterminate="true" Color="Color.Warning" />
-                }
-                else if (!_pendingRequests.Any())
-                {
-                    <MudAlert Severity="Severity.Info" Dense="true">Không có yêu cầu nào đang chờ duyệt.</MudAlert>
-                }
-                else
-                {
-                    <MudTable Items="_pendingRequests" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+                    <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<PoiRequest>>>((state, token) => ReloadSellerRequests(state, RequestStatus.Pending)))" 
+                              Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm" @ref="_pendingTable">
                         <HeaderContent>
-                            <MudTh>STT</MudTh>
+                            <MudTh>ID</MudTh>
                             <MudTh>Tên POI đề xuất</MudTh>
                             <MudTh>Loại yêu cầu</MudTh>
                             <MudTh>Ngày gửi</MudTh>
                             <MudTh Style="width:120px">Thao tác</MudTh>
                         </HeaderContent>
                         <RowTemplate Context="req">
-                            <MudTd>@(_pendingRequests.IndexOf(req) + 1)</MudTd>
-                            <MudTd>@GetPoiNameFromRequest(req)</MudTd>
-                            <MudTd>
+                            <MudTd DataLabel="ID">@req.Id</MudTd>
+                            <MudTd DataLabel="Tên">@GetPoiNameFromRequest(req)</MudTd>
+                            <MudTd DataLabel="Loại">
                                 <MudChip T="string" Size="Size.Small"
                                          Color="@(req.Type == RequestType.Create ? Color.Primary : Color.Info)">
                                      @(req.Type == RequestType.Create ? "Tạo mới" : "Cập nhật")
                                 </MudChip>
                             </MudTd>
-                            <MudTd>@req.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
-                            <MudTd>
+                            <MudTd DataLabel="Gửi lúc">@req.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                            <MudTd DataLabel="Thao tác">
                                 <div class="d-flex">
                                     <MudTooltip Text="Chỉnh sửa yêu cầu">
                                         <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" 
@@ -176,27 +166,23 @@
                                 </div>
                             </MudTd>
                         </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager RowsPerPageString="Số dòng mỗi trang:" InfoFormat="{first_item}-{last_item} của {all_items}" />
+                        </PagerContent>
+                        <NoRecordsContent>
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-4">Không có yêu cầu nào đang chờ duyệt.</MudAlert>
+                        </NoRecordsContent>
                     </MudTable>
-                }
             </MudTabPanel>
 
             <!-- Tab 3: Bị từ chối → có nút Gửi lại -->
             <MudTabPanel Text="Bị từ chối" Icon="@Icons.Material.Filled.Cancel" IconColor="Color.Error"
-                         BadgeData="@(_rejectedRequests.Count > 0 ? _rejectedRequests.Count.ToString() : null)"
+                         BadgeData="@(_rejectedRequestsCount > 0 ? _rejectedRequestsCount.ToString() : null)"
                          BadgeColor="Color.Error">
-                @if (_loadingRequests)
-                {
-                    <MudProgressLinear Indeterminate="true" Color="Color.Error" />
-                }
-                else if (!_rejectedRequests.Any())
-                {
-                    <MudAlert Severity="Severity.Info" Dense="true">Không có yêu cầu nào bị từ chối.</MudAlert>
-                }
-                else
-                {
-                    <MudTable Items="_rejectedRequests" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+                    <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<PoiRequest>>>((state, token) => ReloadSellerRequests(state, RequestStatus.Rejected)))" 
+                              Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm" @ref="_rejectedTable">
                         <HeaderContent>
-                            <MudTh>STT</MudTh>
+                            <MudTh>ID</MudTh>
                             <MudTh>Tên POI đề xuất</MudTh>
                             <MudTh>Loại yêu cầu</MudTh>
                             <MudTh>Lý do từ chối</MudTh>
@@ -204,17 +190,17 @@
                             <MudTh Style="width:120px">Thao tác</MudTh>
                         </HeaderContent>
                         <RowTemplate Context="req">
-                            <MudTd>@(_rejectedRequests.IndexOf(req) + 1)</MudTd>
-                            <MudTd>@GetPoiNameFromRequest(req)</MudTd>
-                            <MudTd>
+                            <MudTd DataLabel="ID">@req.Id</MudTd>
+                            <MudTd DataLabel="Tên">@GetPoiNameFromRequest(req)</MudTd>
+                            <MudTd DataLabel="Loại">
                                 <MudChip T="string" Size="Size.Small"
                                          Color="@(req.Type == RequestType.Create ? Color.Primary : Color.Info)">
                                     @(req.Type == RequestType.Create ? "Tạo mới" : "Cập nhật")
                                 </MudChip>
                             </MudTd>
-                            <MudTd>@(req.AdminNote ?? "—")</MudTd>
-                            <MudTd>@req.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
-                            <MudTd>
+                            <MudTd DataLabel="Lý do">@(req.AdminNote ?? "—")</MudTd>
+                            <MudTd DataLabel="Gửi lúc">@req.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                            <MudTd DataLabel="Thao tác">
                                 <div class="d-flex">
                                     <MudTooltip Text="Chỉnh sửa & Gửi lại">
                                         <MudIconButton Icon="@Icons.Material.Filled.EditNote" Color="Color.Warning"
@@ -228,8 +214,13 @@
                                 </div>
                             </MudTd>
                         </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager RowsPerPageString="Số dòng mỗi trang:" InfoFormat="{first_item}-{last_item} của {all_items}" />
+                        </PagerContent>
+                        <NoRecordsContent>
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-4">Không có yêu cầu nào bị từ chối.</MudAlert>
+                        </NoRecordsContent>
                     </MudTable>
-                }
             </MudTabPanel>
 
         </MudTabs>
@@ -238,21 +229,12 @@
 </MudContainer>
 
 @code {
-    // ── Admin data ────────────────────────────────────────────
-    private List<Poi> _pois = new();
-    private bool _loading = true;
-
-    // ── Seller: POI thực (đã được duyệt và tạo) ──────────────
-    private List<Poi> _myPois = new();
-    private bool _loadingMyPois = true;
     private int _myUserId = 0;
-
-    // ── Seller: Requests đang xử lý ───────────────────────────
-    private List<PoiRequest> _pendingRequests  = new();
-    private List<PoiRequest> _rejectedRequests = new();
-    private bool _loadingRequests = true;
-
     private bool _isAdmin = false;
+    private int _adminPoisCount, _myPoisCount, _pendingRequestsCount, _rejectedRequestsCount;
+
+    private MudTable<Poi> _adminTable, _sellerPoisTable;
+    private MudTable<PoiRequest> _pendingTable, _rejectedTable;
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
@@ -261,28 +243,72 @@
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
         _isAdmin = auth.User.IsInRole("ADMIN");
 
-        if (_isAdmin)
+        if (!_isAdmin)
         {
-            await LoadPois();
-        }
-        else
-        {
-            // Lấy userId của seller từ claims
             var userIdStr = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             int.TryParse(userIdStr, out _myUserId);
-
-            // Load song song để nhanh hơn
-            await Task.WhenAll(LoadMyPois(), LoadMyRequests());
         }
     }
 
-    // ─── Admin methods ─────────────────────────────────────────
-    private async Task LoadPois()
+    private async Task<TableData<Poi>> ReloadAdminPois(TableState state, CancellationToken token)
     {
-        _loading = true;
-        try { _pois = await Http.GetFromJsonAsync<List<Poi>>("api/pois?onlyActive=false") ?? new(); }
+        try
+        {
+            var url = $"api/pois/paged?onlyActive=false&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
+            var response = await Http.GetFromJsonAsync<PagedResponse<Poi>>(url);
+            if (response != null)
+            {
+                _adminPoisCount = response.TotalCount;
+                StateHasChanged();
+                return new TableData<Poi> { TotalItems = response.TotalCount, Items = response.Items };
+            }
+        }
         catch (Exception ex) { Snackbar.Add("Lỗi tải POI: " + ex.Message, Severity.Error); }
-        finally { _loading = false; }
+        return new TableData<Poi> { TotalItems = 0, Items = Enumerable.Empty<Poi>() };
+    }
+
+    private async Task<TableData<Poi>> ReloadSellerPois(TableState state, CancellationToken token)
+    {
+        if (_myUserId <= 0) return new TableData<Poi> { TotalItems = 0, Items = Enumerable.Empty<Poi>() };
+        try
+        {
+            var url = $"api/pois/paged?createdById={_myUserId}&onlyActive=false&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
+            var response = await Http.GetFromJsonAsync<PagedResponse<Poi>>(url);
+            if (response != null)
+            {
+                _myPoisCount = response.TotalCount;
+                StateHasChanged();
+                return new TableData<Poi> { TotalItems = response.TotalCount, Items = response.Items };
+            }
+        }
+        catch (Exception ex) { Snackbar.Add("Lỗi tải POI: " + ex.Message, Severity.Error); }
+        return new TableData<Poi> { TotalItems = 0, Items = Enumerable.Empty<Poi>() };
+    }
+
+    private async Task<TableData<PoiRequest>> ReloadSellerRequests(TableState state, RequestStatus status)
+    {
+        try
+        {
+            var url = $"api/poi-requests?status={status}&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
+            var response = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>(url);
+            if (response != null)
+            {
+                if (status == RequestStatus.Pending) _pendingRequestsCount = response.TotalCount;
+                else if (status == RequestStatus.Rejected) _rejectedRequestsCount = response.TotalCount;
+                StateHasChanged();
+                return new TableData<PoiRequest> { TotalItems = response.TotalCount, Items = response.Items };
+            }
+        }
+        catch (Exception ex) { Snackbar.Add("Lỗi tải yêu cầu: " + ex.Message, Severity.Error); }
+        return new TableData<PoiRequest> { TotalItems = 0, Items = Enumerable.Empty<PoiRequest>() };
+    }
+
+    private async Task RefreshAll()
+    {
+        if (_adminTable != null) await _adminTable.ReloadServerData();
+        if (_sellerPoisTable != null) await _sellerPoisTable.ReloadServerData();
+        if (_pendingTable != null) await _pendingTable.ReloadServerData();
+        if (_rejectedTable != null) await _rejectedTable.ReloadServerData();
     }
 
     private void NavigateToCreate() => NavigationManager.NavigateTo("/poi/editor");
@@ -300,8 +326,7 @@
         if (response.IsSuccessStatusCode)
         {
             Snackbar.Add("Đã xóa POI thành công", Severity.Success);
-            if (_isAdmin) await LoadPois();
-            else await LoadMyPois();
+            await RefreshAll();
         }
         else
         {
@@ -309,32 +334,6 @@
                 ? "Phiên đăng nhập hết hạn."
                 : "Lỗi khi xóa POI.", Severity.Error);
         }
-    }
-
-    // ─── Seller methods ────────────────────────────────────────
-    private async Task LoadMyPois()
-    {
-        _loadingMyPois = true;
-        try
-        {
-            if (_myUserId > 0)
-                _myPois = await Http.GetFromJsonAsync<List<Poi>>($"api/pois?createdById={_myUserId}&onlyActive=false") ?? new();
-        }
-        catch (Exception ex) { Snackbar.Add("Lỗi tải POI: " + ex.Message, Severity.Error); }
-        finally { _loadingMyPois = false; }
-    }
-
-    private async Task LoadMyRequests()
-    {
-        _loadingRequests = true;
-        try
-        {
-            var all = await Http.GetFromJsonAsync<List<PoiRequest>>("api/poi-requests") ?? new();
-            _pendingRequests  = all.Where(r => r.Status == RequestStatus.Pending).ToList();
-            _rejectedRequests = all.Where(r => r.Status == RequestStatus.Rejected).ToList();
-        }
-        catch (Exception ex) { Snackbar.Add("Lỗi tải yêu cầu: " + ex.Message, Severity.Error); }
-        finally { _loadingRequests = false; }
     }
 
     private async Task CancelRequest(PoiRequest req)
@@ -349,7 +348,7 @@
         if (response.IsSuccessStatusCode)
         {
             Snackbar.Add("Đã hủy yêu cầu thành công", Severity.Success);
-            await LoadMyRequests();
+            await RefreshAll();
         }
         else
         {
@@ -357,7 +356,6 @@
         }
     }
 
-    // ─── Helpers ───────────────────────────────────────────────
     private string GetPoiNameFromRequest(PoiRequest req)
     {
         try { return JsonSerializer.Deserialize<Poi>(req.RequestData, _jsonOpts)?.Name ?? "—"; }

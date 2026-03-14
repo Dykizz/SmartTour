@@ -179,7 +179,8 @@
                         </div>
                         <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" Size="MudBlazor.Size.Small" OnClick="LoadData" StartIcon="@Icons.Material.Filled.Refresh">Làm mới</MudButton>
                     </div>
-                    <MudTable Items="@_transactions" Hover="true" Breakpoint="MudBlazor.Breakpoint.Sm" Elevation="0" Dense="true" Striped="true" FixedHeader="true" Height="400px">
+                    <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<Payment>>>(ServerReload))" 
+                              Hover="true" Breakpoint="MudBlazor.Breakpoint.Sm" Elevation="0" Dense="true" Striped="true" FixedHeader="true" Height="400px" @ref="_table">
                         <HeaderContent>
                             <MudTh>Ngày</MudTh>
                             <MudTh>Khách hàng</MudTh>
@@ -254,6 +255,7 @@
     private List<Payment> _transactions = new();
     private bool _loading = true;
     private ApexChartOptions<RevenueChartItem> _apexOptions = new();
+    private MudTable<Payment> _table;
 
     protected override async Task OnInitializedAsync()
     {
@@ -304,42 +306,68 @@
         };
     }
 
-    private async Task LoadData()
+    private async Task LoadStats()
     {
-        _loading = true;
         try
         {
-            DateTime? start = null;
-            DateTime? end = null;
-
-            switch (_selectedRange)
-            {
-                case TimeRange.Today: start = DateTime.UtcNow.Date; break;
-                case TimeRange.Last7Days: start = DateTime.UtcNow.Date.AddDays(-7); break;
-                case TimeRange.Last1Month: start = DateTime.UtcNow.Date.AddDays(-30); break;
-                case TimeRange.Last6Months: start = DateTime.UtcNow.Date.AddMonths(-6); break;
-                case TimeRange.Last1Year: start = DateTime.UtcNow.Date.AddYears(-1); break;
-                case TimeRange.Custom:
-                    start = _dateRange.Start?.ToUniversalTime();
-                    end = _dateRange.End?.AddDays(1).ToUniversalTime();
-                    break;
-            }
-
-            var dateParams = $"startDate={start?.ToString("yyyy-MM-dd")}" + (end.HasValue ? $"&endDate={end.Value.ToString("yyyy-MM-dd")}" : "");
+            var dateParams = GetDateParams();
             var statsUrl = $"api/revenue/stats?{dateParams}";
-            var paymentsUrl = $"api/revenue/payments?{dateParams}&count=20";
-
             _stats = await Http.GetFromJsonAsync<RevenueStatistics>(statsUrl);
-            _transactions = await Http.GetFromJsonAsync<List<Payment>>(paymentsUrl) ?? new();
         }
         catch (Exception ex)
         {
-            Snackbar.Add("Lỗi khi tải dữ liệu: " + ex.Message, Severity.Error);
+            Snackbar.Add("Lỗi khi tải thống kê: " + ex.Message, Severity.Error);
         }
-        finally
+    }
+
+    private string GetDateParams()
+    {
+        DateTime? start = null;
+        DateTime? end = null;
+
+        switch (_selectedRange)
         {
-            _loading = false;
+            case TimeRange.Today: start = DateTime.UtcNow.Date; break;
+            case TimeRange.Last7Days: start = DateTime.UtcNow.Date.AddDays(-7); break;
+            case TimeRange.Last1Month: start = DateTime.UtcNow.Date.AddDays(-30); break;
+            case TimeRange.Last6Months: start = DateTime.UtcNow.Date.AddMonths(-6); break;
+            case TimeRange.Last1Year: start = DateTime.UtcNow.Date.AddYears(-1); break;
+            case TimeRange.Custom:
+                start = _dateRange.Start?.ToUniversalTime();
+                end = _dateRange.End?.AddDays(1).ToUniversalTime();
+                break;
         }
+
+        return $"startDate={start?.ToString("yyyy-MM-dd")}" + (end.HasValue ? $"&endDate={end.Value.ToString("yyyy-MM-dd")}" : "");
+    }
+
+    private async Task<TableData<Payment>> ServerReload(TableState state, CancellationToken token)
+    {
+        try
+        {
+            var dateParams = GetDateParams();
+            var url = $"api/revenue/payments?{dateParams}&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
+            var response = await Http.GetFromJsonAsync<PagedResponse<Payment>>(url);
+
+            if (response != null)
+            {
+                return new TableData<Payment> { TotalItems = response.TotalCount, Items = response.Items };
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi khi tải dữ liệu bảng: " + ex.Message, Severity.Error);
+        }
+
+        return new TableData<Payment> { TotalItems = 0, Items = Enumerable.Empty<Payment>() };
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        await LoadStats();
+        if (_table != null) await _table.ReloadServerData();
+        _loading = false;
     }
 
     private string GetChartTitle() => _selectedRange switch

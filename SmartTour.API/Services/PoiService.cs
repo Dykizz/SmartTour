@@ -46,6 +46,38 @@ public class PoiService : IPoiService
         return pois;
     }
 
+    public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10)
+    {
+        var query = _context.Pois
+            .Include(p => p.Category)
+            .AsQueryable();
+
+        if (onlyActive)
+            query = query.Where(p => p.IsActive);
+
+        if (categoryId.HasValue && categoryId.Value > 0)
+            query = query.Where(p => p.CategoryId == categoryId.Value);
+
+        if (createdById.HasValue)
+            query = query.Where(p => p.CreatedById == createdById.Value);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(p => p.IsFeature)
+            .ThenByDescending(p => p.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return new PagedResponse<Poi>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+    }
+
     public async Task<Poi?> GetByIdAsync(int id)
     {
         return await _context.Pois

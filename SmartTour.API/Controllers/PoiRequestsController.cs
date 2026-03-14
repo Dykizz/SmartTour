@@ -21,22 +21,22 @@ public class PoiRequestsController : ControllerBase
         _poiService = poiService;
     }
 
-    // GET api/poi-requests - Admin: tất cả; Seller: chỉ của mình
+    // GET api/poi-requests - Admin: tất cả; Seller: chỉ của mình (có phân trang)
     [HttpGet]
-    public async Task<IActionResult> GetRequests()
+    public async Task<IActionResult> GetRequests([FromQuery] RequestStatus? status = null, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
         if (User.IsInRole("ADMIN"))
         {
-            var all = await _requestService.GetAllAsync();
-            return Ok(all);
+            var paged = await _requestService.GetAllPagedAsync(status, pageNumber, pageSize);
+            return Ok(paged);
         }
         else
         {
-            var mine = await _requestService.GetByUserAsync(userId.Value);
-            return Ok(mine);
+            var paged = await _requestService.GetByUserPagedAsync(userId.Value, status, pageNumber, pageSize);
+            return Ok(paged);
         }
     }
 
