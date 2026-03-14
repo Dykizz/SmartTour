@@ -17,9 +17,9 @@ public class ServicePackagesController : ControllerBase
 
     // GET: api/ServicePackages
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ServicePackage>>> GetServicePackages()
+    public async Task<ActionResult<IEnumerable<ServicePackage>>> GetServicePackages([FromQuery] decimal? minPrice = null)
     {
-        return Ok(await _packageService.GetAllActiveAsync());
+        return Ok(await _packageService.GetAllActiveAsync(minPrice));
     }
 
     // GET: api/ServicePackages/5

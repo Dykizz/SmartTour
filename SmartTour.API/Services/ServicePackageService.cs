@@ -14,11 +14,17 @@ public class ServicePackageService : IServicePackageService
         _context = context;
     }
 
-    public async Task<IEnumerable<ServicePackage>> GetAllActiveAsync()
+    public async Task<IEnumerable<ServicePackage>> GetAllActiveAsync(decimal? minPrice = null)
     {
-        return await _context.ServicePackages
-            .Where(s => s.SoftDeleteAt == null)
-            .OrderByDescending(s => s.CreatedAt)
+        var query = _context.ServicePackages
+            .Where(s => s.SoftDeleteAt == null);
+
+        if (minPrice.HasValue)
+        {
+            query = query.Where(s => s.Price >= minPrice.Value);
+        }
+
+        return await query.OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
     }
 

@@ -84,7 +84,7 @@
                                        Size="Size.Large" 
                                        Class="rounded-pill mt-8 py-3 font-bold"
                                        OnClick="@(() => Subscribe(package))">
-                                @(package.Price == 0 ? "Bắt đầu miễn phí" : "Đăng ký ngay")
+                                @GetButtonText(package)
                             </MudButton>
                         </div>
                     </MudCard>
@@ -142,9 +142,16 @@
             if (int.TryParse(userIdStr, out int userId))
             {
                 _currentUserId = userId;
-                try {
+                try 
+                {
                     _currentSubscription = await Http.GetFromJsonAsync<Subscription>($"api/subscriptions/user/{userId}");
-                } catch { /* Bỏ qua nếu chưa có gói */ }
+                    if (_currentSubscription?.ServicePackage != null)
+                    {
+                        var currentPrice = _currentSubscription.ServicePackage.Price;
+                        _packages = _packages.Where(p => p.Price >= currentPrice).ToList();
+                    }
+                } 
+                catch { /* Bỏ qua nếu chưa có gói hoặc lỗi tải */ }
             }
         }
         catch (Exception ex)
@@ -186,6 +193,41 @@
         _ => Icons.Material.Filled.CardMembership
     };
 
+    private string GetButtonText(ServicePackage package)
+    {
+        if (_currentSubscription?.ServicePackage != null)
+        {
+            if (package.Code == _currentSubscription.ServicePackage.Code)
+                return "Gia hạn thêm";
+            
+            if (package.Price > _currentSubscription.ServicePackage.Price)
+                return "Quy đổi nâng cấp";
+        }
+        
+        return package.Price == 0 ? "Bắt đầu miễn phí" : "Đăng ký ngay";
+    }
+
+    private decimal CalculateUpgradePrice(ServicePackage package)
+    {
+        if (_currentSubscription?.ServicePackage == null || _currentSubscription.EndDate <= DateTime.UtcNow)
+            return package.Price;
+
+        double remainingDays = (_currentSubscription.EndDate - DateTime.UtcNow).TotalDays;
+        if (remainingDays <= 0) return package.Price;
+
+        // Công thức Prorated Charge: 
+        // Phí nâng cấp = (Đơn giá ngày gói mới - Đơn giá ngày gói cũ) * Số ngày còn lại
+        decimal oldDailyRate = _currentSubscription.PriceAtPurchase / _currentSubscription.ServicePackage.DurationDays;
+        decimal newDailyRate = package.Price / package.DurationDays;
+
+        if (newDailyRate <= oldDailyRate) return package.Price;
+
+        decimal upgradeAmount = (decimal)remainingDays * (newDailyRate - oldDailyRate);
+        
+        // Làm tròn và đảm bảo tối thiểu (ví dụ 2000đ cho PayOS)
+        return Math.Max(2000, Math.Round(upgradeAmount, 0));
+    }
+
     private async Task Subscribe(ServicePackage package)
     {
         if (package.Price == 0 || package.IsDefault)
@@ -216,9 +258,17 @@
             return;
         }
 
+        bool isUpgrade = _currentSubscription != null && package.Price > _currentSubscription.ServicePackage?.Price;
+        decimal displayPrice = isUpgrade ? CalculateUpgradePrice(package) : package.Price;
+        string type = isUpgrade ? "Upgrade" : "New";
+
+        string message = isUpgrade 
+            ? $"Bạn muốn nâng cấp lên gói <b>{package.Name}</b>?<br/>Phí quy đổi cho <b>{GetRemainingDays(_currentSubscription!.EndDate)}</b> còn lại là: <b>{displayPrice:N0} VND</b>.<br/><small>(Thời hạn gói vẫn giữ nguyên đến {(_currentSubscription.EndDate).ToString("dd/MM/yyyy")})</small>"
+            : $"Bạn muốn đăng ký gói <b>{package.Name}</b> với giá <b>{package.Price:N0} VND</b>?";
+
         bool? confirm = await DialogService.ShowMessageBox(
-            "Xác nhận đăng ký", 
-            (MarkupString)$"Bạn muốn đăng ký gói <b>{package.Name}</b> với giá <b>{package.Price:N0} VND</b>?", 
+            isUpgrade ? "Xác nhận nâng cấp chuyên nghiệp" : "Xác nhận đăng ký", 
+            (MarkupString)message, 
             yesText: "Xác nhận", cancelText: "Hủy");
 
         if (confirm == true)
@@ -234,7 +284,7 @@
                     return;
                 }
 
-                var request = new { UserId = _currentUserId.Value, PackageCode = package.Code, Type = "New" };
+                var request = new { UserId = _currentUserId.Value, PackageCode = package.Code, Type = type };
                 var response = await Http.PostAsJsonAsync("api/payments/create-payment", request);
                 
                 if (response.IsSuccessStatusCode)

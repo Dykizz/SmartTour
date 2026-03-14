@@ -7,4 +7,5 @@ public interface IPaymentService
     Task<string> CreatePaymentLinkAsync(int userId, string packageCode, string type);
     Task<bool> ProcessWebhookAsync(Webhook webhook);
     Task<string> GetPaymentStatusAsync(int paymentId);
+    Task<decimal> CalculateUpgradeAmountAsync(int userId, string newPackageCode);
 }
