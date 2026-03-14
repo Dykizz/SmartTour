@@ -1,0 +1,363 @@
+@page "/admin/revenue"
+@using SmartTour.Shared.Models
+@attribute [Authorize(Roles = "ADMIN")]
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@using System.Globalization
+@using ApexCharts
+
+<PageTitle>Quản lý Doanh thu - SmartTour Admin</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8 mb-12">
+    <div class="d-flex align-center justify-space-between mb-6">
+        <MudText Typo="Typo.h4" Style="font-weight: 800;">Báo cáo Doanh thu</MudText>
+        
+        <div class="d-flex align-center gap-4">
+            <MudSelect T="TimeRange" Label="Khoảng thời gian" @bind-Value="_selectedRange" @bind-Value:after="LoadData" Dense="true" Variant="Variant.Outlined" Style="width: 200px;" AnchorOrigin="Origin.BottomCenter">
+                <MudSelectItem Value="@TimeRange.Today">Hôm nay</MudSelectItem>
+                <MudSelectItem Value="@TimeRange.Last7Days">7 ngày qua</MudSelectItem>
+                <MudSelectItem Value="@TimeRange.Last1Month">1 tháng qua</MudSelectItem>
+                <MudSelectItem Value="@TimeRange.Last6Months">6 tháng qua</MudSelectItem>
+                <MudSelectItem Value="@TimeRange.Last1Year">1 năm qua</MudSelectItem>
+                <MudSelectItem Value="@TimeRange.Custom">Tùy chỉnh</MudSelectItem>
+            </MudSelect>
+
+            @if (_selectedRange == TimeRange.Custom)
+            {
+                <MudDateRangePicker Label="Chọn khoảng" @bind-DateRange="_dateRange" @bind-DateRange:after="LoadData" PlaceholderStart="Từ ngày" PlaceholderEnd="Đến ngày" Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
+            }
+            
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <MudGrid>
+            @for (int i = 0; i < 4; i++)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="2" Class="pa-6 rounded-lg">
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="60px" />
+                    </MudPaper>
+                </MudItem>
+            }
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg" Height="450px">
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg" Height="450px">
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+    else if (_stats != null)
+    {
+        <MudGrid>
+            <!-- Thống kê tổng quan -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg d-flex align-center transition-zoom">
+                    <div class="pa-3 rounded-lg mr-4 bg-light-primary text-primary">
+                        <MudIcon Icon="@Icons.Material.Filled.Payments" />
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Doanh thu kỳ này</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight: 700;">@_stats.TotalRevenue.ToString("N0") đ</MudText>
+                    </div>
+                </MudPaper>
+            </MudItem>
+            
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg d-flex align-center transition-zoom">
+                    <div class="pa-3 rounded-lg mr-4 bg-light-success text-success">
+                        <MudIcon Icon="@Icons.Material.Filled.ShoppingBag" />
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Số đơn hàng</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight: 700;">@_stats.TotalSuccessTransactions</MudText>
+                    </div>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg d-flex align-center transition-zoom">
+                    <div class="pa-3 rounded-lg mr-4 bg-light-warning text-warning">
+                        <MudIcon Icon="@Icons.Material.Filled.Moving" />
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Bình quân đơn</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight: 700;">@((_stats.TotalSuccessTransactions > 0 ? _stats.TotalRevenue / _stats.TotalSuccessTransactions : 0).ToString("N0")) đ</MudText>
+                    </div>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg d-flex align-center transition-zoom">
+                    <div class="pa-3 rounded-lg mr-4 bg-light-purple text-purple">
+                        <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" />
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Doanh thu tháng này</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight: 700;">@_stats.MonthlyRevenue.ToString("N0") đ</MudText>
+                    </div>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Biểu đồ Doanh thu & Số đơn Kết hợp (ApexCharts) -->
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg border-hover">
+                    <div class="mb-4">
+                        <MudText Typo="Typo.h6" Style="font-weight: 700;">@GetChartTitle()</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Hiệu suất Doanh thu & Đơn hàng</MudText>
+                    </div>
+                    <div class="chart-container" style="height: 400px;">
+                        <ApexChart TItem="RevenueChartItem"
+                                   Options="_apexOptions"
+                                   Height="@("100%")">
+
+                            <ApexPointSeries TItem="RevenueChartItem"
+                                             Items="_stats.ChartData"
+                                             Name="Doanh thu"
+                                             SeriesType="SeriesType.Bar"
+                                             XValue="@(e => e.Label)"
+                                             YValue="@(e => (decimal)e.Amount)"
+                                             Color="#1E88E5" />
+
+                            <ApexPointSeries TItem="RevenueChartItem"
+                                             Items="_stats.ChartData"
+                                             Name="Số đơn hàng"
+                                             SeriesType="SeriesType.Line"
+                                             XValue="@(e => e.Label)"
+                                             YValue="@(e => (decimal)e.TransactionCount)"
+                                             Color="#FF9800" />
+                        </ApexChart>
+                    </div>
+                    <MudText Typo="Typo.caption" Class="mt-2 d-block text-center mud-text-secondary">
+                        <MudIcon Icon="@Icons.Material.Filled.Insights" Size="MudBlazor.Size.Small" /> Di chuyển chuột để xem chi tiết doanh thu và đơn hàng
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Tỷ trọng theo Gói -->
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg border-hover" Style="min-height: 450px;">
+                    <div class="d-flex align-center mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.PieChart" Class="mr-2" Color="MudBlazor.Color.Primary" />
+                        <MudText Typo="Typo.h6" Style="font-weight: 700;">Tỷ trọng theo Gói</MudText>
+                    </div>
+                    <div style="max-height: 350px; overflow-y: auto;">
+                        <MudTable Items="@_stats.PackageDistribution" Dense="true" Elevation="0" Hover="true" Bordered="false">
+                            <HeaderContent>
+                                <MudTh>Gói dịch vụ</MudTh>
+                                <MudTh Style="text-align: right;">Doanh thu</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>
+                                    <div class="d-flex flex-column">
+                                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@context.PackageName</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Count giao dịch</MudText>
+                                    </div>
+                                </MudTd>
+                                <MudTd Style="text-align: right;">
+                                    <MudText Typo="Typo.body2" Color="MudBlazor.Color.Primary" Style="font-weight: 700;">@context.Amount.ToString("N0") đ</MudText>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </div>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Danh sách giao dịch -->
+            <MudItem xs="12">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg mt-4 border-hover">
+                    <div class="d-flex align-center justify-space-between mb-4">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.ListAlt" Class="mr-2" Color="MudBlazor.Color.Primary" />
+                            <MudText Typo="Typo.h6" Style="font-weight: 700;">Lịch sử giao dịch mới nhất</MudText>
+                        </div>
+                        <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" Size="MudBlazor.Size.Small" OnClick="LoadData" StartIcon="@Icons.Material.Filled.Refresh">Làm mới</MudButton>
+                    </div>
+                    <MudTable Items="@_transactions" Hover="true" Breakpoint="MudBlazor.Breakpoint.Sm" Elevation="0" Dense="true" Striped="true" FixedHeader="true" Height="400px">
+                        <HeaderContent>
+                            <MudTh>Ngày</MudTh>
+                            <MudTh>Khách hàng</MudTh>
+                            <MudTh>Email</MudTh>
+                            <MudTh>Gói dịch vụ</MudTh>
+                            <MudTh Style="text-align: right;">Số tiền</MudTh>
+                            <MudTh>Loại GD</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Ngày">@context.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                            <MudTd DataLabel="Khách hàng">@context.User?.FullName</MudTd>
+                            <MudTd DataLabel="Email">@context.User?.Email</MudTd>
+                            <MudTd DataLabel="Gói dịch vụ">@context.PackageCode</MudTd>
+                            <MudTd DataLabel="Số tiền" Style="text-align: right;">
+                                <MudText Typo="Typo.body2" Color="MudBlazor.Color.Success" Style="font-weight: 700;">@context.Amount.ToString("N0") đ</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Loại GD">
+                                <MudChip T="string" Size="MudBlazor.Size.Small" Color="@GetPackageTypeColor(context.Type)" Variant="Variant.Text">
+                                    @(context.Type switch {
+                                        "New" => "Mới",
+                                        "Upgrade" => "Nâng cấp",
+                                        "Renew" => "Gia hạn",
+                                        _ => context.Type
+                                    })
+                                </MudChip>
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <div class="pa-8 d-flex flex-column align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="MudBlazor.Size.Large" Color="MudBlazor.Color.Default" />
+                                <MudText Class="mt-2" Typo="Typo.body1" Color="MudBlazor.Color.Default">Không có dữ liệu</MudText>
+                            </div>
+                        </NoRecordsContent>
+                        <PagerContent>
+                            <MudTablePager RowsPerPageString="Số dòng mỗi trang:" InfoFormat="{first_item}-{last_item} của {all_items}" />
+                        </PagerContent>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+<style>
+    .bg-light-primary { background-color: rgba(30, 136, 229, 0.1); }
+    .bg-light-success { background-color: rgba(67, 160, 71, 0.1); }
+    .bg-light-warning { background-color: rgba(251, 140, 0, 0.1); }
+    .bg-light-purple { background-color: rgba(142, 36, 170, 0.1); }
+    .text-purple { color: #8e24aa; }
+    
+    .transition-zoom {
+        transition: transform 0.2s ease-in-out;
+    }
+    .transition-zoom:hover {
+        transform: translateY(-4px);
+    }
+    
+    .border-hover {
+        transition: box-shadow 0.2s ease-in-out;
+    }
+    .border-hover:hover {
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+    }
+</style>
+
+@code {
+    private enum TimeRange { Today, Last7Days, Last1Month, Last6Months, Last1Year, Custom }
+    private TimeRange _selectedRange = TimeRange.Last1Month;
+    private DateRange _dateRange = new DateRange(DateTime.Now.Date.AddDays(-30), DateTime.Now.Date);
+    
+    private RevenueStatistics? _stats;
+    private List<Payment> _transactions = new();
+    private bool _loading = true;
+    private ApexChartOptions<RevenueChartItem> _apexOptions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        SetupApexOptions();
+        await LoadData();
+    }
+
+    private void SetupApexOptions()
+    {
+        _apexOptions = new ApexChartOptions<RevenueChartItem>
+        {
+            Chart = new Chart
+            {
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false },
+                FontFamily = "Roboto, sans-serif"
+            },
+            Stroke = new Stroke { Width = new List<double> { 0, 4 }, Curve = Curve.Smooth },
+            Markers = new Markers { Size = new List<double> { 0, 5 } },
+            Xaxis = new XAxis
+            {
+                Labels = new XAxisLabels { Rotate = -45 }
+            },
+            Yaxis = new List<YAxis>
+            {
+                new YAxis // Trục cho Doanh thu (Bên trái)
+                {
+                    Title = new AxisTitle { Text = "Doanh thu (VNĐ)" },
+                    Labels = new YAxisLabels { Formatter = "function(val) { return val.toLocaleString() + ' đ'; }" }
+                },
+                new YAxis // Trục cho Số đơn (Bên phải)
+                {
+                    Opposite = true,
+                    Title = new AxisTitle { Text = "Số đơn hàng" },
+                    Labels = new YAxisLabels { Formatter = "function(val) { return val.toFixed(0); }" }
+                }
+            },
+            Tooltip = new ApexCharts.Tooltip
+            {
+                Shared = true,
+                Intersect = false,
+                Y = new TooltipY 
+                { 
+                    Formatter = "function(val, { seriesIndex }) { if(seriesIndex === 0) return val.toLocaleString() + ' đ'; return val + ' đơn'; }" 
+                }
+            },
+            Legend = new Legend { Position = LegendPosition.Bottom }
+        };
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        try
+        {
+            DateTime? start = null;
+            DateTime? end = null;
+
+            switch (_selectedRange)
+            {
+                case TimeRange.Today: start = DateTime.UtcNow.Date; break;
+                case TimeRange.Last7Days: start = DateTime.UtcNow.Date.AddDays(-7); break;
+                case TimeRange.Last1Month: start = DateTime.UtcNow.Date.AddDays(-30); break;
+                case TimeRange.Last6Months: start = DateTime.UtcNow.Date.AddMonths(-6); break;
+                case TimeRange.Last1Year: start = DateTime.UtcNow.Date.AddYears(-1); break;
+                case TimeRange.Custom:
+                    start = _dateRange.Start?.ToUniversalTime();
+                    end = _dateRange.End?.AddDays(1).ToUniversalTime();
+                    break;
+            }
+
+            var dateParams = $"startDate={start?.ToString("yyyy-MM-dd")}" + (end.HasValue ? $"&endDate={end.Value.ToString("yyyy-MM-dd")}" : "");
+            var statsUrl = $"api/revenue/stats?{dateParams}";
+            var paymentsUrl = $"api/revenue/payments?{dateParams}&count=20";
+
+            _stats = await Http.GetFromJsonAsync<RevenueStatistics>(statsUrl);
+            _transactions = await Http.GetFromJsonAsync<List<Payment>>(paymentsUrl) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi khi tải dữ liệu: " + ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string GetChartTitle() => _selectedRange switch
+    {
+        TimeRange.Today => "Hôm nay",
+        TimeRange.Last7Days => "7 ngày qua",
+        TimeRange.Last1Month => "1 tháng qua",
+        TimeRange.Last6Months => "6 tháng qua",
+        TimeRange.Last1Year => "1 năm qua",
+        TimeRange.Custom => "Tùy chỉnh",
+        _ => "Thống kê"
+    };
+
+    private MudBlazor.Color GetPackageTypeColor(string type) => type switch
+    {
+        "New" => MudBlazor.Color.Primary,
+        "Upgrade" => MudBlazor.Color.Secondary,
+        "Renew" => MudBlazor.Color.Info,
+        _ => MudBlazor.Color.Default
+    };
+}

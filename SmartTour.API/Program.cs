@@ -41,6 +41,8 @@ builder.Services.AddScoped<IPoiRequestService, PoiRequestService>();
 builder.Services.AddScoped<ITranslateService, TranslateService>();
 builder.Services.AddScoped<ITtsService, TtsService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IRevenueService, RevenueService>();
+builder.Services.AddHostedService<PaymentCleanupService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
