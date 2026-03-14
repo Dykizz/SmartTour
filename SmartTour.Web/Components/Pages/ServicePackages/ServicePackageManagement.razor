@@ -7,14 +7,17 @@
 <PageTitle>Quản lý Gói dịch vụ</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8">
-    <MudPaper Elevation="2" Class="pa-4">
-        <div class="d-flex align-center justify-space-between mb-4">
-            <MudText Typo="Typo.h5" Style="font-weight: bold;">Danh sách Gói dịch vụ (API)</MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => OpenDialog()">
-                Thêm gói mới
-            </MudButton>
+    <div class="d-flex align-center justify-space-between mb-6">
+        <div>
+            <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Quản lý Gói dịch vụ</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Quản lý các gói thanh toán và giới hạn trên hệ thống</MudText>
         </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => OpenDialog()">
+            Thêm gói mới
+        </MudButton>
+    </div>
 
+    <MudPaper Elevation="2" Class="pa-4 mt-4 rounded-lg">
         <MudTable Items="@_packages" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0">
             <HeaderContent>
                 <MudTh>Tên gói</MudTh>

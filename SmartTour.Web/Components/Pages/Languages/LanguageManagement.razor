@@ -8,23 +8,24 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<PageTitle>Cấu hình Ngôn ngữ</PageTitle>
+<PageTitle>Quản lý Ngôn ngữ </PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-10">
-    <MudPaper Elevation="4" Class="pa-6" Style="border-radius: 12px;">
-        <div class="d-flex align-center justify-space-between mb-6">
-            <div>
-                <MudText Typo="Typo.h5" Style="font-weight: 800; color: var(--mud-palette-primary);">Quản lý Ngôn ngữ</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Cấu hình các ngôn ngữ hiển thị trên trang web của bạn</MudText>
-            </div>
-            <MudButton Variant="Variant.Filled" 
-                       Color="Color.Primary" 
-                       StartIcon="@Icons.Material.Filled.Add" 
-                       OnClick="() => OpenAddDialog()"
-                       Style="text-transform: none; border-radius: 8px; px-4">
-                Thêm ngôn ngữ mới
-            </MudButton>
+    <div class="d-flex align-center justify-space-between mb-6">
+        <div>
+            <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Quản lý Ngôn ngữ</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Cấu hình các ngôn ngữ hiển thị trên trang web của bạn</MudText>
         </div>
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Primary" 
+                   StartIcon="@Icons.Material.Filled.Add" 
+                   OnClick="() => OpenAddDialog()"
+                   Style="text-transform: none; border-radius: 8px; px-4">
+            Thêm ngôn ngữ mới
+        </MudButton>
+    </div>
+
+    <MudPaper Elevation="2" Class="pa-4 mt-4 rounded-lg">
 
         <MudTable Items="@_languages" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0" CustomHeader="true">
             <HeaderContent>

@@ -1,4 +1,4 @@
-@page "/admin/revenue"
+@page "/revenue"
 @using SmartTour.Shared.Models
 @attribute [Authorize(Roles = "ADMIN")]
 @inject HttpClient Http
@@ -10,7 +10,7 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8 mb-12">
     <div class="d-flex align-center justify-space-between mb-6">
-        <MudText Typo="Typo.h4" Style="font-weight: 800;">Báo cáo Doanh thu</MudText>
+        <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Báo cáo Doanh thu</MudText>
         
         <div class="d-flex align-center gap-4">
             <MudSelect T="TimeRange" Label="Khoảng thời gian" @bind-Value="_selectedRange" @bind-Value:after="LoadData" Dense="true" Variant="Variant.Outlined" Style="width: 200px;" AnchorOrigin="Origin.BottomCenter">
@@ -148,7 +148,7 @@
                         <MudText Typo="Typo.h6" Style="font-weight: 700;">Tỷ trọng theo Gói</MudText>
                     </div>
                     <div style="max-height: 350px; overflow-y: auto;">
-                        <MudTable Items="@_stats.PackageDistribution" Dense="true" Elevation="0" Hover="true" Bordered="false">
+                        <MudTable Items="@_stats.PackageDistribution" Elevation="0" Hover="true" Bordered="false">
                             <HeaderContent>
                                 <MudTh>Gói dịch vụ</MudTh>
                                 <MudTh Style="text-align: right;">Doanh thu</MudTh>
@@ -180,7 +180,7 @@
                         <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" Size="MudBlazor.Size.Small" OnClick="LoadData" StartIcon="@Icons.Material.Filled.Refresh">Làm mới</MudButton>
                     </div>
                     <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<Payment>>>(ServerReload))" 
-                              Hover="true" Breakpoint="MudBlazor.Breakpoint.Sm" Elevation="0" Dense="true" Striped="true" FixedHeader="true" Height="400px" @ref="_table">
+                              Hover="true" Breakpoint="MudBlazor.Breakpoint.Sm" Elevation="0" Striped="true" FixedHeader="true" Height="400px" @ref="_table">
                         <HeaderContent>
                             <MudTh>Ngày</MudTh>
                             <MudTh>Khách hàng</MudTh>
