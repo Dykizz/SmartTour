@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.Components.WebView.Maui;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -27,10 +27,22 @@ public static class MauiProgram
 		builder.Services.AddMauiBlazorWebView();
 		builder.Services.AddMudServices();
 
+#if ANDROID
+		// Cho phép Android WebView tự phát audio (bypass autoplay policy)
+		BlazorWebViewHandler.BlazorWebViewMapper.AppendToMapping("EnableMediaAutoplay", (handler, view) =>
+		{
+			if (handler.PlatformView is Android.Webkit.WebView webView)
+			{
+				webView.Settings.MediaPlaybackRequiresUserGesture = false;
+			}
+		});
+#endif
+
 		// Authentication & Authorization Services
 		builder.Services.AddAuthorizationCore();
 		builder.Services.AddScoped<AuthenticationStateProvider, MobileAuthStateProvider>();
 		builder.Services.AddSingleton<LanguageService>();
+		builder.Services.AddSingleton<GeofenceAudioService>();
 
 		string baseUrl = "http://127.0.0.1:5164/";
 #if ANDROID

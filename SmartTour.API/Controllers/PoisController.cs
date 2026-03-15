@@ -34,6 +34,18 @@ public class PoisController : ControllerBase
         return Ok(await _poiService.GetPoisPagedAsync(categoryId, lat, lng, radius, createdById, onlyActive, pageNumber, pageSize));
     }
 
+    /// <summary>
+    /// Trả về danh sách nhẹ (chỉ lat/lng/radius/audio) dùng cho Geofence polling trên Mobile.
+    /// </summary>
+    [HttpGet("geofence")]
+    [AllowAnonymous]
+    public async Task<ActionResult<IEnumerable<SmartTour.Shared.Models.PoiGeofenceDto>>> GetPoisForGeofence()
+    {
+        var pois = await _poiService.GetAllForGeofenceAsync();
+        return Ok(pois);
+    }
+
+    [HttpGet("{id:int}")]
     [HttpGet("count")]
     [AllowAnonymous]
     public async Task<ActionResult<int>> GetCount([FromQuery] int? createdById = null)

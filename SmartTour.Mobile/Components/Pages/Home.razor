@@ -4,11 +4,14 @@
 @using SmartTour.Mobile.Services
 @using SmartTour.Shared.Models
 @using System.Net.Http.Json
+@implements IAsyncDisposable
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject HttpClient Http
 @inject ISnackbar Snackbar
 @inject LanguageService LanguageService
+@inject GeofenceAudioService GeofenceService
+@inject IJSRuntime JS
 
 @attribute [Authorize]
 
@@ -23,7 +26,7 @@
             {
                 foreach (var lang in _languages)
                 {
-                    <MudMenuItem OnClick="@(() => ChangeLanguage(lang.Code))">
+                    <MudMenuItem OnClick="@(async () => await ChangeLanguage(lang.Code))">
                         <div class="d-flex align-center">
                             <MudIcon Icon="@(lang.Code == _selectedLanguage ? Icons.Material.Filled.Check : Icons.Material.Filled.Translate)" 
                                      Color="@(lang.Code == _selectedLanguage ? Color.Primary : Color.Default)"
@@ -210,6 +213,11 @@
         </style>
     </MudMainContent>
 
+
+    <!-- Hidden audio element cho Geofence -->
+    <audio id="geofence-audio-player" hidden></audio>
+
+
     <!-- Bottom Navigation Mock -->
     <MudPaper Elevation="8" Class="fixed-bottom py-2" Style="position: fixed; bottom: 0; width: 100%; border-top-left-radius: 20px; border-top-right-radius: 20px; z-index: 100;">
         <div class="d-flex justify-space-around">
@@ -241,6 +249,7 @@
             </AuthorizeView>
         </div>
     </MudPaper>
+
 </MudLayout>
 
 @code {
@@ -255,16 +264,19 @@
     private List<Language> _languages = new();
     private string _selectedLanguage = "vi";
     
-    // Pagination attributes
+    // Pagination
     private int _currentPage = 1;
-    private int _pageSize = 6; // Để thấy hiệu ứng load more rõ hơn
+    private int _pageSize = 6;
     private bool _hasMore = false;
 
-    // Remote Tracking
+    // Location Filter
     private double? _userLat;
     private double? _userLng;
     private double? _selectedRadius;
     private bool _locationActive = false;
+    private DotNetObjectReference<GeofenceAudioService>? _dotNetRef;
+
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -283,11 +295,30 @@
             _selectedLanguage = LanguageService.SelectedLanguage;
 
             await Task.WhenAll(LoadCategories(), RefreshList(), LoadLanguages());
+
+            // Bắt đầu service Geofence Audio
+            GeofenceService.AudioTriggered += OnGeofenceAudioTriggered;
+            
+            // Đăng ký DotNetReference để nhận event 'ended' từ JS
+            _dotNetRef = Microsoft.JSInterop.DotNetObjectReference.Create(GeofenceService);
+            await JS.InvokeVoidAsync("audioHelper.setDotNetReference", _dotNetRef);
+
+            await GeofenceService.StartAsync();
         }
         catch (Exception ex)
         {
             Snackbar.Add("Lỗi khởi tạo trang: " + ex.Message, Severity.Error);
         }
+    }
+
+    /// <summary>
+    /// Được gọi khi GeofenceAudioService phát hiện user vào vùng của 1 POI.
+    /// Chạy trên background thread nên phải dùng InvokeAsync để cập nhật UI.
+    /// </summary>
+    private async Task OnGeofenceAudioTriggered(SmartTour.Shared.Models.PoiGeofenceDto poi, SmartTour.Shared.Models.PoiAudioFile audio)
+    {
+        // Service đã tự cập nhật banner state — chỉ cần phát audio qua JS
+        await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
     }
 
     private async Task LoadCategories()
@@ -300,19 +331,51 @@
 
     private async Task LoadLanguages()
     {
-        try
-        {
-            _languages = await Http.GetFromJsonAsync<List<Language>>("api/languages") ?? new();
-            var defaultLang = _languages.FirstOrDefault(l => l.IsDefault)?.Code ?? "vi";
-            _selectedLanguage = defaultLang;
-        }
+        try { _languages = await Http.GetFromJsonAsync<List<Language>>("api/languages") ?? new(); }
         catch { }
     }
 
-    private void ChangeLanguage(string code)
+    private async Task ChangeLanguage(string code)
     {
         _selectedLanguage = code;
         LanguageService.SetLanguage(code);
+
+        // Nếu banner đang hiển thị → chuyển ngôn ngữ ngay lập tức
+        if (GeofenceService.BannerVisible && GeofenceService.CurrentPoi != null)
+        {
+            var currentPoi = GeofenceService.CurrentPoi;
+            var newAudio = currentPoi.AudioFiles
+                .FirstOrDefault(a => a.LanguageCode == code)
+                ?? currentPoi.AudioFiles.FirstOrDefault();
+
+            if (newAudio != null)
+            {
+                double currentSeconds = 0;
+                try { currentSeconds = await JS.InvokeAsync<double>("audioHelper.getCurrentTime"); }
+                catch { currentSeconds = 0; }
+
+                double startAt;
+                string langLabel = code.ToUpper();
+                string msg;
+
+                if (currentSeconds < 10.0)
+                {
+                    startAt = 0;
+                    msg = $"🔄 [{langLabel}] Phát lại từ đầu...";
+                }
+                else
+                {
+                    startAt = currentSeconds;
+                    msg = $"🌐 [{langLabel}] Tiếp tục tại giây {(int)currentSeconds}...";
+                }
+
+                Snackbar.Add(msg, Severity.Info, cfg => cfg.VisibleStateDuration = 2000);
+                await JS.InvokeVoidAsync("audioHelper.playAtTime", newAudio.FileUrl, startAt);
+                GeofenceService.SetAudioPlaying(true);
+                return;
+            }
+        }
+
         Snackbar.Add($"Đã chuyển sang ngôn ngữ: {code.ToUpper()}", Severity.Info);
     }
 
@@ -421,4 +484,12 @@
     }
 
     private void NavigateToLogin() => NavigationManager.NavigateTo("/login");
+
+    public async ValueTask DisposeAsync()
+    {
+        GeofenceService.AudioTriggered -= OnGeofenceAudioTriggered;
+        await GeofenceService.StopAsync();
+        
+        _dotNetRef?.Dispose();
+    }
 }

@@ -456,12 +456,12 @@
         {
             if (_isPlaying)
             {
-                await JS.InvokeVoidAsync("eval", "document.getElementById('poi-audio-player').play()");
+                await JS.InvokeVoidAsync("audioHelper.playById", "poi-audio-player");
                 SimulateProgress();
             }
             else
             {
-                await JS.InvokeVoidAsync("eval", "document.getElementById('poi-audio-player').pause()");
+                await JS.InvokeVoidAsync("audioHelper.pauseById", "poi-audio-player");
             }
         }
         catch (Exception ex)
