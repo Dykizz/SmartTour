@@ -120,6 +120,10 @@ public class PoiService : IPoiService
         poi.CreatedAt = DateTime.UtcNow;
         poi.CreatedById = userId;
         poi.UpdatedById = userId;
+        // Clear non-owned parent objects to prevent EF from inserting duplicate entries
+        poi.Category = null;
+        poi.CreatedBy = null;
+        poi.UpdatedBy = null;
         
         _context.Pois.Add(poi);
         await _context.SaveChangesAsync();
@@ -130,18 +134,25 @@ public class PoiService : IPoiService
     {
         if (id != poi.Id) return false;
 
+        poi.Category = null;
+        poi.CreatedBy = null;
+        poi.UpdatedBy = null;
+
         var existingPoi = await _context.Pois.FindAsync(id);
         if (existingPoi == null) return false;
 
-        // Update properties
-        _context.Entry(poi).State = EntityState.Modified;
-        _context.Entry(poi).Property(x => x.CreatedAt).IsModified = false;
-        _context.Entry(poi).Property(x => x.CreatedById).IsModified = false;
-        
-        poi.UpdatedAt = DateTime.UtcNow;
-        poi.UpdatedById = userId;
+        var createdAt = existingPoi.CreatedAt;
+        var createdById = existingPoi.CreatedById;
 
-        // Sync related data
+        _context.Entry(existingPoi).CurrentValues.SetValues(poi);
+
+        existingPoi.CreatedAt = createdAt;
+        existingPoi.CreatedById = createdById;
+        
+        existingPoi.UpdatedAt = DateTime.UtcNow;
+        existingPoi.UpdatedById = userId;
+
+        // Đồng bộ dữ liệu các bảng liên kết (dựa trên dữ liệu truyền vào)
         await SyncRelatedData(id, poi);
 
         try

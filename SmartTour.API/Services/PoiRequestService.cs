@@ -130,6 +130,7 @@ public class PoiRequestService : IPoiRequestService
         {
             poi.Id = request.POIId.Value;
             await _poiService.UpdateAsync(request.POIId.Value, poi, adminId);
+            return true;
         }
 
         await _context.SaveChangesAsync();
