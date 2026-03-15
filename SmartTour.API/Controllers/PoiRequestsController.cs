@@ -21,6 +21,18 @@ public class PoiRequestsController : ControllerBase
         _poiService = poiService;
     }
 
+    [HttpGet("counts")]
+    public async Task<IActionResult> GetCounts()
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        var isAdmin = User.IsInRole("ADMIN");
+        var counts = await _requestService.GetRequestCountsAsync(isAdmin ? null : userId.Value);
+        
+        return Ok(counts);
+    }
+
     // GET api/poi-requests - Admin: tất cả; Seller: chỉ của mình (có phân trang)
     [HttpGet]
     public async Task<IActionResult> GetRequests([FromQuery] RequestStatus? status = null, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)

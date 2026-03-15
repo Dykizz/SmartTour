@@ -178,4 +178,24 @@ public class PoiRequestService : IPoiRequestService
         await _context.SaveChangesAsync();
         return true;
     }
+
+    public async Task<Dictionary<string, int>> GetRequestCountsAsync(int? userId = null)
+    {
+        var query = _context.PoiRequests.AsNoTracking();
+
+        if (userId.HasValue)
+            query = query.Where(r => r.UserId == userId.Value);
+
+        var groupedCounts = await query
+            .GroupBy(r => r.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Status.ToString(), x => x.Count);
+
+        return new Dictionary<string, int>
+        {
+            { RequestStatus.Pending.ToString(), groupedCounts.GetValueOrDefault(RequestStatus.Pending.ToString(), 0) },
+            { RequestStatus.Approved.ToString(), groupedCounts.GetValueOrDefault(RequestStatus.Approved.ToString(), 0) },
+            { RequestStatus.Rejected.ToString(), groupedCounts.GetValueOrDefault(RequestStatus.Rejected.ToString(), 0) }
+        };
+    }
 }

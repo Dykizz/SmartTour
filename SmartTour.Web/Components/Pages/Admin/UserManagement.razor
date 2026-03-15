@@ -121,12 +121,16 @@
     {
         try 
         {
-            var p0 = await Http.GetFromJsonAsync<PagedResponse<UserDto>>("api/users?roleId=0&pageSize=1");
-            var p2 = await Http.GetFromJsonAsync<PagedResponse<UserDto>>("api/users?roleId=2&pageSize=1");
-            var p3 = await Http.GetFromJsonAsync<PagedResponse<UserDto>>("api/users?roleId=3&pageSize=1");
-            _allCount = p0?.TotalCount ?? 0;
-            _sellerCount = p2?.TotalCount ?? 0;
-            _visitorCount = p3?.TotalCount ?? 0;
+            var t = DateTime.UtcNow.Ticks;
+            var counts = await Http.GetFromJsonAsync<Dictionary<int, int>>($"api/users/counts?t={t}");
+            
+            if (counts != null)
+            {
+                _allCount = counts.GetValueOrDefault(0, 0);
+                _sellerCount = counts.GetValueOrDefault(2, 0);
+                _visitorCount = counts.GetValueOrDefault(3, 0);
+                StateHasChanged();
+            }
         }
         catch { }
     }
@@ -135,7 +139,7 @@
     {
         try
         {
-            var url = $"api/users?roleId={roleId}&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
+            var url = $"api/users?roleId={roleId}&pageNumber={state.Page + 1}&pageSize={state.PageSize}&t={DateTime.UtcNow.Ticks}";
             var response = await Http.GetFromJsonAsync<PagedResponse<UserDto>>(url);
 
             if (response != null && response.Items != null)

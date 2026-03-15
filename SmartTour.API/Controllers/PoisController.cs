@@ -34,6 +34,13 @@ public class PoisController : ControllerBase
         return Ok(await _poiService.GetPoisPagedAsync(categoryId, lat, lng, radius, createdById, onlyActive, pageNumber, pageSize));
     }
 
+    [HttpGet("count")]
+    [AllowAnonymous]
+    public async Task<ActionResult<int>> GetCount([FromQuery] int? createdById = null)
+    {
+        return Ok(await _poiService.GetTotalCountAsync(createdById));
+    }
+
     [HttpGet("{id}")]
     [AllowAnonymous]
     public async Task<ActionResult<Poi>> GetPoi(int id)

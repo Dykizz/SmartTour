@@ -14,4 +14,5 @@ public interface IPoiRequestService
     Task<bool> RejectAsync(int requestId, int adminId, string note);
     Task<bool> DeleteAsync(int id, int userId, bool isAdmin);
     Task<bool> UpdateRequestAsync(int id, string requestData, int userId);
+    Task<Dictionary<string, int>> GetRequestCountsAsync(int? userId = null);
 }
