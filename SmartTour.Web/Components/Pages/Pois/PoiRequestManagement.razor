@@ -155,13 +155,15 @@
         // Tải số lượng badge (có thể tối ưu bằng API riêng, nhưng tạm thời dùng API paged pageSize=1)
         try 
         {
-            var p = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>("api/poi-requests?status=Pending&pageSize=1");
-            var a = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>("api/poi-requests?status=Approved&pageSize=1");
-            var r = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>("api/poi-requests?status=Rejected&pageSize=1");
+            var t = DateTime.UtcNow.Ticks;
+            var p = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>($"api/poi-requests?status=Pending&pageSize=1&t={t}");
+            var a = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>($"api/poi-requests?status=Approved&pageSize=1&t={t}");
+            var r = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>($"api/poi-requests?status=Rejected&pageSize=1&t={t}");
             _pendingCount = p?.TotalCount ?? 0;
             _approvedCount = a?.TotalCount ?? 0;
             _rejectedCount = r?.TotalCount ?? 0;
             _loading = false;
+            StateHasChanged();
         }
         catch { }
     }
@@ -170,7 +172,7 @@
     {
         try
         {
-            var url = $"api/poi-requests?status={status}&pageNumber={state.Page + 1}&pageSize={state.PageSize}";
+            var url = $"api/poi-requests?status={status}&pageNumber={state.Page + 1}&pageSize={state.PageSize}&t={DateTime.UtcNow.Ticks}";
             var response = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>(url);
             if (response != null)
             {
@@ -250,4 +252,5 @@
             await RefreshAll();
         }
     }
+}
 }

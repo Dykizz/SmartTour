@@ -248,6 +248,37 @@
             var userIdStr = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             int.TryParse(userIdStr, out _myUserId);
         }
+
+        await LoadCounts();
+    }
+
+    private async Task LoadCounts()
+    {
+        try
+        {
+            var t = DateTime.UtcNow.Ticks;
+            if (_isAdmin)
+            {
+                var response = await Http.GetFromJsonAsync<PagedResponse<Poi>>($"api/pois?onlyActive=false&pageSize=1&t={t}");
+                _adminPoisCount = response?.TotalCount ?? 0;
+            }
+            else
+            {
+                if (_myUserId > 0)
+                {
+                    var p = await Http.GetFromJsonAsync<PagedResponse<Poi>>($"api/pois?createdById={_myUserId}&onlyActive=false&pageSize=1&t={t}");
+                    _myPoisCount = p?.TotalCount ?? 0;
+                }
+
+                var reqPending = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>($"api/poi-requests?status=Pending&pageSize=1&t={t}");
+                _pendingRequestsCount = reqPending?.TotalCount ?? 0;
+
+                var reqRejected = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>($"api/poi-requests?status=Rejected&pageSize=1&t={t}");
+                _rejectedRequestsCount = reqRejected?.TotalCount ?? 0;
+            }
+            StateHasChanged();
+        }
+        catch { }
     }
 
     private async Task<TableData<Poi>> ReloadAdminPois(TableState state, CancellationToken token)
@@ -309,6 +340,7 @@
         if (_sellerPoisTable != null) await _sellerPoisTable.ReloadServerData();
         if (_pendingTable != null) await _pendingTable.ReloadServerData();
         if (_rejectedTable != null) await _rejectedTable.ReloadServerData();
+        await LoadCounts();
     }
 
     private void NavigateToCreate() => NavigationManager.NavigateTo("/poi/editor");
