@@ -46,6 +46,15 @@ public class PoiService : IPoiService
         return pois;
     }
 
+    public async Task<int> GetTotalCountAsync(int? createdById = null)
+    {
+        var query = _context.Pois.AsNoTracking();
+        if (createdById.HasValue)
+            query = query.Where(p => p.CreatedById == createdById.Value);
+
+        return await query.CountAsync();
+    }
+
     public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10)
     {
         var query = _context.Pois

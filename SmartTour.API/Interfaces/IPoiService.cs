@@ -11,4 +11,5 @@ public interface IPoiService
     Task<Poi> CreateAsync(Poi poi, int userId);
     Task<bool> UpdateAsync(int id, Poi poi, int userId);
     Task<bool> DeleteAsync(int id);
+    Task<int> GetTotalCountAsync(int? createdById = null);
 }

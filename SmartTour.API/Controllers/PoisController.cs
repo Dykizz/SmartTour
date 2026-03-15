@@ -46,6 +46,14 @@ public class PoisController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
+    [HttpGet("count")]
+    [AllowAnonymous]
+    public async Task<ActionResult<int>> GetCount([FromQuery] int? createdById = null)
+    {
+        return Ok(await _poiService.GetTotalCountAsync(createdById));
+    }
+
+    [HttpGet("{id}")]
     [AllowAnonymous]
     public async Task<ActionResult<Poi>> GetPoi(int id)
     {

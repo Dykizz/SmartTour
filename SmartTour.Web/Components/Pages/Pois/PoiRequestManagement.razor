@@ -152,16 +152,16 @@
 
     private async Task LoadCounts()
     {
-        // Tải số lượng badge (có thể tối ưu bằng API riêng, nhưng tạm thời dùng API paged pageSize=1)
         try 
         {
             var t = DateTime.UtcNow.Ticks;
-            var p = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>($"api/poi-requests?status=Pending&pageSize=1&t={t}");
-            var a = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>($"api/poi-requests?status=Approved&pageSize=1&t={t}");
-            var r = await Http.GetFromJsonAsync<PagedResponse<PoiRequest>>($"api/poi-requests?status=Rejected&pageSize=1&t={t}");
-            _pendingCount = p?.TotalCount ?? 0;
-            _approvedCount = a?.TotalCount ?? 0;
-            _rejectedCount = r?.TotalCount ?? 0;
+            var counts = await Http.GetFromJsonAsync<Dictionary<string, int>>($"api/poi-requests/counts?t={t}");
+            if (counts != null)
+            {
+                _pendingCount = counts.GetValueOrDefault("Pending", 0);
+                _approvedCount = counts.GetValueOrDefault("Approved", 0);
+                _rejectedCount = counts.GetValueOrDefault("Rejected", 0);
+            }
             _loading = false;
             StateHasChanged();
         }

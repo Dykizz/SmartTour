@@ -79,4 +79,24 @@ public class UserService : IUserService
             PageSize = pageSize
         };
     }
+
+    public async Task<Dictionary<int, int>> GetUserRoleCountsAsync()
+    {
+        // Exclude admin (roleId = 1) from general counts as done in GetUsersPagedAsync
+        var query = _context.Users.AsNoTracking().Where(u => u.RoleId != 1); 
+
+        var roleCounts = await query
+            .GroupBy(u => u.RoleId)
+            .Select(g => new { RoleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
+
+        var allCount = roleCounts.Values.Sum();
+
+        return new Dictionary<int, int>
+        {
+            { 0, allCount },
+            { 2, roleCounts.GetValueOrDefault(2, 0) },
+            { 3, roleCounts.GetValueOrDefault(3, 0) }
+        };
+    }
 }

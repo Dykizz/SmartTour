@@ -720,6 +720,12 @@
 
     private async Task SavePoi()
     {
+        if (string.IsNullOrWhiteSpace(_model.Name))
+        {
+            Snackbar.Add("Tên điểm đến không được để trống", Severity.Warning);
+            return;
+        }
+
         _saving = true;
         try 
         {

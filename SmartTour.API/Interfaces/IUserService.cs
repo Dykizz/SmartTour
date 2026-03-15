@@ -8,4 +8,5 @@ namespace SmartTour.API.Interfaces;
 public interface IUserService
 {
     Task<PagedResponse<UserDto>> GetUsersPagedAsync(int roleId = 0, int pageNumber = 1, int pageSize = 10);
+    Task<Dictionary<int, int>> GetUserRoleCountsAsync();
 }

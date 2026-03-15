@@ -16,6 +16,13 @@ namespace SmartTour.API.Controllers
             _userService = userService;
         }
 
+        [HttpGet("counts")]
+        public async Task<ActionResult<Dictionary<int, int>>> GetCounts()
+        {
+            var counts = await _userService.GetUserRoleCountsAsync();
+            return Ok(counts);
+        }
+
         [HttpGet]
         public async Task<ActionResult<PagedResponse<UserDto>>> GetUsers(
             [FromQuery] int roleId = 0,
