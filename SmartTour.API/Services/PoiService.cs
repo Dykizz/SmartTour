@@ -104,6 +104,30 @@ public class PoiService : IPoiService
         };
     }
 
+    /// <summary>
+    /// Lấy danh sách nhẹ để dùng cho Geofence polling trên Mobile.
+    /// Chỉ lấy các trường: Id, Name, Lat, Lng, GeofenceRadius, AudioFiles.
+    /// </summary>
+    public async Task<IEnumerable<PoiGeofenceDto>> GetAllForGeofenceAsync()
+    {
+        // QUAN TRỌNG: Phải ToListAsync() trước rồi mới project sang DTO,
+        // vì EF Core không thể dịch p.AudioFiles.ToList() sang SQL.
+        var pois = await _context.Pois
+            .Where(p => p.IsActive)
+            .Include(p => p.AudioFiles)
+            .ToListAsync();
+
+        return pois.Select(p => new PoiGeofenceDto
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Latitude = p.Latitude,
+            Longitude = p.Longitude,
+            GeofenceRadius = p.GeofenceRadius,
+            AudioFiles = p.AudioFiles.ToList()
+        });
+    }
+
     public async Task<Poi?> GetByIdAsync(int id)
     {
         return await _context.Pois

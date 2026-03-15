@@ -2,10 +2,15 @@
 @using SmartTour.Mobile.Components.Pages
 @using Microsoft.AspNetCore.Components.Routing
 
+@using SmartTour.Mobile.Components.Shared
+
 <MudThemeProvider/>
 <MudDialogProvider/>
 <MudSnackbarProvider/>
 <MudPopoverProvider/>
+
+<!-- Banner geofence toàn cục: hiển thị trên mọi trang khi audio đang phát -->
+<GeofenceBanner />
 
 <CascadingAuthenticationState>
     <ErrorBoundary @ref="_errorBoundary">
