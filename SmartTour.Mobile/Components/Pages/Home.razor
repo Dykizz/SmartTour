@@ -12,103 +12,116 @@
 @inject LanguageService LanguageService
 @inject GeofenceAudioService GeofenceService
 @inject IJSRuntime JS
-
 @attribute [Authorize]
 
 <MudLayout>
-    <MudAppBar Elevation="0" Color="Color.Primary" Dense="true">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" />
+    <!-- ── AppBar ── -->
+    <MudAppBar Elevation="0" Dense="true"
+               Style="background:linear-gradient(135deg,#0e6eb8 0%,#1a9de8 100%); z-index:200;">
+        <div class="d-flex align-center gap-2">
+            <div class="appbar-icon-btn">
+                <MudIcon Icon="@Icons.Material.Filled.Menu"
+                         Style="color:white; font-size:1.2rem;" />
+            </div>
+            <div>
+                <MudText Style="font-size:0.7rem; color:rgba(255,255,255,0.75); line-height:1;">
+                    Xin chào 👋
+                </MudText>
+                <MudText Style="font-size:0.95rem; font-weight:600; color:white; line-height:1.3;">
+                    @_userName
+                </MudText>
+            </div>
+        </div>
         <MudSpacer />
-        <MudText Typo="Typo.h6" Style="font-weight: bold;">@LanguageService.T("Home")</MudText>
-        <MudSpacer />
-        <MudMenu Icon="@Icons.Material.Filled.Language" Color="Color.Inherit" Direction="Direction.Left" OffsetX="true" Dense="true">
-            @if (_languages.Any())
-            {
-                foreach (var lang in _languages)
+        <div class="d-flex gap-2">
+            <MudMenu Icon="@Icons.Material.Filled.Language"
+                     Style="color:white;"
+                     Direction="Direction.Left" OffsetX="true" Dense="true">
+                @foreach (var lang in _languages)
                 {
                     <MudMenuItem OnClick="@(async () => await ChangeLanguage(lang.Code))">
-                        <div class="d-flex align-center">
-                            <MudIcon Icon="@(lang.Code == _selectedLanguage ? Icons.Material.Filled.Check : Icons.Material.Filled.Translate)" 
-                                     Color="@(lang.Code == _selectedLanguage ? Color.Primary : Color.Default)"
-                                     Size="Size.Small" Class="mr-2"/>
+                        <div class="d-flex align-center gap-2">
+                            <MudIcon Icon="@(lang.Code == _selectedLanguage
+                                           ? Icons.Material.Filled.Check
+                                           : Icons.Material.Filled.Translate)"
+                                     Color="@(lang.Code == _selectedLanguage
+                                             ? Color.Primary : Color.Default)"
+                                     Size="Size.Small" />
                             <MudText Typo="Typo.body2">@lang.Name</MudText>
                         </div>
                     </MudMenuItem>
                 }
-            }
-            else
-            {
-                <MudMenuItem Disabled="true">Đang tải...</MudMenuItem>
-            }
-        </MudMenu>
-        <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" Edge="Edge.End" />
+            </MudMenu>
+            <div class="appbar-icon-btn">
+                <MudIcon Icon="@Icons.Material.Filled.Notifications"
+                         Style="color:white; font-size:1.2rem;" />
+            </div>
+        </div>
     </MudAppBar>
 
-    <MudMainContent Class="pa-4" Style="background-color: #f5f5f5; min-height: 100vh;">
-        
-    <MudText Typo="Typo.h5" Class="mb-1">@LanguageService.T("Hello"), <b>@_userName</b>! 👋</MudText>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">@LanguageService.T("SearchHint")</MudText>
+    <MudMainContent Style="background:#f0f7ff; min-height:100vh; padding-bottom:80px;">
 
-        <!-- Categories -->
-        <MudText Typo="Typo.subtitle1" Style="font-weight: bold;" Class="mb-3">@LanguageService.T("Categories")</MudText>
-        <div class="d-flex gap-2 mb-6 overflow-auto no-scrollbar" style="padding: 4px 2px 8px 2px; -webkit-overflow-scrolling: touch;">
-            @if (_loadingCategories)
-            {
-                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Small" />
-            }
-            else
-            {
-                <MudChip T="int" Color="Color.Primary" 
-                         Variant="@(_selectedCategoryId == 0 ? Variant.Filled : Variant.Outlined)" 
-                         Icon="@Icons.Material.Filled.Dashboard" 
-                         OnClick="@(() => FilterByCategory(0))"
-                         Style="min-width: fit-content; white-space: nowrap; margin: 0;">@LanguageService.T("All")</MudChip>
-                
-                @if (_categories.Any())
+        <!-- ── Search Bar ── -->
+        <div class="px-4 pt-3 pb-2">
+            <MudPaper Elevation="2"
+                      Class="d-flex align-center px-3 py-2 rounded-xl gap-2"
+                      Style="border:0.5px solid rgba(14,110,184,0.15);">
+                <MudIcon Icon="@Icons.Material.Filled.Search"
+                         Style="color:#0e6eb8; font-size:1.1rem;" />
+                <MudText Typo="Typo.body2" Style="color:#aaa; flex:1;">
+                    Tìm địa điểm...
+                </MudText>
+                <div style="width:28px;height:28px;background:rgba(14,110,184,0.08);
+                            border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                    <MudIcon Icon="@Icons.Material.Filled.Tune"
+                             Style="color:#0e6eb8; font-size:1rem;" />
+                </div>
+            </MudPaper>
+        </div>
+
+        <!-- ── Categories ── -->
+        <div class="px-4 pb-2">
+            <MudText Typo="Typo.subtitle2"
+                     Style="font-weight:600; color:#0a3050; margin-bottom:8px;">
+                Danh mục
+            </MudText>
+            <div class="d-flex gap-2 overflow-auto no-scrollbar pb-1">
+                <div class="@(_selectedCategoryId == 0 ? "cat-chip cat-chip-active" : "cat-chip cat-chip-inactive")"
+                     @onclick="@(() => FilterByCategory(0))">
+                    <MudIcon Icon="@Icons.Material.Filled.Dashboard"
+                             Style="font-size:0.75rem;" />
+                    Tất cả
+                </div>
+                @foreach (var cat in _categories)
                 {
-                    var iconMap = new[] { Icons.Material.Filled.Nature, Icons.Material.Filled.Museum, Icons.Material.Filled.Restaurant, Icons.Material.Filled.Hotel, Icons.Material.Filled.LocalCafe };
-                    var colorMap = new[] { Color.Primary, Color.Secondary, Color.Info, Color.Success, Color.Warning };
-                    int idx = 0;
-                    foreach (var cat in _categories)
-                    {
-                        var currentCatId = cat.Id;
-                        <MudChip T="int" Value="@currentCatId" 
-                                 Color="@colorMap[idx % colorMap.Length]" 
-                                 Variant="@(_selectedCategoryId == currentCatId ? Variant.Filled : Variant.Outlined)" 
-                                  Icon="@iconMap[idx % iconMap.Length]"
-                                 OnClick="@(() => FilterByCategory(currentCatId))"
-                                 Style="min-width: fit-content; white-space: nowrap; margin: 0;">@LanguageService.T(cat.Name)</MudChip>
-                        idx++;
-                    }
+                    var catId   = cat.Id;
+                    var catIcon = _categoryIcons[_categories.IndexOf(cat) % _categoryIcons.Length];
+                    <div class="@(_selectedCategoryId == catId ? "cat-chip cat-chip-active" : "cat-chip cat-chip-inactive")"
+                         @onclick="@(() => FilterByCategory(catId))">
+                        <MudIcon Icon="@catIcon" Style="font-size:0.75rem;" />
+                        @LanguageService.T(cat.Name)
+                    </div>
                 }
-            }
-        </div>
-
-        <style>
-            .no-scrollbar::-webkit-scrollbar {
-                display: none;
-            }
-            .no-scrollbar {
-                -ms-overflow-style: none;
-                scrollbar-width: none;
-            }
-        </style>
-
-        <!-- Featured Section -->
-        <div class="d-flex justify-space-between align-center mb-3">
-            <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">@LanguageService.T("Featured")</MudText>
-            <MudLink Typo="Typo.caption" Href="#">@LanguageService.T("SeeAll")</MudLink>
-        </div>
-
-        <!-- Location Filter -->
-        <div class="d-flex align-center justify-space-between mb-4 mt-2 pa-2 rounded-lg" style="background: rgba(var(--mud-palette-primary-rgb), 0.05); border: 1px dashed rgba(var(--mud-palette-primary-rgb), 0.2);">
-            <div class="d-flex align-center">
-                <MudIcon Icon="@Icons.Material.Filled.MyLocation" Color="@(_locationActive ? Color.Primary : Color.Default)" Size="Size.Small" Class="mr-2" />
-                <MudText Typo="Typo.caption" Style="font-weight: 500;">@LanguageService.T("FindAround")</MudText>
             </div>
-            <div class="d-flex align-center gap-1">
-                <MudSelect T="double?" Value="_selectedRadius" ValueChanged="OnRadiusChanged" Dense="true" Margin="Margin.Dense" Variant="Variant.Text" Style="width: 110px; font-size: 0.8rem;">
-                    <MudSelectItem T="double?" Value="@((double?)null)">@LanguageService.T("All")</MudSelectItem>
+        </div>
+
+        <!-- ── Location Filter ── -->
+        <div class="px-4 pb-2">
+            <MudPaper Elevation="0"
+                      Class="d-flex align-center px-3 py-2 rounded-xl gap-2"
+                      Style="background:white; border:0.5px solid rgba(14,110,184,0.1);">
+                <MudIcon Icon="@Icons.Material.Filled.MyLocation"
+                         Style="@($"color:{(_locationActive ? "#0e6eb8" : "#bbb")}; font-size:1rem;")" />
+                <MudText Typo="Typo.caption"
+                         Style="font-weight:500; color:#0a3050; flex:1;">
+                    @LanguageService.T("FindAround")
+                </MudText>
+                <MudSelect T="double?" Value="_selectedRadius"
+                           ValueChanged="OnRadiusChanged"
+                           Dense="true" Margin="Margin.Dense"
+                           Variant="Variant.Text"
+                           Style="width:100px; font-size:0.75rem;">
+                    <MudSelectItem T="double?" Value="@((double?)null)">Tất cả</MudSelectItem>
                     <MudSelectItem T="double?" Value="@(500.0)">500 m</MudSelectItem>
                     <MudSelectItem T="double?" Value="@(1000.0)">1.0 km</MudSelectItem>
                     <MudSelectItem T="double?" Value="@(2000.0)">2.0 km</MudSelectItem>
@@ -116,277 +129,484 @@
                 </MudSelect>
                 @if (_locationActive)
                 {
-                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" OnClick="DisableLocation" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Size="Size.Small" Color="Color.Error"
+                                   OnClick="DisableLocation" />
                 }
-            </div>
+            </MudPaper>
         </div>
 
-        <!--Tự động phát -->
-        <div class="d-flex align-center justify-space-between mb-4 pa-3 rounded-lg" style="background: white; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-            <div class="d-flex align-center">
-                <MudIcon Icon="@Icons.Material.Filled.AutoMode" Color="@(GeofenceService.IsAutoPlayEnabled ? Color.Primary : Color.Default)" Size="Size.Medium" Class="mr-3" />
-                <div>
-                    <MudText Typo="Typo.body2" Style="font-weight: 600;">@LanguageService.T("AutoPlayTitle")</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@LanguageService.T("AutoPlayDesc")</MudText>
+        <!-- ── Auto-play Toggle ── -->
+        <div class="px-4 pb-3">
+            <MudPaper Elevation="0"
+                      Class="d-flex align-center px-3 py-2 rounded-xl gap-3"
+                      Style="background:white; border:0.5px solid rgba(14,110,184,0.1);">
+                <div class="autoplay-icon-wrap">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoMode"
+                             Style="@($"color:{(GeofenceService.IsAutoPlayEnabled ? "#0e6eb8" : "#bbb")}; font-size:1.1rem;")" />
                 </div>
-            </div>
-            <MudSwitch T="bool" Value="GeofenceService.IsAutoPlayEnabled" ValueChanged="@((v) => GeofenceService.ToggleAutoPlay(v))" Color="Color.Primary" />
+                <div style="flex:1;">
+                    <MudText Typo="Typo.body2"
+                             Style="font-weight:600; color:#0a3050; line-height:1.2;">
+                        @LanguageService.T("AutoPlayTitle")
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="color:#aaa;">
+                        @LanguageService.T("AutoPlayDesc")
+                    </MudText>
+                </div>
+                <MudSwitch T="bool"
+                           Value="GeofenceService.IsAutoPlayEnabled"
+                           ValueChanged="@((v) => GeofenceService.ToggleAutoPlay(v))"
+                           Color="Color.Primary" />
+            </MudPaper>
         </div>
 
-        <MudGrid>
+        <!-- ── Featured POIs ── -->
+        <div class="px-4">
+            <div class="d-flex justify-space-between align-center mb-3">
+                <MudText Typo="Typo.subtitle2"
+                         Style="font-weight:600; color:#0a3050;">
+                    @LanguageService.T("Featured")
+                </MudText>
+                <MudLink Typo="Typo.caption" Style="color:#0e6eb8;" Href="#">
+                    @LanguageService.T("SeeAll") →
+                </MudLink>
+            </div>
+
             @if (_loadingPois && _pois.Count == 0)
             {
-                <MudItem xs="12" Class="d-flex justify-center pa-8">
+                <div class="d-flex justify-center py-8">
                     <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-                </MudItem>
+                </div>
             }
             else if (_pois.Any())
             {
-                foreach (var poi in _pois)
+                @if (_featuredPoi != null)
                 {
-                    <MudItem xs="@(poi.IsFeature ? 12 : 6)">
-                        <MudCard Elevation="4" Style="border-radius: 16px; overflow: hidden; height: 100%;" Class="mud-ripple" @onclick="@(() => NavigationManager.NavigateTo($"/poi-details/{poi.Id}"))">
-                            @{
-                                var thumbnail = poi.Images?.FirstOrDefault(i => i.IsThumbnail)?.ImageUrl 
-                                               ?? poi.Images?.FirstOrDefault()?.ImageUrl 
-                                               ?? "https://via.placeholder.com/400x200?text=No+Image";
-                            }
-                            <MudCardMedia Image="@thumbnail" Height="@(poi.IsFeature ? 180 : 120)" />
-                            <MudCardContent Class="@(poi.IsFeature ? "pa-4" : "pa-3")">
-                                <div class="d-flex align-center justify-space-between mb-1">
-                                    <MudText Typo="@(poi.IsFeature ? Typo.h6 : Typo.subtitle2)" Style="font-weight: bold;" Class="line-clamp-1">@poi.Name</MudText>
-                                    @if (poi.IsFeature)
-                                    {
-                                        <MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Warning" Size="Size.Small" />
-                                    }
+                    <MudPaper Elevation="3" Class="rounded-xl overflow-hidden mb-3"
+                              Style="cursor:pointer; border:0.5px solid rgba(14,110,184,0.1);"
+                              @onclick="@(() => NavigationManager.NavigateTo($"/poi-details/{_featuredPoi.Id}"))">
+                        <div class="featured-img-wrap"
+                             style="@(string.IsNullOrEmpty(GetThumb(_featuredPoi))
+                                 ? "background:linear-gradient(135deg,#0e6eb8,#1a9de8);"
+                                 : $"background:url('{GetThumb(_featuredPoi)}') center/cover no-repeat;")">
+                            <div class="featured-overlay">
+                                <div>
+                                    <MudText Style="font-size:1rem; font-weight:700; color:white;">
+                                        @_featuredPoi.Name
+                                    </MudText>
+                                    <div class="d-flex align-center gap-1 mt-1">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn"
+                                                 Style="font-size:0.75rem; color:rgba(255,255,255,0.8);" />
+                                        <MudText Typo="Typo.caption"
+                                                 Style="color:rgba(255,255,255,0.8);">
+                                            @(_featuredPoi.Category?.Name ?? "Địa điểm")
+                                        </MudText>
+                                    </div>
                                 </div>
-                                <div class="d-flex align-center">
-                                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" Color="Color.Error" Class="mr-1"/>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="line-clamp-1">@LanguageService.T(poi.Category?.Name ?? "Place")</MudText>
-                                </div>
-                                @if (poi.IsFeature)
-                                {
-                                    <MudRating SelectedValue="5" ReadOnly="true" Size="Size.Small" Class="mt-2" />
-                                }
-                            </MudCardContent>
-                            <MudCardActions Class="pa-2">
-                                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => NavigationManager.NavigateTo($"/poi-details/{poi.Id}"))">@LanguageService.T("Details")</MudButton>
-                            </MudCardActions>
-                        </MudCard>
-                    </MudItem>
+                            </div>
+                            <div class="featured-badge">⭐ Nổi bật</div>
+                        </div>
+                        <div class="d-flex align-center justify-space-between px-3 py-2">
+                            <MudText Typo="Typo.caption" Style="color:#888;">
+                                Đang mở cửa
+                            </MudText>
+                            <div class="detail-chip">Chi tiết</div>
+                        </div>
+                    </MudPaper>
                 }
+
+                <MudGrid Spacing="2">
+                    @foreach (var poi in _restPois)
+                    {
+                        <MudItem xs="6">
+                            <MudPaper Elevation="2" Class="rounded-xl overflow-hidden"
+                                      Style="cursor:pointer; border:0.5px solid rgba(14,110,184,0.08);"
+                                      @onclick="@(() => NavigationManager.NavigateTo($"/poi-details/{poi.Id}"))">
+                                <div class="grid-img-wrap"
+                                     style="@(string.IsNullOrEmpty(GetThumb(poi))
+                                         ? "background:linear-gradient(135deg,#0e6eb8,#1a9de8);"
+                                         : $"background:url('{GetThumb(poi)}') center/cover no-repeat;")">
+                                    <div class="grid-overlay">
+                                        <MudText Style="font-size:0.8rem; font-weight:600; color:white;">
+                                            @poi.Name
+                                        </MudText>
+                                    </div>
+                                </div>
+                                <div class="px-2 py-2">
+                                    <div class="d-flex align-center gap-1 mb-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn"
+                                                 Style="font-size:0.7rem; color:#0e6eb8;" />
+                                        <MudText Typo="Typo.caption" Style="color:#888;">
+                                            @(poi.Category?.Name ?? "Địa điểm")
+                                        </MudText>
+                                    </div>
+                                    <div class="detail-chip-sm">Chi tiết</div>
+                                </div>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
 
                 @if (_hasMore)
                 {
-                    <MudItem xs="12" Class="d-flex justify-center pa-4">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" OnClick="LoadMore" 
-                                   Disabled="_loadingPois" Class="rounded-pill py-2">
+                    <div class="d-flex justify-center mt-4">
+                        <MudButton Variant="Variant.Outlined"
+                                   Style="color:#0e6eb8; border-color:#0e6eb8; border-radius:24px;"
+                                   FullWidth="true" OnClick="LoadMore"
+                                   Disabled="_loadingPois">
                             @if (_loadingPois)
                             {
-                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                                <MudProgressCircular Size="Size.Small"
+                                                     Indeterminate="true" Class="mr-2" />
                             }
                             @LanguageService.T("SeeAll")
                         </MudButton>
-                    </MudItem>
+                    </div>
                 }
             }
             else
             {
-                <MudItem xs="12" Class="pa-12 d-flex flex-column align-center justify-center animate-fade-in">
-                    <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center text-center rounded-xl" Style="background: transparent; border: 2px dashed rgba(0,0,0,0.05);">
-                        <div class="relative mb-4">
-                            <MudIcon Icon="@Icons.Material.Filled.LocationOff" Style="font-size: 4rem; opacity: 0.1;" />
-                            <MudIcon Icon="@Icons.Material.Filled.Search" Style="position: absolute; bottom: 0; right: 0; font-size: 2rem;" Color="Color.Primary" />
-                        </div>
-                        <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: bold;">@LanguageService.T("NoResults")</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-                            @LanguageService.T("NoResults")
-                        </MudText>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" 
-                                   OnClick="ResetFilters" Class="rounded-pill px-8 py-2">@LanguageService.T("SeeAll")</MudButton>
-                    </MudPaper>
-                </MudItem>
+                <div class="d-flex flex-column align-center py-10 text-center">
+                    <MudIcon Icon="@Icons.Material.Filled.LocationOff"
+                             Style="font-size:3.5rem; color:rgba(14,110,184,0.15);" />
+                    <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1"
+                             Style="font-weight:600; color:#0a3050;">
+                        Không tìm thấy địa điểm
+                    </MudText>
+                    <MudButton Variant="Variant.Filled"
+                               Style="background:#0e6eb8; color:white; border-radius:24px; margin-top:12px;"
+                               OnClick="ResetFilters">
+                        Xem tất cả
+                    </MudButton>
+                </div>
             }
-        </MudGrid>
-        
-        <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-8 mb-4" Color="Color.Secondary" Style="@(_hasMore ? "display:none" : "")">
+        </div>
+
+        <!-- ── Audio Banner ── -->
+        @if (GeofenceService.BannerVisible && GeofenceService.CurrentPoi != null)
+        {
+            <div class="audio-banner mx-4 mt-4">
+                <div class="d-flex align-center gap-3">
+                    <div class="audio-icon-wrap">
+                        <MudIcon Icon="@Icons.Material.Filled.LocationOn"
+                                 Style="color:white; font-size:1rem;" />
+                    </div>
+                    <div style="flex:1;">
+                        <MudText Typo="Typo.caption"
+                                 Style="color:rgba(255,255,255,0.75);">
+                            📍 Bạn đang ở gần
+                        </MudText>
+                        <MudText Style="font-size:0.9rem; font-weight:600; color:white;">
+                            @GeofenceService.CurrentPoi.Name
+                        </MudText>
+                    </div>
+                    <div class="d-flex gap-2">
+                        @if (GeofenceService.IsAudioPlaying)
+                        {
+                            <div class="audio-ctrl-btn" @onclick="PauseAudio">
+                                <MudIcon Icon="@Icons.Material.Filled.Pause"
+                                         Style="color:white; font-size:1rem;" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="audio-ctrl-btn" @onclick="ResumeAudio">
+                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow"
+                                         Style="color:white; font-size:1rem;" />
+                            </div>
+                        }
+                        <div class="audio-ctrl-btn" @onclick="ReplayAudio">
+                            <MudIcon Icon="@Icons.Material.Filled.Replay"
+                                     Style="color:white; font-size:1rem;" />
+                        </div>
+                        <div class="audio-ctrl-btn"
+                             @onclick="@(() => GeofenceService.CloseBanner())">
+                            <MudIcon Icon="@Icons.Material.Filled.Close"
+                                     Style="color:white; font-size:1rem;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <MudText Typo="Typo.caption" Align="Align.Center"
+                 Class="mt-6 mb-2 d-block"
+                 Style="@($"color:#bbb; {(!_hasMore ? "" : "display:none!important")}")">
             @LanguageService.T("EndList")
         </MudText>
-        
-        <style>
-            .line-clamp-1 {
-                display: -webkit-box;
-                -webkit-line-clamp: 1;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
-        </style>
+
     </MudMainContent>
 
-
-    <!-- Hidden audio element cho Geofence -->
     <audio id="geofence-audio-player" hidden></audio>
 
-
-    <!-- Bottom Navigation Mock -->
-    <MudPaper Elevation="8" Class="fixed-bottom py-2" Style="position: fixed; bottom: 0; width: 100%; border-top-left-radius: 20px; border-top-right-radius: 20px; z-index: 100;">
+    <!-- ── Bottom Navigation ── -->
+    <MudPaper Elevation="8" Class="py-2"
+              Style="position:fixed; bottom:0; width:100%;
+                     border-top-left-radius:20px; border-top-right-radius:20px;
+                     background:rgba(255,255,255,0.92);
+                     backdrop-filter:blur(16px);
+                     border-top:0.5px solid rgba(14,110,184,0.12);
+                     z-index:999;">
         <div class="d-flex justify-space-around">
-            <div class="d-flex flex-column align-center">
-                <MudIcon Icon="@Icons.Material.Filled.Home" Color="Color.Primary" />
-                <MudText Typo="Typo.caption" Color="Color.Primary">@LanguageService.T("Home")</MudText>
+            <div class="d-flex flex-column align-center" style="min-width:60px;">
+                <div class="nav-icon-active">
+                    <MudIcon Icon="@Icons.Material.Filled.Home"
+                             Style="color:#0e6eb8; font-size:1.2rem;" />
+                </div>
+                <MudText Typo="Typo.caption"
+                         Style="color:#0e6eb8; font-weight:600; font-size:0.65rem;">
+                    @LanguageService.T("Home")
+                </MudText>
             </div>
-            <div class="d-flex flex-column align-center" style="opacity: 0.5">
-                <MudIcon Icon="@Icons.Material.Filled.Map" Color="Color.Inherit" />
-                <MudText Typo="Typo.caption">@LanguageService.T("Map")</MudText>
+            <div class="d-flex flex-column align-center nav-item"
+                 style="min-width:60px;"
+                 @onclick="@(() => NavigationManager.NavigateTo("/map"))">
+                <MudIcon Icon="@Icons.Material.Filled.Map"
+                         Style="color:#bbb; font-size:1.3rem;" />
+                <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
+                    @LanguageService.T("Map")
+                </MudText>
             </div>
-            <div class="d-flex flex-column align-center" style="opacity: 0.5">
-                <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Inherit" />
-                <MudText Typo="Typo.caption">@LanguageService.T("Profile")</MudText>
+            <div class="d-flex flex-column align-center nav-item"
+                 style="min-width:60px;"
+                 @onclick="@(() => NavigationManager.NavigateTo("/profile"))">
+                <MudIcon Icon="@Icons.Material.Filled.Person"
+                         Style="color:#bbb; font-size:1.3rem;" />
+                <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
+                    @LanguageService.T("Profile")
+                </MudText>
             </div>
             <AuthorizeView>
                 <Authorized>
-                    <div class="d-flex flex-column align-center" style="opacity: 0.5">
-                        <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" OnClick="Logout" Size="Size.Small"/>
-                        <MudText Typo="Typo.caption">@LanguageService.T("Logout")</MudText>
+                    <div class="d-flex flex-column align-center nav-item"
+                         style="min-width:60px;" @onclick="Logout">
+                        <MudIcon Icon="@Icons.Material.Filled.Logout"
+                                 Style="color:#bbb; font-size:1.3rem;" />
+                        <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
+                            @LanguageService.T("Logout")
+                        </MudText>
                     </div>
                 </Authorized>
                 <NotAuthorized>
-                    <div class="d-flex flex-column align-center" style="opacity: 0.5">
-                        <MudIconButton Icon="@Icons.Material.Filled.Login" Color="Color.Inherit" OnClick="NavigateToLogin" Size="Size.Small"/>
-                        <MudText Typo="Typo.caption">@LanguageService.T("Login")</MudText>
+                    <div class="d-flex flex-column align-center nav-item"
+                         style="min-width:60px;" @onclick="NavigateToLogin">
+                        <MudIcon Icon="@Icons.Material.Filled.Login"
+                                 Style="color:#bbb; font-size:1.3rem;" />
+                        <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
+                            @LanguageService.T("Login")
+                        </MudText>
                     </div>
                 </NotAuthorized>
             </AuthorizeView>
         </div>
     </MudPaper>
-
 </MudLayout>
+
+<style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    .appbar-icon-btn {
+        width: 32px; height: 32px; border-radius: 10px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+    }
+
+    .cat-chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 14px; border-radius: 20px;
+        font-size: 0.78rem; font-weight: 500;
+        white-space: nowrap; cursor: pointer; transition: all 0.2s;
+    }
+    .cat-chip-active  { background: #0e6eb8; color: white; }
+    .cat-chip-inactive {
+        background: rgba(14,110,184,0.08); color: #0e6eb8;
+        border: 1px solid rgba(14,110,184,0.2);
+    }
+
+    .autoplay-icon-wrap {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: rgba(14,110,184,0.08);
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .featured-img-wrap { height: 160px; position: relative; }
+    .featured-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 60%);
+        display: flex; align-items: flex-end; padding: 14px;
+    }
+    .featured-badge {
+        background: rgba(255,255,255,0.2); backdrop-filter: blur(4px);
+        color: white; font-size: 0.7rem; padding: 3px 10px; border-radius: 8px;
+        position: absolute; top: 10px; right: 10px;
+    }
+    .detail-chip {
+        background: rgba(14,110,184,0.08); color: #0e6eb8;
+        font-size: 0.75rem; font-weight: 500;
+        padding: 4px 14px; border-radius: 10px; display: inline-block;
+    }
+
+    .grid-img-wrap { height: 90px; position: relative; }
+    .grid-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%);
+        display: flex; align-items: flex-end; padding: 8px;
+    }
+    .detail-chip-sm {
+        background: #0e6eb8; color: white;
+        font-size: 0.7rem; font-weight: 500;
+        padding: 4px 12px; border-radius: 8px;
+        display: inline-block; text-align: center; width: 100%;
+    }
+
+    .audio-banner {
+        background: linear-gradient(135deg,#0e6eb8,#1a9de8);
+        border-radius: 16px; padding: 12px 14px;
+        animation: slideUp 0.3s ease-out;
+    }
+    .audio-icon-wrap {
+        width: 38px; height: 38px; border-radius: 12px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .audio-ctrl-btn {
+        width: 30px; height: 30px; border-radius: 8px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .audio-ctrl-btn:active { background: rgba(255,255,255,0.35); }
+
+    .nav-item { cursor: pointer; transition: opacity 0.2s; }
+    .nav-item:active { opacity: 0.6; }
+    .nav-icon-active {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: rgba(14,110,184,0.1);
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    @@keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to   { transform: translateY(0);    opacity: 1; }
+    }
+</style>
 
 @code {
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationStateTask { get; set; }
-    private string _userName;
-    private List<Category> _categories = new();
-    private List<Poi> _pois = new();
-    private bool _loadingCategories = true;
-    private bool _loadingPois = true;
-    private int _selectedCategoryId = 0; // 0 means "All"
-    private List<Language> _languages = new();
-    private string _selectedLanguage = "vi";
-    
-    // Pagination
-    private int _currentPage = 1;
-    private int _pageSize = 6;
-    private bool _hasMore = false;
 
-    // Location Filter
-    private double? _userLat;
-    private double? _userLng;
-    private double? _selectedRadius;
-    private bool _locationActive = false;
+    private string         _userName          = "Guest";
+    private List<Category> _categories        = new();
+    private List<Poi>      _pois              = new();
+    private List<Language> _languages         = new();
+    private string         _selectedLanguage  = "vi";
+    private bool           _loadingPois       = true;
+    private int            _selectedCategoryId = 0;
+    private int            _currentPage       = 1;
+    private const int      _pageSize          = 6;
+    private bool           _hasMore           = false;
+    private double?        _userLat;
+    private double?        _userLng;
+    private double?        _selectedRadius;
+    private bool           _locationActive    = false;
     private DotNetObjectReference<GeofenceAudioService>? _dotNetRef;
 
+    private readonly string[] _categoryIcons =
+    {
+        Icons.Material.Filled.AccountBalance,
+        Icons.Material.Filled.Restaurant,
+        Icons.Material.Filled.Hotel,
+        Icons.Material.Filled.Nature,
+        Icons.Material.Filled.LocalCafe
+    };
 
+    // ── Computed ─────────────────────────────────────────────────────────
+
+    private Poi? _featuredPoi =>
+        _pois.FirstOrDefault(p => p.IsFeature) ?? _pois.FirstOrDefault();
+
+    private List<Poi> _restPois =>
+        _featuredPoi == null
+            ? _pois
+            : _pois.Where(p => p.Id != _featuredPoi.Id).ToList();
+
+    private string GetThumb(Poi poi) =>
+        poi.Images?.FirstOrDefault(x => x.IsThumbnail)?.ImageUrl
+        ?? poi.Images?.FirstOrDefault()?.ImageUrl
+        ?? "";
+
+    // ── Lifecycle ────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
-        try 
+        try
         {
-            if (AuthenticationStateTask == null)
-            {
-                _userName = "Guest";
-            }
-            else
-            {
-                var authState = await AuthenticationStateTask;
-                _userName = authState.User.Identity?.Name ?? "Guest";
-            }
-            
+            var authState = await AuthenticationStateTask;
+            _userName         = authState.User.Identity?.Name ?? "Guest";
             _selectedLanguage = LanguageService.SelectedLanguage;
+
+            GeofenceService.AudioTriggered     += OnGeofenceAudioTriggered;
+            GeofenceService.BannerStateChanged += OnBannerStateChanged;
 
             await Task.WhenAll(LoadCategories(), RefreshList(), LoadLanguages());
 
-            // Bắt đầu service Geofence Audio
-            GeofenceService.AudioTriggered += OnGeofenceAudioTriggered;
-            
-            // Đăng ký DotNetReference để nhận event 'ended' từ JS
-            _dotNetRef = Microsoft.JSInterop.DotNetObjectReference.Create(GeofenceService);
+            _dotNetRef = DotNetObjectReference.Create(GeofenceService);
             await JS.InvokeVoidAsync("audioHelper.setDotNetReference", _dotNetRef);
-
             await GeofenceService.StartAsync();
         }
         catch (Exception ex)
         {
-            Snackbar.Add("Lỗi khởi tạo trang: " + ex.Message, Severity.Error);
+            Snackbar.Add("Lỗi khởi tạo: " + ex.Message, Severity.Error);
         }
     }
 
-    /// <summary>
-    /// Được gọi khi GeofenceAudioService phát hiện user vào vùng của 1 POI.
-    /// Chạy trên background thread nên phải dùng InvokeAsync để cập nhật UI.
-    /// </summary>
-    private async Task OnGeofenceAudioTriggered(SmartTour.Shared.Models.PoiGeofenceDto poi, SmartTour.Shared.Models.PoiAudioFile audio)
+    // ── Audio ─────────────────────────────────────────────────────────────
+
+    private async Task OnGeofenceAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio)
+        => await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
+
+    private void OnBannerStateChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task PauseAudio()
     {
-        // Service đã tự cập nhật banner state — chỉ cần phát audio qua JS
-        await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
+        await JS.InvokeVoidAsync("audioHelper.pause");
+        GeofenceService.SetAudioPlaying(false);
     }
+
+    private async Task ResumeAudio()
+    {
+        await JS.InvokeVoidAsync("audioHelper.resume");
+        GeofenceService.SetAudioPlaying(true);
+    }
+
+    private async Task ReplayAudio()
+    {
+        if (GeofenceService.CurrentPoi != null)
+            await GeofenceService.PlayManualAsync(
+                GeofenceService.CurrentPoi, LanguageService.SelectedLanguage);
+    }
+
+    // ── Data ─────────────────────────────────────────────────────────────
 
     private async Task LoadCategories()
     {
-        _loadingCategories = true;
-        try { _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new(); }
-        catch (Exception ex) { Snackbar.Add("Lỗi tải danh mục: " + ex.Message, Severity.Error); }
-        finally { _loadingCategories = false; }
+        try
+        {
+            _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi tải danh mục: " + ex.Message, Severity.Error);
+        }
     }
 
     private async Task LoadLanguages()
     {
         try { _languages = await Http.GetFromJsonAsync<List<Language>>("api/languages") ?? new(); }
         catch { }
-    }
-
-    private async Task ChangeLanguage(string code)
-    {
-        _selectedLanguage = code;
-        LanguageService.SetLanguage(code);
-
-        // Nếu banner đang hiển thị → chuyển ngôn ngữ ngay lập tức
-        if (GeofenceService.BannerVisible && GeofenceService.CurrentPoi != null)
-        {
-            var currentPoi = GeofenceService.CurrentPoi;
-            var newAudio = currentPoi.AudioFiles
-                .FirstOrDefault(a => a.LanguageCode == code)
-                ?? currentPoi.AudioFiles.FirstOrDefault();
-
-            if (newAudio != null)
-            {
-                double currentSeconds = 0;
-                try { currentSeconds = await JS.InvokeAsync<double>("audioHelper.getCurrentTime"); }
-                catch { currentSeconds = 0; }
-
-                double startAt;
-                string langLabel = code.ToUpper();
-                string msg;
-
-                if (currentSeconds < 10.0)
-                {
-                    startAt = 0;
-                    msg = $"🔄 [{langLabel}] Phát lại từ đầu...";
-                }
-                else
-                {
-                    startAt = currentSeconds;
-                    msg = $"🌐 [{langLabel}] Tiếp tục tại giây {(int)currentSeconds}...";
-                }
-
-                Snackbar.Add(msg, Severity.Info, cfg => cfg.VisibleStateDuration = 2000);
-                await JS.InvokeVoidAsync("audioHelper.playAtTime", newAudio.FileUrl, startAt);
-                GeofenceService.SetAudioPlaying(true);
-                return;
-            }
-        }
-
-        Snackbar.Add($"Đã chuyển sang ngôn ngữ: {code.ToUpper()}", Severity.Info);
     }
 
     private async Task RefreshList()
@@ -402,31 +622,32 @@
         _loadingPois = true;
         try
         {
-            var queryParams = new List<string>();
-            queryParams.Add($"pageNumber={_currentPage}");
-            queryParams.Add($"pageSize={_pageSize}");
-            
-            if (_selectedCategoryId > 0) queryParams.Add($"categoryId={_selectedCategoryId}");
-            
+            var q = new List<string>
+            {
+                $"pageNumber={_currentPage}",
+                $"pageSize={_pageSize}"
+            };
+            if (_selectedCategoryId > 0)
+                q.Add($"categoryId={_selectedCategoryId}");
             if (_locationActive && _userLat.HasValue && _userLng.HasValue && _selectedRadius.HasValue)
             {
-                queryParams.Add($"lat={_userLat}");
-                queryParams.Add($"lng={_userLng}");
-                queryParams.Add($"radius={_selectedRadius}");
+                q.Add($"lat={_userLat}");
+                q.Add($"lng={_userLng}");
+                q.Add($"radius={_selectedRadius}");
             }
-
-            string url = $"api/pois?{string.Join("&", queryParams)}";
-            var response = await Http.GetFromJsonAsync<PagedResponse<Poi>>(url);
-            
-            if (response != null)
+            var resp = await Http.GetFromJsonAsync<PagedResponse<Poi>>(
+                $"api/pois?{string.Join("&", q)}");
+            if (resp != null)
             {
-                if (_currentPage == 1) _pois = response.Items.ToList();
-                else _pois.AddRange(response.Items);
-                
-                _hasMore = _pois.Count < response.TotalCount;
+                if (_currentPage == 1) _pois = resp.Items.ToList();
+                else _pois.AddRange(resp.Items);
+                _hasMore = _pois.Count < resp.TotalCount;
             }
         }
-        catch (Exception ex) { Snackbar.Add("Lỗi tải địa điểm: " + ex.Message, Severity.Error); }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi tải địa điểm: " + ex.Message, Severity.Error);
+        }
         finally { _loadingPois = false; }
     }
 
@@ -437,10 +658,10 @@
         await LoadPois();
     }
 
-    private async Task FilterByCategory(int categoryId)
+    private async Task FilterByCategory(int id)
     {
-        if (_selectedCategoryId == categoryId) return;
-        _selectedCategoryId = categoryId;
+        if (_selectedCategoryId == id) return;
+        _selectedCategoryId = id;
         await RefreshList();
     }
 
@@ -455,13 +676,12 @@
     {
         try
         {
-            var request = new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(10));
-            var location = await Geolocation.Default.GetLocationAsync(request);
-
-            if (location != null)
+            var loc = await Geolocation.Default.GetLocationAsync(
+                new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(10)));
+            if (loc != null)
             {
-                _userLat = location.Latitude;
-                _userLng = location.Longitude;
+                _userLat = loc.Latitude;
+                _userLng = loc.Longitude;
                 _locationActive = true;
                 await RefreshList();
             }
@@ -479,12 +699,31 @@
     private async Task ResetFilters()
     {
         _selectedCategoryId = 0;
-        _selectedRadius = null;
-        _locationActive = false;
+        _selectedRadius     = null;
+        _locationActive     = false;
         await RefreshList();
     }
 
-    private string DisplayRadius(double m) => m >= 1000 ? $"{m/1000:0.#} km" : $"{m} m";
+    private async Task ChangeLanguage(string code)
+    {
+        _selectedLanguage = code;
+        LanguageService.SetLanguage(code);
+        if (GeofenceService.BannerVisible && GeofenceService.CurrentPoi != null)
+        {
+            var audio = GeofenceService.CurrentPoi.AudioFiles
+                .FirstOrDefault(a => a.LanguageCode == code)
+                ?? GeofenceService.CurrentPoi.AudioFiles.FirstOrDefault();
+            if (audio != null)
+            {
+                var t = 0.0;
+                try { t = await JS.InvokeAsync<double>("audioHelper.getCurrentTime"); } catch { }
+                await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, t < 10 ? 0 : t);
+                GeofenceService.SetAudioPlaying(true);
+                return;
+            }
+        }
+        Snackbar.Add($"Đã chuyển: {code.ToUpper()}", Severity.Info);
+    }
 
     private void Logout()
     {
@@ -497,9 +736,9 @@
 
     public async ValueTask DisposeAsync()
     {
-        GeofenceService.AudioTriggered -= OnGeofenceAudioTriggered;
+        GeofenceService.AudioTriggered     -= OnGeofenceAudioTriggered;
+        GeofenceService.BannerStateChanged -= OnBannerStateChanged;
         await GeofenceService.StopAsync();
-        
         _dotNetRef?.Dispose();
     }
 }

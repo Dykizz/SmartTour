@@ -1,26 +1,32 @@
 /**
  * audioHelper.js
  * JS Interop helper để điều khiển audio từ Blazor/C#.
- * Singleton <audio> element — tránh phát nhiều file cùng lúc.
- *
- * FIX AUTOPLAY: WebView Android chặn audio nếu không có user gesture.
- * Giải pháp: phát muted trước, unmute ngay khi được phép.
+ * Hỗ trợ hàng đợi (queue) — phát lần lượt, không đè lên nhau.
  */
 window.audioHelper = (() => {
     let _audio = null;
     let _dotNetRef = null;
+    let _queue = [];     // Hàng đợi URL audio
+    let _isPlaying = false;  // Trạng thái đang phát
 
+    // ── Khởi tạo element audio ────────────────────────────────────────────
     function _getOrCreate() {
         if (!_audio) {
             _audio = document.createElement('audio');
             _audio.id = '__geofence-audio__';
             _audio.preload = 'auto';
-            
-            // Thông báo cho Blazor khi kết thúc audio
+
             _audio.addEventListener('ended', () => {
+                console.log('[audioHelper] ⏹️ Bài kết thúc, queue còn:', _queue.length);
+                _isPlaying = false;
+
+                // Báo Blazor
                 if (_dotNetRef) {
                     _dotNetRef.invokeMethodAsync('OnAudioEnded');
                 }
+
+                // Tự phát bài tiếp theo
+                _playNext();
             });
 
             document.body.appendChild(_audio);
@@ -28,13 +34,7 @@ window.audioHelper = (() => {
         return _audio;
     }
 
-    // Đăng ký nhận DotNetReference từ Blazor
-    function setDotNetReference(dotNetRef) {
-        _dotNetRef = dotNetRef;
-        console.log('[audioHelper] DotNetReference set');
-    }
-
-    // Được gọi 1 lần sau lần đầu user chạm màn hình — mở khoá autoplay
+    // ── Unlock autoplay (Android WebView) ────────────────────────────────
     function _unlockAudio() {
         const audio = _getOrCreate();
         audio.muted = true;
@@ -43,126 +43,189 @@ window.audioHelper = (() => {
             audio.muted = false;
             audio.currentTime = 0;
         }).catch(() => { });
-        document.removeEventListener('touchstart', _unlockAudio);
-        document.removeEventListener('click', _unlockAudio);
     }
-
-    // Đăng ký unlock ngay khi script load
     document.addEventListener('touchstart', _unlockAudio, { once: true });
     document.addEventListener('click', _unlockAudio, { once: true });
 
+    // ── Phát bài đầu tiên trong queue ────────────────────────────────────
+    async function _playNext() {
+        if (_isPlaying || _queue.length === 0) return;
+
+        const url = _queue.shift();
+        _isPlaying = true;
+
+        const audio = _getOrCreate();
+        audio.src = url;
+        audio.muted = false;
+        audio.currentTime = 0;
+
+        console.log(`[audioHelper] 🎵 Đang phát: ${url} | Queue còn: ${_queue.length}`);
+
+        try {
+            await audio.play();
+        } catch (err) {
+            if (err.name === 'NotAllowedError') {
+                console.warn('[audioHelper] Autoplay bị chặn, thử muted...');
+                audio.muted = true;
+                try {
+                    await audio.play();
+                    setTimeout(() => { audio.muted = false; }, 300);
+                } catch (e2) {
+                    console.error('[audioHelper] Muted cũng thất bại:', e2);
+                    _isPlaying = false;
+                    _playNext(); // Bỏ qua → phát bài tiếp
+                }
+            } else {
+                console.error('[audioHelper] Lỗi phát:', err);
+                _isPlaying = false;
+                _playNext();
+            }
+        }
+    }
+
+    // ── Đăng ký DotNetReference ──────────────────────────────────────────
+    function setDotNetReference(dotNetRef) {
+        _dotNetRef = dotNetRef;
+        console.log('[audioHelper] DotNetReference đã set');
+    }
+
+    // ── Public API ───────────────────────────────────────────────────────
     return {
+
         /**
-         * Phát một URL audio. Tự động xử lý lỗi autoplay policy.
-         * @param {string} url
+         * Thêm URL vào queue và bắt đầu phát nếu đang rảnh.
+         * Nếu đang phát → đưa vào queue chờ.
          */
         play: async function (url) {
-            const audio = _getOrCreate();
-            if (!audio.paused) {
-                audio.pause();
+            // Tránh thêm trùng URL vào queue
+            if (_queue.includes(url)) {
+                console.log('[audioHelper] ⚠️ URL đã có trong queue, bỏ qua.');
+                return;
             }
-            audio.src = url;
-            audio.muted = false;
-            audio.currentTime = 0;
-            try {
-                await audio.play();
-                console.log('[audioHelper] Playing:', url);
-            } catch (err) {
-                // NotAllowedError: thử phát muted rồi unmute
-                if (err.name === 'NotAllowedError') {
-                    console.warn('[audioHelper] Autoplay blocked, trying muted...');
-                    audio.muted = true;
-                    try {
-                        await audio.play();
-                        // Unmute sau 300ms (đủ để WebView cho phép)
-                        setTimeout(() => { audio.muted = false; }, 300);
-                    } catch (e2) {
-                        console.error('[audioHelper] Muted play also failed:', e2);
-                    }
-                } else {
-                    console.error('[audioHelper] Error:', err);
-                }
+
+            if (_isPlaying) {
+                _queue.push(url);
+                console.log(`[audioHelper] ➕ Thêm vào queue: ${url} | Queue size: ${_queue.length}`);
+            } else {
+                _queue.unshift(url);
+                await _playNext();
             }
         },
 
         /**
-         * Dừng audio đang phát (reset về đầu).
+         * Dừng hoàn toàn và xóa queue.
          */
         stop: function () {
+            _queue = [];
+            _isPlaying = false;
             if (_audio && !_audio.paused) {
                 _audio.pause();
                 _audio.currentTime = 0;
             }
+            console.log('[audioHelper] ⏹️ Dừng & xóa queue');
         },
 
         /**
-         * Phát file audio mới tại một mốc thời gian cụ thể (dùng khi đổi ngôn ngữ).
-         * @param {string} url - URL file audio mới
-         * @param {number} startTime - Giây bắt đầu (0 = từ đầu)
+         * Bỏ qua bài hiện tại → phát bài tiếp theo.
+         */
+        skip: function () {
+            _isPlaying = false;
+            if (_audio && !_audio.paused) {
+                _audio.pause();
+                _audio.currentTime = 0;
+            }
+            console.log('[audioHelper] ⏭️ Skip → phát bài tiếp');
+            _playNext();
+        },
+
+        /**
+         * Phát tại mốc thời gian cụ thể (dùng khi đổi ngôn ngữ).
+         * Clear queue trước để phát ngay.
          */
         playAtTime: async function (url, startTime) {
+            _queue = [];
+            _isPlaying = false;
+
             const audio = _getOrCreate();
             audio.src = url;
             audio.currentTime = startTime;
             audio.muted = false;
+            _isPlaying = true;
+
             try {
                 await audio.play();
-                console.log('[audioHelper] playAtTime:', url, 'at', startTime, 's');
+                console.log('[audioHelper] playAtTime:', url, '@', startTime, 's');
             } catch (err) {
-                console.error('[audioHelper] playAtTime error:', err);
+                _isPlaying = false;
+                console.error('[audioHelper] playAtTime lỗi:', err);
             }
         },
 
         /**
-         * Tạm dừng audio hiện tại mà không reset thời gian.
+         * Tạm dừng (giữ nguyên vị trí).
          */
         pause: function () {
             if (_audio) {
                 _audio.pause();
+                _isPlaying = false;
             }
         },
 
         /**
-         * Tiếp tục phát từ vị trí đang tạm dừng.
+         * Tiếp tục từ vị trí đang dừng.
          */
         resume: function () {
             if (_audio && _audio.src) {
-                _audio.play().catch(e => console.error('[audioHelper] Resume error:', e));
+                _isPlaying = true;
+                _audio.play().catch(e => {
+                    _isPlaying = false;
+                    console.error('[audioHelper] Resume lỗi:', e);
+                });
             }
         },
 
         /**
-         * Kiểm tra xem audio đang phát không.
-         * @returns {boolean}
+         * Đang phát không?
          */
         isPlaying: function () {
-            return _audio != null && !_audio.paused;
+            return _isPlaying;
         },
 
         /**
-         * Phát audio dùng thẻ <audio> có sẵn theo ID (cho PoiDetail player).
-         * @param {string} elementId
+         * Số bài còn trong queue.
+         */
+        getQueueLength: function () {
+            return _queue.length;
+        },
+
+        /**
+         * Xem toàn bộ queue (debug).
+         */
+        getQueue: function () {
+            return [..._queue];
+        },
+
+        /**
+         * Phát theo element ID (dùng cho PoiDetail player).
          */
         playById: function (elementId) {
             const el = document.getElementById(elementId);
-            if (el) el.play().catch(e => console.error('[audioHelper] playById error:', e));
+            if (el) el.play().catch(e => console.error('[audioHelper] playById lỗi:', e));
         },
 
         /**
-         * Lấy vị trí thời gian hiện tại của audio (giây).
-         * @returns {number}
-         */
-        getCurrentTime: function () {
-            return _audio ? _audio.currentTime : 0;
-        },
-
-        /**
-         * Pause audio theo ID.
-         * @param {string} elementId
+         * Pause theo element ID.
          */
         pauseById: function (elementId) {
             const el = document.getElementById(elementId);
             if (el) el.pause();
+        },
+
+        /**
+         * Vị trí thời gian hiện tại (giây).
+         */
+        getCurrentTime: function () {
+            return _audio ? _audio.currentTime : 0;
         },
 
         setDotNetReference: setDotNetReference
