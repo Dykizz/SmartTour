@@ -122,9 +122,19 @@
                     <div class="pa-6" Style="background: rgba(0,0,0,0.01);">
                         <MudGrid Spacing="2">
                             <MudItem xs="12" md="6">
-                                <MudTextField @bind-Value="_mapSearch" Label="Tìm địa chỉ" Variant="Variant.Outlined" Class="mb-2"
-                                             Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" 
-                                             Placeholder="Nhập tên địa điểm..." OnKeyDown="HandleSearchKey" Margin="Margin.Dense" />
+                                <MudAutocomplete T="MapPrediction" 
+                                                 Value="_selectedMapPrediction" 
+                                                 Label="Tìm địa chỉ" 
+                                                 Variant="Variant.Outlined" 
+                                                 Class="mb-2"
+                                                 SearchFunc="SearchMapPredictions"
+                                                 ToStringFunc="@(p => p?.description)"
+                                                 ValueChanged="OnMapPredictionSelected"
+                                                 Adornment="Adornment.End" 
+                                                 AdornmentIcon="@Icons.Material.Filled.Search" 
+                                                 Placeholder="Nhập tên địa điểm..." 
+                                                 Margin="Margin.Dense" 
+                                                 Clearable="true" />
                             </MudItem>
                             <MudItem xs="6" md="3">
                                 <MudNumericField @bind-Value="_model.Latitude" Label="Vĩ độ" Format="F6" Variant="Variant.Outlined" Margin="Margin.Dense" />
@@ -159,7 +169,11 @@
                         <MudDivider />
                         <div class="pa-6" Style="background: rgba(0,0,0,0.01);">
                         <div class="mb-4">
-                            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="@Color.Primary" OnClick="AddImage" Size="Size.Small" DropShadow="false">Đặt ảnh</MudButton>
+                            <MudFileUpload T="IReadOnlyList<IBrowserFile>" OnFilesChanged="UploadNewImages" Accept=".jpg,.jpeg,.png,.webp">
+                                <ActivatorContent>
+                                    <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="@Color.Primary" Size="Size.Small" DropShadow="false">Thêm ảnh</MudButton>
+                                </ActivatorContent>
+                            </MudFileUpload>
                         </div>
                         <MudGrid Spacing="2">
                             @foreach (var img in _model.Images.OrderBy(x => x.SortOrder))
@@ -182,7 +196,7 @@
                                             }
                                         </div>
                                         <div class="pa-2 d-flex align-center justify-space-between">
-                                            <MudFileUpload T="IBrowserFile" OnFilesChanged="@((e) => UploadImage(e, img))" Accept=".jpg,.jpeg,.png" Disabled="@(_uploadingImages.ContainsKey(img) && _uploadingImages[img])">
+                                            <MudFileUpload T="IBrowserFile" OnFilesChanged="@((e) => UploadImage(e, img))" Accept=".jpg,.jpeg,.png,.webp" Disabled="@(_uploadingImages.ContainsKey(img) && _uploadingImages[img])">
                                                 <ActivatorContent>
                                                     <MudIconButton Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Small" Color="Color.Info" Disabled="@(_uploadingImages.ContainsKey(img) && _uploadingImages[img])" />
                                                 </ActivatorContent>
@@ -359,8 +373,24 @@
                                                             <MudText Typo="Typo.caption" Color="Color.Default">Chưa có audio</MudText>
                                                         }
                                                     </div>
+                                                    <MudFileUpload T="IBrowserFile" OnFilesChanged="@((e) => UploadAudioFile(e, audio))" Accept="audio/*">
+                                                        <ActivatorContent>
+                                                            @if (_uploadingAudio.ContainsKey(audio) && _uploadingAudio[audio])
+                                                            {
+                                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ml-2" />
+                                                            }
+                                                            else
+                                                            {
+                                                                <MudIconButton Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Small" Color="Color.Info" Title="Tải âm thanh từ máy" />
+                                                            }
+                                                        </ActivatorContent>
+                                                    </MudFileUpload>
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveAudio(audio))" Title="Xoá audio" />
                                                 </div>
                                             }
+                                            <div class="mt-2">
+                                                <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => AddTtsAudio(lang.Code))">Thêm Audio thủ công</MudButton>
+                                            </div>
                                         </MudStack>
                                     </MudTabPanel>
                                 }
@@ -624,13 +654,14 @@
     private bool _translatingAllDesc = false;
     private Dictionary<string, bool> _translatingDesc = new();
     private Dictionary<PoiImage, bool> _uploadingImages = new();
+    private Dictionary<PoiAudioFile, bool> _uploadingAudio = new();
     private bool _isAdmin = false;
     private List<Category> _categories = new();
     private List<Language> _languages = new();
     private string? _adminNote;
     private RequestStatus? _requestStatus;
     
-    private string _mapSearch = "";
+    private MapPrediction? _selectedMapPrediction;
     private bool _mapInitialized = false;
     private DotNetObjectReference<PoiEditor>? _objRef;
 
@@ -855,7 +886,42 @@
         Snackbar.Add("Đã áp dụng giờ của Thứ 2 cho toàn bộ các ngày", Severity.Info);
     }
 
-    private void AddImage() => _model.Images.Add(new PoiImage { SortOrder = _model.Images.Count });
+    private async Task UploadNewImages(InputFileChangeEventArgs e)
+    {
+        var files = e.GetMultipleFiles();
+        foreach (var file in files)
+        {
+            var img = new PoiImage { SortOrder = _model.Images.Count };
+            _model.Images.Add(img);
+            _uploadingImages[img] = true;
+            StateHasChanged();
+            
+            try
+            {
+                var content = new MultipartFormDataContent();
+                var fileStream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 10);
+                var fileContent = new StreamContent(fileStream);
+                fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+                content.Add(fileContent, "file", file.Name);
+
+                var response = await Http.PostAsync("api/uploads/image", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<UploadResponse>();
+                    if (result != null)
+                    {
+                        img.ImageUrl = result.Url;
+                        Snackbar.Add("Tải ảnh lên thành công", Severity.Success);
+                    }
+                }
+            }
+            catch (Exception ex) { Snackbar.Add("Lỗi upload: " + ex.Message, Severity.Error); }
+            finally { 
+                _uploadingImages[img] = false; 
+                StateHasChanged();
+            }
+        }
+    }
 
     private string TranslateDay(DayOfWeek day) => day switch
     {
@@ -895,6 +961,44 @@
         }
         catch (Exception ex) { Snackbar.Add("Lỗi upload: " + ex.Message, Severity.Error); }
         finally { _uploadingImages[img] = false; }
+    }
+
+    private async Task UploadAudioFile(InputFileChangeEventArgs e, PoiAudioFile audio)
+    {
+        var file = e.File;
+        if (file == null) return;
+        _uploadingAudio[audio] = true;
+        StateHasChanged();
+        try
+        {
+            var content = new MultipartFormDataContent();
+            var fileStream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 1024); // Tối đa dung lượng ~1GB
+            var fileContent = new StreamContent(fileStream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
+
+            var response = await Http.PostAsync("api/uploads/audio", content);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<UploadResponse>();
+                if (result != null)
+                {
+                    audio.FileUrl = result.Url;
+                    audio.IsTts = false; // Đánh dấu là audio tự upload
+                    Snackbar.Add("Tải âm thanh lên thành công", Severity.Success);
+                }
+            }
+            else
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Lỗi tải file: {err}", Severity.Error);
+            }
+        }
+        catch (Exception ex) { Snackbar.Add("Lỗi upload: " + ex.Message, Severity.Error); }
+        finally { 
+            _uploadingAudio[audio] = false; 
+            StateHasChanged();
+        }
     }
 
     private async Task GenerateAutoAudioChain()
@@ -1064,19 +1168,33 @@
         StateHasChanged();
     }
 
-    private async Task HandleSearchKey(KeyboardEventArgs e)
+    private async Task<IEnumerable<MapPrediction>> SearchMapPredictions(string value, CancellationToken token)
     {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_mapSearch))
+        if (string.IsNullOrWhiteSpace(value))
+            return new List<MapPrediction>();
+
+        try
         {
-            var predictions = await MapService.GetPredictionsAsync(_mapSearch, default);
-            var first = predictions.FirstOrDefault();
-            if (first != null) {
-                var details = await MapService.GetPlaceDetailsAsync(first.place_id);
-                if (details != null) {
-                    _model.Latitude = details.lat; _model.Longitude = details.lng;
-                    await MapService.SetMarkerAsync(_model.Latitude, _model.Longitude, "editor-map");
-                    StateHasChanged();
-                }
+            return await MapService.GetPredictionsAsync(value, token);
+        }
+        catch
+        {
+            return new List<MapPrediction>();
+        }
+    }
+
+    private async Task OnMapPredictionSelected(MapPrediction value)
+    {
+        _selectedMapPrediction = value;
+        if (value != null)
+        {
+            var details = await MapService.GetPlaceDetailsAsync(value.place_id);
+            if (details != null)
+            {
+                _model.Latitude = details.lat;
+                _model.Longitude = details.lng;
+                await MapService.SetMarkerAsync(_model.Latitude, _model.Longitude, "editor-map");
+                StateHasChanged();
             }
         }
     }

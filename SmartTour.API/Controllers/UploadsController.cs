@@ -33,4 +33,24 @@ public class UploadsController : ControllerBase
             return StatusCode(500, $"Upload Error: {ex.Message}");
         }
     }
+
+    [HttpPost("audio")]
+    public async Task<IActionResult> UploadAudio(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+
+        try
+        {
+            var fileName = $"audios/{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            using var stream = file.OpenReadStream();
+            var fileUrl = await _storageService.UploadFileAsync(stream, fileName, file.ContentType);
+            
+            return Ok(new { url = fileUrl });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Upload Error: {ex.Message}");
+        }
+    }
 }
