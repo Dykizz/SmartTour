@@ -14,7 +14,14 @@
             <!-- Thông tin POI -->
             <div class="flex-grow-1" style="min-width: 0;">
                 <MudText Typo="Typo.caption" Style="font-weight: bold; color: white; display:block;">
-                    @(GeofenceService.IsAudioPlaying ? "🔊 Đang phát thuyết minh" : "⏸ Đã tạm dừng")
+                    @if (GeofenceService.IsAudioPlaying)
+                    {
+                        <span>🔊 @LanguageService.T("Narrating")</span>
+                    }
+                    else
+                    {
+                        <span>📍 @LanguageService.T("NearbyArea")</span>
+                    }
                 </MudText>
                 <MudText Typo="Typo.caption"
                          Style="color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:block;">
@@ -27,6 +34,13 @@
                            Size="Size.Small"
                            Style="color: white; background: rgba(255,255,255,0.15); border-radius: 50%;"
                            OnClick="ToggleAudioAsync" />
+
+            <!-- Nút Nghe lại (Manual Replay) -->
+            <MudIconButton Icon="@Icons.Material.Filled.Replay"
+                           Size="Size.Small"
+                           Style="color: white; background: rgba(255,255,255,0.15); border-radius: 50%;"
+                           OnClick="PlayManualAsync"
+                           Title="@LanguageService.T("Replay")" />
 
             <!-- Nút → Xem chi tiết POI -->
             @if (GeofenceService.CurrentPoi != null)
@@ -83,13 +97,23 @@
 </style>
 
 @code {
+    private bool _lastIsPlaying = false;
+
     protected override void OnInitialized()
     {
         GeofenceService.BannerStateChanged += OnBannerStateChanged;
+        _lastIsPlaying = GeofenceService.IsAudioPlaying;
     }
 
     private void OnBannerStateChanged()
     {
+        if (_lastIsPlaying && !GeofenceService.IsAudioPlaying)
+        {
+            // Chuyển từ đang phát sang dừng (thường do user gạt tắt AutoPlay)
+            _ = JS.InvokeVoidAsync("audioHelper.pause");
+        }
+
+        _lastIsPlaying = GeofenceService.IsAudioPlaying;
         InvokeAsync(StateHasChanged);
     }
 
@@ -111,6 +135,14 @@
     {
         GeofenceService.CloseBanner();
         await JS.InvokeVoidAsync("audioHelper.stop");
+    }
+
+    private async Task PlayManualAsync()
+    {
+        if (GeofenceService.CurrentPoi != null)
+        {
+            await GeofenceService.PlayManualAsync(GeofenceService.CurrentPoi, LanguageService.SelectedLanguage);
+        }
     }
 
     public void Dispose()

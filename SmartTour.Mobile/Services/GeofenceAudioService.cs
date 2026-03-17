@@ -22,6 +22,24 @@ public class GeofenceAudioService : IAsyncDisposable
     public double? LastKnownLatitude { get; private set; }
     public double? LastKnownLongitude { get; private set; }
 
+    // --- Thêm biến trạng thái công tắc Auto-Play ---
+    public bool IsAutoPlayEnabled { get; private set; } = true; // Mặc định bật theo yêu cầu thông thường, hoặc false nếu muốn user tự chọn
+
+    public void ToggleAutoPlay(bool isEnabled)
+    {
+        IsAutoPlayEnabled = isEnabled;
+
+        if (!isEnabled && IsAudioPlaying)
+        {
+            // Chỉ tắt trạng thái phát nhạc, KHÔNG tắt BannerVisible
+            IsAudioPlaying = false;
+            System.Diagnostics.Debug.WriteLine("[Geofence] 🛑 User tắt AutoPlay -> Dừng nhạc, giữ banner chờ.");
+        }
+
+        System.Diagnostics.Debug.WriteLine($"[GeofenceService] Auto-Play is now {(isEnabled ? "ENABLED" : "DISABLED")}");
+        BannerStateChanged?.Invoke();
+    }
+
     // ── Banner state (Singleton ─ tồn tại qua mọi trang) ──────────────────────
     public bool BannerVisible { get; private set; } = false;
     public bool IsAudioPlaying { get; private set; } = false;
@@ -36,6 +54,10 @@ public class GeofenceAudioService : IAsyncDisposable
     private List<PoiGeofenceDto> _allPois = new();
     private const double DefaultGeofenceMeters = 50.0;
     private const int PollingIntervalSeconds = 8;
+
+    // Theo dõi các POI đang ở trong vùng và đã phát
+    private HashSet<int> _insidePoiIds = new();
+    private HashSet<int> _playedPoiIds = new();
 
     public GeofenceAudioService(IServiceScopeFactory scopeFactory, LanguageService languageService)
     {
@@ -98,6 +120,8 @@ public class GeofenceAudioService : IAsyncDisposable
     /// Reset trạng thái phát để có thể trigger lại.
     public void ResetPlayedHistory()
     {
+        _playedPoiIds.Clear();
+        _insidePoiIds.Clear();
         CurrentPoi = null;
         BannerVisible = false;
         IsAudioPlaying = false;
@@ -117,6 +141,29 @@ public class GeofenceAudioService : IAsyncDisposable
         BannerVisible = false;
         IsAudioPlaying = false;
         BannerStateChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Hàm để người dùng bấm nút "Nghe lại" trên giao diện.
+    /// Bỏ qua kiểm tra công tắc tự động và bỏ qua danh sách đã phát.
+    /// </summary>
+    public async Task PlayManualAsync(PoiGeofenceDto poi, string langCode)
+    {
+        var audio = poi.AudioFiles.FirstOrDefault(a => a.LanguageCode == langCode)
+                    ?? poi.AudioFiles.FirstOrDefault(a => a.LanguageCode == "vi")
+                    ?? poi.AudioFiles.FirstOrDefault();
+
+        if (audio != null)
+        {
+            CurrentPoi = poi;
+            BannerPoiName = poi.Name;
+            BannerVisible = true;
+            IsAudioPlaying = true;
+            BannerStateChanged?.Invoke();
+
+            if (AudioTriggered != null)
+                await AudioTriggered.Invoke(poi, audio);
+        }
     }
 
     // ─── Private Helpers ────────────────────────────────────────────────────
@@ -184,6 +231,7 @@ public class GeofenceAudioService : IAsyncDisposable
 
             string langCode = _languageService.SelectedLanguage;
 
+            HashSet<int> currentlyInsideIds = new();
             PoiGeofenceDto? closestPoi = null;
             double minDistance = double.MaxValue;
 
@@ -194,43 +242,63 @@ public class GeofenceAudioService : IAsyncDisposable
                 double distanceMeters = distanceKm * 1000;
                 double radius = poi.GeofenceRadius > 0 ? poi.GeofenceRadius : DefaultGeofenceMeters;
 
-                System.Diagnostics.Debug.WriteLine(
-                    $"[GeofenceService]   POI #{poi.Id} \"{poi.Name}\": {distanceMeters:F1}m (radius: {radius}m)");
-
-                if (distanceMeters <= radius && distanceMeters < minDistance)
+                if (distanceMeters <= radius)
                 {
-                    minDistance = distanceMeters;
-                    closestPoi = poi;
+                    currentlyInsideIds.Add(poi.Id);
+                    if (distanceMeters < minDistance)
+                    {
+                        minDistance = distanceMeters;
+                        closestPoi = poi;
+                    }
                 }
             }
 
-            if (closestPoi == null)
+            // --- Pass 2: Xử lý POI gần nhất ---
+            if (closestPoi != null)
             {
-                // User không ở trong bất kỳ vùng nào
-                if (CurrentPoi != null)
+                // Cập nhật Banner để người dùng biết họ đang ở đâu
+                if (CurrentPoi?.Id != closestPoi.Id)
                 {
-                    System.Diagnostics.Debug.WriteLine("[GeofenceService] 🚪 User đã ra khỏi tất cả các vùng POI.");
-                    CurrentPoi = null;
+                    CurrentPoi = closestPoi;
+                    BannerPoiName = closestPoi.Name;
+                    BannerVisible = true;
+                    BannerStateChanged?.Invoke();
+
+                    System.Diagnostics.Debug.WriteLine($"[Geofence] Đổi vùng ưu tiên sang: {closestPoi.Name} ({minDistance:F1}m)");
+                }
+
+                // LOGIC TỰ ĐỘNG PHÁT: Phải BẬT công tắc VÀ chưa phát trong lần vào vùng này
+                if (IsAutoPlayEnabled && !_playedPoiIds.Contains(closestPoi.Id))
+                {
+                    _playedPoiIds.Add(closestPoi.Id);
+                    _insidePoiIds.Add(closestPoi.Id);
+
+                    System.Diagnostics.Debug.WriteLine($"[Geofence] 🔊 Tự động phát audio cho: {closestPoi.Name}");
+                    await TriggerNewAudio(closestPoi, langCode);
+                }
+                else if (!_insidePoiIds.Contains(closestPoi.Id))
+                {
+                    // Trường hợp user tắt AutoPlay nhưng mới bước vào vùng -> Mark là đã ở trong vùng để không tự phát khi bật lại giữa chừng (tùy chọn UI)
+                    _insidePoiIds.Add(closestPoi.Id);
+                }
+            }
+
+            // --- Pass 3: Rời khỏi vùng (Reset để lần sau vào lại sẽ phát như mới) ---
+            var exitedIds = new HashSet<int>(_insidePoiIds);
+            exitedIds.ExceptWith(currentlyInsideIds);
+            foreach (var exitedId in exitedIds)
+            {
+                _insidePoiIds.Remove(exitedId);
+                _playedPoiIds.Remove(exitedId); // QUAN TRỌNG: Xóa khỏi danh sách đã phát để lần sau vào lại sẽ trigger
+                System.Diagnostics.Debug.WriteLine($"[Geofence] 🚪 Đã ra khỏi POI #{exitedId}, sẵn sàng phát lại nếu quay vào.");
+
+                // Nếu POI vừa ra khỏi chính là POI đang hiển thị trên Banner thì đóng Banner lại
+                if (CurrentPoi?.Id == exitedId)
+                {
+                    CurrentPoi = null; // QUAN TRỌNG: Clear để re-entry hoạt động
                     BannerVisible = false;
                     IsAudioPlaying = false;
                     BannerStateChanged?.Invoke();
-                }
-            }
-            else
-            {
-                // 1. Logic CƯỚP QUYỀN (Preemption): 
-                // Nếu POI gần nhất khác với POI đang "active" hiện tại -> Chuyển audio ngay
-                if (CurrentPoi?.Id != closestPoi.Id)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[GeofenceService] 🔄 Đổi sang POI gần hơn: #{closestPoi.Id} \"{closestPoi.Name}\" ({minDistance:F1}m)");
-                    await TriggerNewAudio(closestPoi, langCode);
-                }
-                // 2. Logic PHÁT LẠI KHI VÀO TÂM (Re-trigger):
-                // Nếu khách tiến sát tâm < 10m và audio cũ đã phát xong/dừng -> Phát lại
-                else if (minDistance < 10.0 && !IsAudioPlaying)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[GeofenceService] 🎯 User quay lại tâm POI #{closestPoi.Id} ({minDistance:F1}m) -> Phát lại audio.");
-                    await TriggerNewAudio(closestPoi, langCode);
                 }
             }
         }
