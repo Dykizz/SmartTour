@@ -43,7 +43,21 @@ public class LanguageService
             ["Quán Bar/Pub"] = "Quán Bar/Pub",
             ["Quán ăn nhanh"] = "Quán ăn nhanh",
             ["Nhà hàng"] = "Nhà hàng",
-            ["Cà phê"] = "Cà phê"
+            ["Cà phê"] = "Cà phê",
+            // Auto-Play
+            ["AutoPlayTitle"] = "Tự động thuyết minh",
+            ["AutoPlayDesc"] = "Tự động phát khi đến gần địa điểm",
+            // Days
+            ["Monday"] = "Thứ 2",
+            ["Tuesday"] = "Thứ 3",
+            ["Wednesday"] = "Thứ 4",
+            ["Thursday"] = "Thứ 5",
+            ["Friday"] = "Thứ 6",
+            ["Saturday"] = "Thứ 7",
+            ["Sunday"] = "Chủ Nhật",
+            ["Narrating"] = "Đang thuyết minh...",
+            ["NearbyArea"] = "Bạn đang ở gần",
+            ["Replay"] = "Nghe lại"
         },
         ["en"] = new() {
             ["Home"] = "Home",
@@ -78,7 +92,70 @@ public class LanguageService
             ["Quán Bar/Pub"] = "Bar/Pub",
             ["Quán ăn nhanh"] = "Fast Food",
             ["Nhà hàng"] = "Restaurant",
-            ["Cà phê"] = "Cafe"
+            ["Cà phê"] = "Cafe",
+            // Tự động phát
+            ["AutoPlayTitle"] = "Auto-Play Commentary",
+            ["AutoPlayDesc"] = "Play audio when near POIs",
+            // Thứ trong tuần
+            ["Monday"] = "Monday",
+            ["Tuesday"] = "Tuesday",
+            ["Wednesday"] = "Wednesday",
+            ["Thursday"] = "Thursday",
+            ["Friday"] = "Friday",
+            ["Saturday"] = "Saturday",
+            ["Sunday"] = "Sunday",
+            ["Narrating"] = "Narrating...",
+            ["NearbyArea"] = "You are nearby",
+            ["Replay"] = "Replay"
+        },
+        ["ko"] = new() {
+            ["Home"] = "홈",
+            ["Hello"] = "안녕하세요",
+            ["SearchHint"] = "오늘은 어디로 가고 싶으신가요?",
+            ["Categories"] = "인기 카테고리",
+            ["All"] = "전체",
+            ["Featured"] = "추천 장소",
+            ["SeeAll"] = "전체보기",
+            ["FindAround"] = "주변 찾기:",
+            ["Details"] = "상세보기",
+            ["NoResults"] = "결과를 찾을 수 없습니다",
+            ["EndList"] = "리스트의 끝",
+            ["Map"] = "지도",
+            ["Profile"] = "프로필",
+            ["Logout"] = "로그아웃",
+            ["Login"] = "로그인",
+            ["Introduction"] = "소개",
+            ["OpeningHours"] = "영업 시간",
+            ["Location"] = "위치",
+            ["Direction"] = "길 찾기",
+            ["Audio"] = "오디오 가이드",
+            ["Share"] = "공유하기",
+            ["Favorite"] = "찜하기",
+            ["StartJourney"] = "여행 시작하기",
+            ["Updating"] = "콘텐츠 업데이트 중...",
+            ["ViewOnMap"] = "지도로 보기",
+            ["Coordinates"] = "좌표",
+            ["Place"] = "장소",
+            // Categories
+            ["Khác"] = "기타",
+            ["Quán Bar/Pub"] = "바/펍",
+            ["Quán ăn nhanh"] = "패스트푸드",
+            ["Nhà hàng"] = "레스토랑",
+            ["Cà phê"] = "카페",
+            // Auto-Play
+            ["AutoPlayTitle"] = "자동 음성 안내",
+            ["AutoPlayDesc"] = "장소 근처에서 오디오 자동 재생",
+            // Days
+            ["Monday"] = "월요일",
+            ["Tuesday"] = "화요일",
+            ["Wednesday"] = "수요일",
+            ["Thursday"] = "목요일",
+            ["Friday"] = "금요일",
+            ["Saturday"] = "토요일",
+            ["Sunday"] = "일요일",
+            ["Narrating"] = "음성 안내 중...",
+            ["NearbyArea"] = "주변에 있습니다",
+            ["Replay"] = "다시 듣기"
         }
         // Bạn có thể thêm ["fr"], ["jp"] vào đây cực kỳ dễ dàng
     };

@@ -20,8 +20,8 @@
     {
         <div class="d-flex flex-column justify-center align-center" style="height: 100vh;">
             <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Color="Color.Error" Style="font-size: 5rem;" />
-            <MudText Typo="Typo.h5" Class="mt-4">Không tìm thấy địa điểm</MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoBack" Class="mt-4">Quay lại</MudButton>
+            <MudText Typo="Typo.h5" Class="mt-4">@LanguageService.T("NoResults")</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoBack" Class="mt-4">@LanguageService.T("SeeAll")</MudButton>
         </div>
     }
     else
@@ -74,30 +74,30 @@
 
         <div class="content-section pa-4">
             <!-- Action Quick Buttons -->
-            <div class="d-flex justify-space-around mb-8 action-bar">
+             <div class="d-flex justify-space-around mb-8 action-bar">
                 <div class="action-item" @onclick="NavigateToMap">
                     <div class="icon-circle primary">
                         <MudIcon Icon="@Icons.Material.Filled.Directions" />
                     </div>
-                    <MudText Typo="Typo.caption" Class="mt-1">@(LanguageService.SelectedLanguage == "en" ? "Direction" : "Dẫn đường")</MudText>
+                    <MudText Typo="Typo.caption" Class="mt-1">@LanguageService.T("Direction")</MudText>
                 </div>
                 <div class="action-item" @onclick="StartVoiceGuide">
                     <div class="icon-circle secondary">
                         <MudIcon Icon="@Icons.Material.Filled.Headset" />
                     </div>
-                    <MudText Typo="Typo.caption" Class="mt-1">@(LanguageService.SelectedLanguage == "en" ? "Audio" : "Thuyết minh")</MudText>
+                    <MudText Typo="Typo.caption" Class="mt-1">@LanguageService.T("Audio")</MudText>
                 </div>
                 <div class="action-item">
                     <div class="icon-circle success">
                         <MudIcon Icon="@Icons.Material.Filled.Share" />
                     </div>
-                    <MudText Typo="Typo.caption" Class="mt-1">@(LanguageService.SelectedLanguage == "en" ? "Share" : "Chia sẻ")</MudText>
+                    <MudText Typo="Typo.caption" Class="mt-1">@LanguageService.T("Share")</MudText>
                 </div>
                 <div class="action-item">
                     <div class="icon-circle info">
                         <MudIcon Icon="@Icons.Material.Filled.FavoriteBorder" />
                     </div>
-                    <MudText Typo="Typo.caption" Class="mt-1">@(LanguageService.SelectedLanguage == "en" ? "Favorite" : "Yêu thích")</MudText>
+                    <MudText Typo="Typo.caption" Class="mt-1">@LanguageService.T("Favorite")</MudText>
                 </div>
             </div>
 
@@ -131,7 +131,7 @@
                         {
                             <div class="d-flex justify-space-between py-2 align-center @(IsToday(hour.DayOfWeek) ? "current-day-row pa-2 rounded" : "")">
                                 <MudText Typo="Typo.body2" Style="@(IsToday(hour.DayOfWeek) ? "font-weight: bold; color: var(--mud-palette-primary);" : "color: #666;")">
-                                    @GetVietnameseDay(hour.DayOfWeek)
+                                    @GetTranslatedDay(hour.DayOfWeek)
                                 </MudText>
                                 <div class="d-flex align-center">
                                     <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Default" Class="mr-1" Style="font-size: 0.9rem;" />
@@ -171,7 +171,7 @@
                     <div class="d-flex align-center justify-space-between mb-2">
                         <div class="d-flex align-center">
                             <MudIcon Icon="@Icons.Material.Filled.GraphicEq" Color="Color.Primary" Class="mr-2" />
-                            <MudText Typo="Typo.subtitle2" Style="font-weight: bold;">@(LanguageService.SelectedLanguage == "en" ? "Audio Guide" : "Thuyết minh tự động")</MudText>
+                            <MudText Typo="Typo.subtitle2" Style="font-weight: bold;">@LanguageService.T("Audio")</MudText>
                         </div>
                         <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _showAudioPlayer = false" />
                     </div>
@@ -441,7 +441,7 @@
     {
         if (_currentAudio == null)
         {
-            Snackbar.Add("Địa điểm này chưa có thuyết minh âm thanh.", Severity.Info);
+            Snackbar.Add(LanguageService.T("Updating"), Severity.Info);
             return;
         }
         _showAudioPlayer = true;
@@ -495,20 +495,8 @@
 
     private bool IsToday(DayOfWeek day) => DateTime.Today.DayOfWeek == day;
 
-    private string GetVietnameseDay(DayOfWeek day)
+    private string GetTranslatedDay(DayOfWeek day)
     {
-        if (LanguageService.SelectedLanguage == "en") return day.ToString();
-
-        return day switch
-        {
-            DayOfWeek.Monday => "Thứ 2",
-            DayOfWeek.Tuesday => "Thứ 3",
-            DayOfWeek.Wednesday => "Thứ 4",
-            DayOfWeek.Thursday => "Thứ 5",
-            DayOfWeek.Friday => "Thứ 6",
-            DayOfWeek.Saturday => "Thứ 7",
-            DayOfWeek.Sunday => "Chủ Nhật",
-            _ => day.ToString()
-        };
+        return LanguageService.T(day.ToString());
     }
 }
