@@ -16,6 +16,7 @@ public class PoiGeofenceDto
     /// Fallback: 50m nếu giá trị = 0.
     /// </summary>
     public double GeofenceRadius { get; set; }
+    public string CategoryName { get; set; } = string.Empty;
 
     public List<PoiAudioFile> AudioFiles { get; set; } = new();
 }

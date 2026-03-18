@@ -46,6 +46,8 @@ public class GeofenceAudioService : IAsyncDisposable
     public string BannerPoiName { get; private set; } = string.Empty;
     public PoiGeofenceDto? CurrentPoi { get; private set; }
 
+    public IReadOnlyList<PoiGeofenceDto> AllPois => _allPois;
+
     /// Được raise bất cứ khi banner state thay đổi để các trang gọi StateHasChanged().
     public event Action? BannerStateChanged;
 

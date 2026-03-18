@@ -123,6 +123,7 @@ public class PoiService : IPoiService
         // vì EF Core không thể dịch p.AudioFiles.ToList() sang SQL.
         var pois = await _context.Pois
             .Where(p => p.IsActive)
+            .Include(p => p.Category)
             .Include(p => p.AudioFiles)
             .ToListAsync();
 
@@ -133,6 +134,7 @@ public class PoiService : IPoiService
             Latitude = p.Latitude,
             Longitude = p.Longitude,
             GeofenceRadius = p.GeofenceRadius,
+            CategoryName = p.Category?.Name ?? "Place",
             AudioFiles = p.AudioFiles.ToList()
         });
     }

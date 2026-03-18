@@ -90,6 +90,27 @@ public class PoisController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("map-config")]
+    [AllowAnonymous]
+    public IActionResult GetMapConfig([FromServices] IConfiguration config)
+    {
+        var token = config["MAPBOX_ACCESS_TOKEN"];
+        
+        if (string.IsNullOrEmpty(token))
+        {
+            _logger.LogWarning("MAPBOX_ACCESS_TOKEN chưa được cấu hình");
+            return Ok(new MapConfig { MapboxAccessToken = "" });
+        }
+
+        return Ok(new MapConfig { MapboxAccessToken = token });
+    }
+
+    public class MapConfig 
+    { 
+        [System.Text.Json.Serialization.JsonPropertyName("mapboxAccessToken")]
+        public string MapboxAccessToken { get; set; } = string.Empty; 
+    }
+
     private async Task<int?> GetCurrentUserIdAsync()
     {
         var identity = User.Identity as System.Security.Claims.ClaimsIdentity;
