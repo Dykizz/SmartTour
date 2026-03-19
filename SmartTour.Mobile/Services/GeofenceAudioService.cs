@@ -15,7 +15,8 @@ public class GeofenceAudioService : IAsyncDisposable
     private readonly LanguageService _languageService;
 
     // Event được kích hoạt khi user bước vào vùng geofence chưa được phát
-    public event Func<PoiGeofenceDto, PoiAudioFile, Task>? AudioTriggered;
+    // bool: isManual (true nếu là user bấm tay, false nếu là tự động)
+    public event Func<PoiGeofenceDto, PoiAudioFile, bool, Task>? AudioTriggered;
 
     // Trạng thái
     public bool IsRunning { get; private set; } = false;
@@ -44,6 +45,7 @@ public class GeofenceAudioService : IAsyncDisposable
     public bool BannerVisible { get; private set; } = false;
     public bool IsAudioPlaying { get; private set; } = false;
     public string BannerPoiName { get; private set; } = string.Empty;
+    public PoiGeofenceDto? CurrentLocationPoi { get; private set; }
     public PoiGeofenceDto? CurrentPoi { get; private set; }
 
     public IReadOnlyList<PoiGeofenceDto> AllPois => _allPois;
@@ -164,7 +166,7 @@ public class GeofenceAudioService : IAsyncDisposable
             BannerStateChanged?.Invoke();
 
             if (AudioTriggered != null)
-                await AudioTriggered.Invoke(poi, audio);
+                await AudioTriggered.Invoke(poi, audio, true);
         }
     }
 
@@ -258,19 +260,22 @@ public class GeofenceAudioService : IAsyncDisposable
             // --- Pass 2: Xử lý POI gần nhất ---
             if (closestPoi != null)
             {
-                // Cập nhật Banner để người dùng biết họ đang ở đâu
-                if (CurrentPoi?.Id != closestPoi.Id)
+                // LUÔN CẬP NHẬT vị trí GPS hiện tại (không phụ thuộc audio)
+                CurrentLocationPoi = closestPoi;
+
+                // CHỈ CẬP NHẬT BANNER nếu loa đang rảnh (hoặc nếu là POI mới và loa đang nghỉ)
+                if (!IsAudioPlaying && CurrentPoi?.Id != closestPoi.Id)
                 {
                     CurrentPoi = closestPoi;
                     BannerPoiName = closestPoi.Name;
                     BannerVisible = true;
                     BannerStateChanged?.Invoke();
 
-                    System.Diagnostics.Debug.WriteLine($"[Geofence] Đổi vùng ưu tiên sang: {closestPoi.Name} ({minDistance:F1}m)");
+                    System.Diagnostics.Debug.WriteLine($"[Geofence] Cập nhật Banner sang: {closestPoi.Name} ({minDistance:F1}m)");
                 }
 
-                // LOGIC TỰ ĐỘNG PHÁT: Phải BẬT công tắc VÀ chưa phát trong lần vào vùng này
-                if (IsAutoPlayEnabled && !_playedPoiIds.Contains(closestPoi.Id))
+                // LOGIC TỰ ĐỘNG PHÁT: Phải BẬT công tắc, chưa phát trong lần vào vùng này, VÀ LOA ĐANG RẢNH
+                if (IsAutoPlayEnabled && !_playedPoiIds.Contains(closestPoi.Id) && !IsAudioPlaying)
                 {
                     _playedPoiIds.Add(closestPoi.Id);
                     _insidePoiIds.Add(closestPoi.Id);
@@ -280,7 +285,6 @@ public class GeofenceAudioService : IAsyncDisposable
                 }
                 else if (!_insidePoiIds.Contains(closestPoi.Id))
                 {
-                    // Trường hợp user tắt AutoPlay nhưng mới bước vào vùng -> Mark là đã ở trong vùng để không tự phát khi bật lại giữa chừng (tùy chọn UI)
                     _insidePoiIds.Add(closestPoi.Id);
                 }
             }
@@ -340,7 +344,7 @@ public class GeofenceAudioService : IAsyncDisposable
             $"[GeofenceService] ✅ TRIGGER POI #{poi.Id} \"{poi.Name}\" -> {audio.FileUrl}");
 
         if (AudioTriggered != null)
-            await AudioTriggered.Invoke(poi, audio);
+            await AudioTriggered.Invoke(poi, audio, false);
     }
 
     /// <summary>

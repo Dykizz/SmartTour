@@ -1,0 +1,153 @@
+@inject NavigationManager NavigationManager
+@inject LanguageService LanguageService
+
+<MudPaper Elevation="8"
+          Class="py-2"
+          Style="position:fixed; bottom:0; width:100%;
+                 border-top-left-radius:20px; border-top-right-radius:20px;
+                 background:rgba(255,255,255,0.92);
+                 backdrop-filter:blur(16px);
+                 border-top:0.5px solid rgba(14,110,184,0.12);
+                 z-index:999;">
+    <div class="bottomnav-row">
+        <div class="bottomnav-item"
+             @onclick="@(() => NavigationManager.NavigateTo("/"))">
+            <div class="@GetIconClass("home")">
+                <MudIcon Icon="@Icons.Material.Filled.Home"
+                         Style="@GetIconStyle("home")" />
+            </div>
+            <MudText Typo="Typo.caption"
+                     Class="@GetTextClass("home")">
+                @LanguageService.T("Home")
+            </MudText>
+        </div>
+
+        <div class="bottomnav-item bottomnav-item-map"
+             @onclick="@(() => NavigationManager.NavigateTo("/map"))">
+            <div class="@GetIconClass("map")">
+                <MudIcon Icon="@Icons.Material.Filled.Map"
+                         Style="@GetIconStyle("map")" />
+            </div>
+            <MudText Typo="Typo.caption"
+                     Class="@GetTextClass("map")">
+                @LanguageService.T("Map")
+            </MudText>
+        </div>
+
+        <div class="bottomnav-scan-item"
+             @onclick="@(() => NavigationManager.NavigateTo("/scan"))">
+            <div class="bottomnav-scan-button">
+                <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner"
+                         Style="color:white; font-size:1.55rem;" />
+            </div>
+            <MudText Typo="Typo.caption"
+                     Class="bottomnav-scan-text">
+                @LanguageService.T("Scan")
+            </MudText>
+        </div>
+
+        <div class="bottomnav-item"
+             @onclick="@(() => NavigationManager.NavigateTo("/profile"))">
+            <div class="@GetIconClass("profile")">
+                <MudIcon Icon="@Icons.Material.Filled.Person"
+                         Style="@GetIconStyle("profile")" />
+            </div>
+            <MudText Typo="Typo.caption"
+                     Class="@GetTextClass("profile")">
+                @LanguageService.T("Profile")
+            </MudText>
+        </div>
+    </div>
+</MudPaper>
+
+<style>
+    .bottomnav-row {
+        display: flex;
+        justify-content: space-around;
+        align-items: flex-start;
+        padding-top: 2px;
+    }
+
+    .bottomnav-item {
+        cursor: pointer;
+        min-width: 60px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .bottomnav-item:active {
+        opacity: 0.6;
+    }
+
+    .bottomnav-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+    }
+
+    .bottomnav-icon-active {
+        background: rgba(14,110,184,0.1);
+    }
+
+    .bottomnav-text {
+        font-size: 0.65rem;
+        color: #bbb;
+        font-weight: 500;
+    }
+
+    .bottomnav-text-active {
+        color: #0e6eb8;
+        font-weight: 600;
+    }
+
+    .bottomnav-scan-item {
+        cursor: pointer;
+        min-width: 84px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: -10px;
+    }
+
+    .bottomnav-scan-item:active {
+        opacity: 0.7;
+    }
+
+    .bottomnav-scan-button {
+        width: 56px;
+        height: 56px;
+        border-radius: 18px;
+        background: linear-gradient(135deg,#0e6eb8,#1a9de8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 10px 26px rgba(14,110,184,0.25);
+    }
+
+    .bottomnav-scan-text {
+        margin-top: 2px;
+        font-size: 0.65rem;
+        color: #0e6eb8;
+        font-weight: 700;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string Active { get; set; } = "";
+
+    private string GetIconClass(string key) =>
+        Active == key ? "bottomnav-icon bottomnav-icon-active" : "bottomnav-icon";
+
+    private string GetIconStyle(string key) =>
+        Active == key ? "color:#0e6eb8; font-size:1.2rem;" : "color:#bbb; font-size:1.2rem;";
+
+    private string GetTextClass(string key) =>
+        Active == key ? "bottomnav-text bottomnav-text-active" : "bottomnav-text";
+}
+

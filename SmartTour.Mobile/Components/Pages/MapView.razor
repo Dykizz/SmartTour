@@ -7,7 +7,6 @@
 @inject GeofenceAudioService GeofenceService
 @inject NavigationManager NavigationManager
 @inject LanguageService LanguageService
-@inject AuthenticationStateProvider AuthStateProvider
 @inject HttpClient Http
 @implements IDisposable
 @attribute [Authorize]
@@ -142,53 +141,7 @@
     </MudMainContent>
 
     <!-- ── Bottom Navigation ── -->
-    <MudPaper Elevation="8" Class="py-2"
-              Style="position:fixed; bottom:0; width:100%;
-                     border-top-left-radius:20px; border-top-right-radius:20px;
-                     background:rgba(255,255,255,0.92);
-                     backdrop-filter:blur(16px);
-                     border-top:0.5px solid rgba(14,110,184,0.12);
-                     z-index:999;">
-        <div class="d-flex justify-space-around">
-            <div class="d-flex flex-column align-center nav-item"
-                 style="min-width:60px;"
-                 @onclick="@(() => NavigationManager.NavigateTo("/"))">
-                <MudIcon Icon="@Icons.Material.Filled.Home"
-                         Style="color:#bbb; font-size:1.3rem;" />
-                <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
-                    Trang chủ
-                </MudText>
-            </div>
-            <div class="d-flex flex-column align-center" style="min-width:60px;">
-                <div class="nav-icon-active-blue">
-                    <MudIcon Icon="@Icons.Material.Filled.Map"
-                             Style="color:#0e6eb8; font-size:1.2rem;" />
-                </div>
-                <MudText Typo="Typo.caption"
-                         Style="color:#0e6eb8; font-weight:600; font-size:0.65rem;">
-                    Bản đồ
-                </MudText>
-            </div>
-            <div class="d-flex flex-column align-center nav-item"
-                 style="min-width:60px;"
-                 @onclick="@(() => NavigationManager.NavigateTo("/profile"))">
-                <MudIcon Icon="@Icons.Material.Filled.Person"
-                         Style="color:#bbb; font-size:1.3rem;" />
-                <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
-                    Cá nhân
-                </MudText>
-            </div>
-            <div class="d-flex flex-column align-center nav-item"
-                 style="min-width:60px;"
-                 @onclick="Logout">
-                <MudIcon Icon="@Icons.Material.Filled.Logout"
-                         Style="color:#bbb; font-size:1.3rem;" />
-                <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
-                    Thoát
-                </MudText>
-            </div>
-        </div>
-    </MudPaper>
+    <BottomNavigation Active="map" />
 </MudLayout>
 
 <style>
@@ -268,15 +221,6 @@
         cursor: pointer;
     }
 
-    /* ── Bottom nav ── */
-    .nav-item { cursor: pointer; transition: opacity 0.2s; }
-    .nav-item:active { opacity: 0.6; }
-    .nav-icon-active-blue {
-        width: 36px; height: 36px; border-radius: 10px;
-        background: rgba(14,110,184,0.1);
-        display: flex; align-items: center; justify-content: center;
-    }
-
     @@keyframes slideUp {
         from { transform: translateY(100%); opacity: 0; }
         to   { transform: translateY(0);    opacity: 1; }
@@ -337,8 +281,13 @@
         }
     }
 
-    private async Task OnAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio)
-        => await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
+    private async Task OnAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio, bool isManual)
+    {
+        if (isManual)
+            await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
+        else
+            await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
+    }
 
     [JSInvokable]
     public void OnMarkerClick(int poiId)
@@ -388,13 +337,6 @@
     {
         if (_selectedPoi != null)
             await GeofenceService.PlayManualAsync(_selectedPoi, LanguageService.SelectedLanguage);
-    }
-
-    private void Logout()
-    {
-        var auth = (MobileAuthStateProvider)AuthStateProvider;
-        auth.MarkUserAsLoggedOut();
-        NavigationManager.NavigateTo("/login");
     }
 
     public void Dispose()

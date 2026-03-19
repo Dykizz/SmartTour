@@ -138,26 +138,45 @@ window.audioHelper = (() => {
             _playNext();
         },
 
+
         /**
          * Phát tại mốc thời gian cụ thể (dùng khi đổi ngôn ngữ).
          * Clear queue trước để phát ngay.
          */
         playAtTime: async function (url, startTime) {
+            console.log(`[audioHelper] ⚡ playAtTime gọi: ${url} @ ${startTime}s`);
             _queue = [];
-            _isPlaying = false;
 
             const audio = _getOrCreate();
+
+            // Nếu cùng URL, chỉ cần đưa về đầu và phát (giảm hiện tượng chớp/mất tiếng)
+            if (audio.src.includes(url) || url.includes(audio.src)) {
+                audio.currentTime = startTime;
+                _isPlaying = true;
+                try {
+                    await audio.play();
+                } catch (e) {
+                    console.error('[audioHelper] playAtTime (same src) lỗi:', e);
+                    _isPlaying = false;
+                }
+                return;
+            }
+
+            // Nếu đổi URL: dừng cái cũ trước
+            _isPlaying = false;
+            audio.pause();
             audio.src = url;
+            audio.load(); // Đảm bảo nạp lại
             audio.currentTime = startTime;
             audio.muted = false;
             _isPlaying = true;
 
             try {
                 await audio.play();
-                console.log('[audioHelper] playAtTime:', url, '@', startTime, 's');
+                console.log('[audioHelper] playAtTime thành công:', url);
             } catch (err) {
                 _isPlaying = false;
-                console.error('[audioHelper] playAtTime lỗi:', err);
+                console.error('[audioHelper] playAtTime (new src) lỗi:', err);
             }
         },
 

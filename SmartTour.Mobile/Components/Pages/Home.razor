@@ -33,7 +33,7 @@
             </div>
         </div>
         <MudSpacer />
-        <div class="d-flex gap-2">
+        <div class="d-flex align-center gap-2">
             <MudMenu Icon="@Icons.Material.Filled.Language"
                      Style="color:white;"
                      Direction="Direction.Left" OffsetX="true" Dense="true">
@@ -283,53 +283,6 @@
             }
         </div>
 
-        <!-- ── Audio Banner ── -->
-        @if (GeofenceService.BannerVisible && GeofenceService.CurrentPoi != null)
-        {
-            <div class="audio-banner mx-4 mt-4">
-                <div class="d-flex align-center gap-3">
-                    <div class="audio-icon-wrap">
-                        <MudIcon Icon="@Icons.Material.Filled.LocationOn"
-                                 Style="color:white; font-size:1rem;" />
-                    </div>
-                    <div style="flex:1;">
-                        <MudText Typo="Typo.caption"
-                                 Style="color:rgba(255,255,255,0.75);">
-                            📍 Bạn đang ở gần
-                        </MudText>
-                        <MudText Style="font-size:0.9rem; font-weight:600; color:white;">
-                            @GeofenceService.CurrentPoi.Name
-                        </MudText>
-                    </div>
-                    <div class="d-flex gap-2">
-                        @if (GeofenceService.IsAudioPlaying)
-                        {
-                            <div class="audio-ctrl-btn" @onclick="PauseAudio">
-                                <MudIcon Icon="@Icons.Material.Filled.Pause"
-                                         Style="color:white; font-size:1rem;" />
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="audio-ctrl-btn" @onclick="ResumeAudio">
-                                <MudIcon Icon="@Icons.Material.Filled.PlayArrow"
-                                         Style="color:white; font-size:1rem;" />
-                            </div>
-                        }
-                        <div class="audio-ctrl-btn" @onclick="ReplayAudio">
-                            <MudIcon Icon="@Icons.Material.Filled.Replay"
-                                     Style="color:white; font-size:1rem;" />
-                        </div>
-                        <div class="audio-ctrl-btn"
-                             @onclick="@(() => GeofenceService.CloseBanner())">
-                            <MudIcon Icon="@Icons.Material.Filled.Close"
-                                     Style="color:white; font-size:1rem;" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
-
         <MudText Typo="Typo.caption" Align="Align.Center"
                  Class="mt-6 mb-2 d-block"
                  Style="@($"color:#bbb; {(!_hasMore ? "" : "display:none!important")}")">
@@ -341,66 +294,7 @@
     <audio id="geofence-audio-player" hidden></audio>
 
     <!-- ── Bottom Navigation ── -->
-    <MudPaper Elevation="8" Class="py-2"
-              Style="position:fixed; bottom:0; width:100%;
-                     border-top-left-radius:20px; border-top-right-radius:20px;
-                     background:rgba(255,255,255,0.92);
-                     backdrop-filter:blur(16px);
-                     border-top:0.5px solid rgba(14,110,184,0.12);
-                     z-index:999;">
-        <div class="d-flex justify-space-around">
-            <div class="d-flex flex-column align-center" style="min-width:60px;">
-                <div class="nav-icon-active">
-                    <MudIcon Icon="@Icons.Material.Filled.Home"
-                             Style="color:#0e6eb8; font-size:1.2rem;" />
-                </div>
-                <MudText Typo="Typo.caption"
-                         Style="color:#0e6eb8; font-weight:600; font-size:0.65rem;">
-                    @LanguageService.T("Home")
-                </MudText>
-            </div>
-            <div class="d-flex flex-column align-center nav-item"
-                 style="min-width:60px;"
-                 @onclick="@(() => NavigationManager.NavigateTo("/map"))">
-                <MudIcon Icon="@Icons.Material.Filled.Map"
-                         Style="color:#bbb; font-size:1.3rem;" />
-                <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
-                    @LanguageService.T("Map")
-                </MudText>
-            </div>
-            <div class="d-flex flex-column align-center nav-item"
-                 style="min-width:60px;"
-                 @onclick="@(() => NavigationManager.NavigateTo("/profile"))">
-                <MudIcon Icon="@Icons.Material.Filled.Person"
-                         Style="color:#bbb; font-size:1.3rem;" />
-                <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
-                    @LanguageService.T("Profile")
-                </MudText>
-            </div>
-            <AuthorizeView>
-                <Authorized>
-                    <div class="d-flex flex-column align-center nav-item"
-                         style="min-width:60px;" @onclick="Logout">
-                        <MudIcon Icon="@Icons.Material.Filled.Logout"
-                                 Style="color:#bbb; font-size:1.3rem;" />
-                        <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
-                            @LanguageService.T("Logout")
-                        </MudText>
-                    </div>
-                </Authorized>
-                <NotAuthorized>
-                    <div class="d-flex flex-column align-center nav-item"
-                         style="min-width:60px;" @onclick="NavigateToLogin">
-                        <MudIcon Icon="@Icons.Material.Filled.Login"
-                                 Style="color:#bbb; font-size:1.3rem;" />
-                        <MudText Typo="Typo.caption" Style="color:#bbb; font-size:0.65rem;">
-                            @LanguageService.T("Login")
-                        </MudText>
-                    </div>
-                </NotAuthorized>
-            </AuthorizeView>
-        </div>
-    </MudPaper>
+    <BottomNavigation Active="home" />
 </MudLayout>
 
 <style>
@@ -480,14 +374,6 @@
     }
     .audio-ctrl-btn:active { background: rgba(255,255,255,0.35); }
 
-    .nav-item { cursor: pointer; transition: opacity 0.2s; }
-    .nav-item:active { opacity: 0.6; }
-    .nav-icon-active {
-        width: 36px; height: 36px; border-radius: 10px;
-        background: rgba(14,110,184,0.1);
-        display: flex; align-items: center; justify-content: center;
-    }
-
     @@keyframes slideUp {
         from { transform: translateY(20px); opacity: 0; }
         to   { transform: translateY(0);    opacity: 1; }
@@ -565,8 +451,13 @@
 
     // ── Audio ─────────────────────────────────────────────────────────────
 
-    private async Task OnGeofenceAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio)
-        => await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
+    private async Task OnGeofenceAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio, bool isManual)
+    {
+        if (isManual)
+            await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
+        else
+            await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
+    }
 
     private void OnBannerStateChanged() => InvokeAsync(StateHasChanged);
 
@@ -585,8 +476,17 @@
     private async Task ReplayAudio()
     {
         if (GeofenceService.CurrentPoi != null)
-            await GeofenceService.PlayManualAsync(
-                GeofenceService.CurrentPoi, LanguageService.SelectedLanguage);
+        {
+            var audio = GeofenceService.CurrentPoi.AudioFiles
+                .FirstOrDefault(a => a.LanguageCode == LanguageService.SelectedLanguage)
+                ?? GeofenceService.CurrentPoi.AudioFiles.FirstOrDefault();
+
+            if (audio != null)
+            {
+                await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
+                GeofenceService.SetAudioPlaying(true);
+            }
+        }
     }
 
     // ── Data ─────────────────────────────────────────────────────────────
@@ -725,14 +625,7 @@
         Snackbar.Add($"Đã chuyển: {code.ToUpper()}", Severity.Info);
     }
 
-    private void Logout()
-    {
-        var auth = (MobileAuthStateProvider)AuthStateProvider;
-        auth.MarkUserAsLoggedOut();
-        NavigationManager.NavigateTo("/login");
-    }
-
-    private void NavigateToLogin() => NavigationManager.NavigateTo("/login");
+    // Logout/Login moved into `Profile` page.
 
     public async ValueTask DisposeAsync()
     {

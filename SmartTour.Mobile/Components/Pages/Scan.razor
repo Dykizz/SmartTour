@@ -1,0 +1,287 @@
+@page "/scan"
+@using System.Text.RegularExpressions
+@using SmartTour.Mobile.Services
+@using SmartTour.Shared.Models
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@inject GeofenceAudioService GeofenceService
+@inject LanguageService LanguageService
+@inject ISnackbar Snackbar
+@attribute [Authorize]
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="true"
+               Style="background:linear-gradient(135deg,#0e6eb8 0%,#1a9de8 100%); z-index:200;">
+        <div class="appbar-icon-btn" @onclick="@(() => NavigationManager.NavigateTo("/"))">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowBack"
+                     Style="color:white; font-size:1.1rem;" />
+        </div>
+        <MudSpacer />
+        <MudText Style="font-size:0.95rem; font-weight:600; color:white;">
+            @LanguageService.T("Scan")
+        </MudText>
+        <MudSpacer />
+        <div class="appbar-icon-btn" style="visibility:hidden;">
+            <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner"
+                     Style="color:white; font-size:1.1rem;" />
+        </div>
+    </MudAppBar>
+
+    <MudMainContent Style="background:#f0f7ff; min-height:100vh; padding-bottom:80px;">
+        <div class="px-4 pt-4">
+            <MudPaper Elevation="3"
+                      Class="pa-4 rounded-xl"
+                      Style="background:rgba(255,255,255,0.92); border:0.5px solid rgba(14,110,184,0.12);">
+                <MudText Typo="Typo.subtitle2" Style="font-weight:800; color:#0a3050;">
+                    QR code kích hoạt nội dung tại trạm xe buýt
+                </MudText>
+                <MudText Typo="Typo.caption" Style="color:#aaa; margin-top:6px;">
+                    Hướng camera vào mã QR. Nếu camera không hỗ trợ, bạn có thể dán nội dung QR vào ô dưới.
+                </MudText>
+
+                <div id="qr-video-container" class="qr-video-container mt-4">
+                    @if (!_scanAvailable)
+                    {
+                        <div class="qr-fallback">
+                            <MudIcon Icon="@Icons.Material.Filled.QrCode"
+                                     Style="font-size:2rem; color:rgba(14,110,184,0.7);" />
+                            <MudText Typo="Typo.caption" Style="color:#0a3050; font-weight:700; margin-top:8px;">
+                                Trình duyệt không hỗ trợ quét QR tự động
+                            </MudText>
+                        </div>
+                    }
+                </div>
+
+                <div class="mt-4">
+                    <MudTextField @bind-Value="_manualQr"
+                                   Placeholder="Dán nội dung QR (vd: /poi-details/12)"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense"
+                                   FullWidth="true" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               Style="border-radius:14px; font-weight:800; text-transform:none; height:48px; margin-top:10px;"
+                               OnClick="SubmitManualQr"
+                               Disabled="@_manualSubmitting">
+                        @if (_manualSubmitting)
+                        {
+                            <MudProgressCircular Indeterminate="true" Color="Color.Inherit" Size="Size.Small" Class="mr-2" />
+                            <span>Đang xử lý...</span>
+                        }
+                        else
+                        {
+                            <span>Đi tới nội dung</span>
+                        }
+                    </MudButton>
+                </div>
+            </MudPaper>
+        </div>
+    </MudMainContent>
+
+    <BottomNavigation Active="scan" />
+</MudLayout>
+
+<style>
+    .appbar-icon-btn {
+        width: 32px; height: 32px; border-radius: 10px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+    }
+
+    .qr-video-container {
+        width: 100%;
+        height: 320px;
+        background: #000;
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .qr-video-container video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .qr-fallback {
+        padding: 18px;
+        text-align: center;
+    }
+
+    .qr-target {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+    }
+
+    .qr-target-box {
+        width: 64%;
+        height: 32%;
+        border-radius: 18px;
+        border: 2px solid rgba(14,110,184,0.85);
+        box-shadow: 0 0 0 9999px rgba(0,0,0,0.25);
+        background: rgba(255,255,255,0.02);
+    }
+</style>
+
+@code {
+    private DotNetObjectReference<Scan>? _qrDotNetRef;
+    private DotNetObjectReference<GeofenceAudioService>? _geofenceDotNetRef;
+
+    private bool _scanAvailable = true;
+    private bool _processing = false;
+
+    private string _manualQr = "";
+    private bool _manualSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Đảm bảo audio phát khi QR kích hoạt
+        GeofenceService.AudioTriggered += OnAudioTriggered;
+
+        try
+        {
+            await GeofenceService.ReloadPoisAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi tải nội dung QR: {ex.Message}", Severity.Error);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _qrDotNetRef ??= DotNetObjectReference.Create(this);
+
+        // Setup dotnet callback cho quét QR
+        await JS.InvokeVoidAsync("qrHelper.setDotNetReference", _qrDotNetRef);
+
+        // Setup dotnet callback cho audio end event
+        _geofenceDotNetRef ??= DotNetObjectReference.Create(GeofenceService);
+        await JS.InvokeVoidAsync("audioHelper.setDotNetReference", _geofenceDotNetRef);
+
+        try
+        {
+            _scanAvailable = await JS.InvokeAsync<bool>("qrHelper.startScan", "qr-video-container");
+        }
+        catch
+        {
+            _scanAvailable = false;
+        }
+    }
+
+    private async Task OnAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio, bool isManual)
+    {
+        if (isManual)
+            await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
+        else
+            await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
+    }
+
+    [JSInvokable]
+    public async Task OnQrCodeDetected(string? rawValue)
+    {
+        if (_processing) return;
+        _processing = true;
+
+        try
+        {
+            await JS.InvokeVoidAsync("qrHelper.stopScan");
+
+            if (!TryExtractPoiId(rawValue ?? "", out var poiId))
+            {
+                Snackbar.Add("QR không hợp lệ hoặc không chứa mã điểm tham quan.", Severity.Warning);
+                return;
+            }
+
+            await ProcessPoiId(poiId);
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+
+    private bool TryExtractPoiId(string raw, out int poiId)
+    {
+        poiId = 0;
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+
+        var trimmed = raw.Trim();
+        if (int.TryParse(trimmed, out poiId)) return true;
+
+        // Trường hợp QR chứa đường dẫn: /poi-details/{id}
+        var m = Regex.Match(trimmed, @"poi-details\/(\d+)", RegexOptions.IgnoreCase);
+        if (m.Success && int.TryParse(m.Groups[1].Value, out poiId)) return true;
+
+        // Trường hợp QR chứa query: ?poiId={id}
+        m = Regex.Match(trimmed, @"[?&]poiId=(\d+)", RegexOptions.IgnoreCase);
+        if (m.Success && int.TryParse(m.Groups[1].Value, out poiId)) return true;
+
+        // Trường hợp QR chứa URI đầy đủ (http/https/scheme)
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+        {
+            m = Regex.Match(uri.AbsolutePath, @"poi-details\/(\d+)", RegexOptions.IgnoreCase);
+            if (m.Success && int.TryParse(m.Groups[1].Value, out poiId)) return true;
+        }
+
+        return false;
+    }
+
+    private async Task ProcessPoiId(int poiId)
+    {
+        var poi = GeofenceService.AllPois.FirstOrDefault(p => p.Id == poiId);
+        if (poi != null)
+        {
+            await GeofenceService.PlayManualAsync(poi, LanguageService.SelectedLanguage);
+        }
+        else
+        {
+            Snackbar.Add("Không tìm thấy nội dung tương ứng với QR.", Severity.Warning);
+        }
+
+        NavigationManager.NavigateTo($"/poi-details/{poiId}");
+    }
+
+    private async Task SubmitManualQr()
+    {
+        if (_manualSubmitting) return;
+        _manualSubmitting = true;
+        try
+        {
+            await JS.InvokeVoidAsync("qrHelper.stopScan");
+
+            if (!TryExtractPoiId(_manualQr, out var poiId))
+            {
+                Snackbar.Add("QR không hợp lệ hoặc không chứa mã điểm tham quan.", Severity.Warning);
+                return;
+            }
+
+            await ProcessPoiId(poiId);
+        }
+        finally
+        {
+            _manualSubmitting = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("qrHelper.stopScan"); } catch { }
+        GeofenceService.AudioTriggered -= OnAudioTriggered;
+        _qrDotNetRef?.Dispose();
+        _geofenceDotNetRef?.Dispose();
+    }
+}
+
