@@ -28,6 +28,7 @@ public class PoisController : ControllerBase
         [FromQuery] double? radius = null,
         [FromQuery] int? createdById = null,
         [FromQuery] bool onlyActive = true,
+        [FromQuery] bool? isActive = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? searchTerm = null,
@@ -71,8 +72,15 @@ public class PoisController : ControllerBase
         var userId = await GetCurrentUserIdAsync();
         if (userId == null) return Unauthorized("Vui lòng đăng nhập");
 
-        var created = await _poiService.CreateAsync(poi, userId.Value);
-        return CreatedAtAction(nameof(GetPoi), new { id = created.Id }, created);
+        try
+        {
+            var created = await _poiService.CreateAsync(poi, userId.Value);
+            return CreatedAtAction(nameof(GetPoi), new { id = created.Id }, created);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPut("{id}")]
@@ -81,9 +89,16 @@ public class PoisController : ControllerBase
         var userId = await GetCurrentUserIdAsync();
         if (userId == null) return Unauthorized("Vui lòng đăng nhập");
 
-        var result = await _poiService.UpdateAsync(id, poi, userId.Value);
-        if (!result) return NotFound();
-        return NoContent();
+        try
+        {
+            var result = await _poiService.UpdateAsync(id, poi, userId.Value);
+            if (!result) return NotFound();
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpDelete("{id}")]
