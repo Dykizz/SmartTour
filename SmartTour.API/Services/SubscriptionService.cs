@@ -18,6 +18,7 @@ public class SubscriptionService : ISubscriptionService
     {
         return await _context.Subscriptions
             .Include(s => s.ServicePackage)
+            .Include(s => s.User)
             .FirstOrDefaultAsync(s => s.UserId == userId);
     }
 

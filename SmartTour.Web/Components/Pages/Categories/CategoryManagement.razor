@@ -9,17 +9,21 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8">
     <div class="d-flex align-center justify-space-between mb-6">
-        <div>
-            <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Quản lý Loại hình quán</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Quản lý các loại hình POI trên hệ thống</MudText>
+        <div class="d-flex align-center gap-3">
+            <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Medium">
+                <MudIcon Icon="@Icons.Material.Filled.Category" />
+            </MudAvatar>
+            <div>
+                <MudText Typo="Typo.h5" Style="font-weight: 700; letter-spacing: -0.5px;" Class="mb-1">Quản lý Phân loại</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Quản lý các danh mục phân loại điểm đến (POI) trên hệ thống</MudText>
+            </div>
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => OpenDialog()">
-            Thêm loại hình
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => OpenDialog()" Class="px-6 rounded-lg" DropShadow="false">
+            Thêm danh mục
         </MudButton>
     </div>
 
-    <MudPaper Elevation="2" Class="pa-4 mt-4 rounded-lg">
-        <MudTable Items="@_categories" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0">
+    <MudTable Items="@_categories" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0" Outlined="true" Class="rounded-xl overflow-hidden bg-white mt-4">
             <HeaderContent>
                 <MudTh>Tên loại hình</MudTh>
                 <MudTh>Mô tả</MudTh>
@@ -45,7 +49,6 @@
                 <MudText>Chưa có loại hình nào. Hãy thêm mới!</MudText>
             </NoRecordsContent>
         </MudTable>
-    </MudPaper>
 </MudContainer>
 
 @code {
@@ -87,7 +90,7 @@
         };
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<CategoryDialog>(isEdit ? "Chỉnh sửa loại hình" : "Thêm loại hình mới", parameters, options);
+        var dialog = await DialogService.ShowAsync<CategoryDialog>("", parameters, options);
         var result = await dialog.Result;
 
         if (result is { Canceled: false })

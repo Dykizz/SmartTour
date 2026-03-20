@@ -1,36 +1,38 @@
 @using Microsoft.AspNetCore.Components.Authorization
 
-<MudNavMenu Bordered="true" Class="mud-width-full">
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Trang chủ</MudNavLink>
+<MudNavMenu Bordered="false" Color="Color.Primary" Class="mud-width-full pt-4">
+    <div class="px-6 pb-2">
+        <MudText Typo="Typo.caption" Class="text-muted" Style="font-weight: 700; letter-spacing: 1px;">MENU CHÍNH</MudText>
+    </div>
+    
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.SpaceDashboard">Tổng quan</MudNavLink>
 
     <AuthorizeView Roles="ADMIN">
         <Authorized>
-            <MudDivider Class="my-2" />
-            <MudNavLink Href="/category-management" Icon="@Icons.Material.Filled.Category">Quản lý Loại hình</MudNavLink>
-            <MudNavLink Href="/service-package-management" Icon="@Icons.Material.Filled.CardMembership">Quản lý Gói dịch vụ</MudNavLink>
-            <MudNavLink Href="/language-management" Icon="@Icons.Material.Filled.Language">Quản lý Ngôn ngữ</MudNavLink>
-            <MudNavLink Href="/poi-management" Icon="@Icons.Material.Filled.Place">Quản lý POI</MudNavLink>
-            <MudNavLink Href="/poi-requests" Icon="@Icons.Material.Filled.PendingActions" >Yêu cầu POI</MudNavLink>
-            <MudNavLink Href="/revenue" Icon="@Icons.Material.Filled.BarChart">Báo cáo Doanh thu</MudNavLink>
-            <MudNavLink Href="/users" Icon="@Icons.Material.Filled.People">Quản lý Người dùng</MudNavLink>
+            <div class="px-6 pt-4 pb-2">
+                <MudText Typo="Typo.caption" Class="text-muted" Style="font-weight: 700; letter-spacing: 1px;">QUẢN TRỊ HỆ THỐNG</MudText>
+            </div>
+            <MudNavLink Href="/poi-management" Icon="@Icons.Material.Filled.Place">Biên tập POI</MudNavLink>
+            <MudNavLink Href="/poi-requests" Icon="@Icons.Material.Filled.PendingActions">Yêu cầu duyệt POI</MudNavLink>
+            <MudNavLink Href="/category-management" Icon="@Icons.Material.Filled.Category">Loại hình POI</MudNavLink>
+            <MudNavLink Href="/service-package-management" Icon="@Icons.Material.Filled.CardMembership">Gói dịch vụ</MudNavLink>
+            <MudNavLink Href="/language-management" Icon="@Icons.Material.Filled.Translate">Ngôn ngữ</MudNavLink>
+            <MudNavLink Href="/users" Icon="@Icons.Material.Filled.PeopleAlt">Người dùng</MudNavLink>
+            <MudNavLink Href="/revenue" Icon="@Icons.Material.Filled.InsertChartOutlined">Doanh thu</MudNavLink>
         </Authorized>
     </AuthorizeView>
 
     <AuthorizeView Roles="SELLER">
         <Authorized>
-            <MudDivider Class="my-2" />
-            <MudNavLink Href="/pricing" Icon="@Icons.Material.Filled.WorkspacePremium">Gói dịch vụ & Nâng cấp</MudNavLink>
+            <div class="px-6 pt-4 pb-2">
+                <MudText Typo="Typo.caption" Class="text-muted" Style="font-weight: 700; letter-spacing: 1px;">ĐỐI TÁC DU LỊCH</MudText>
+            </div>
             <MudNavLink Href="/poi-management" Icon="@Icons.Material.Filled.Place">Quản lý POI</MudNavLink>
+            <MudNavLink Href="/pricing" Icon="@Icons.Material.Filled.WorkspacePremium">Nâng cấp dịch vụ</MudNavLink>
         </Authorized>
-    </AuthorizeView>
-
-    <MudDivider Class="my-2" />
-    <AuthorizeView>
-        <Authorized>
-            <MudNavLink Href="/account/logout" Icon="@Icons.Material.Filled.Logout" IconColor="Color.Error">Đăng xuất</MudNavLink>
-        </Authorized>
-        <NotAuthorized>
-            <MudNavLink Href="/login" Icon="@Icons.Material.Filled.Login" IconColor="Color.Primary">Đăng nhập</MudNavLink>
-        </NotAuthorized>
     </AuthorizeView>
 </MudNavMenu>
+
+<style>
+    .text-muted { color: var(--mud-palette-text-secondary) !important; }
+</style>

@@ -12,22 +12,25 @@
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-10">
     <div class="d-flex align-center justify-space-between mb-6">
-        <div>
-            <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Quản lý Ngôn ngữ</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Cấu hình các ngôn ngữ hiển thị trên trang web của bạn</MudText>
+        <div class="d-flex align-center gap-3">
+            <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Medium">
+                <MudIcon Icon="@Icons.Material.Filled.Language" />
+            </MudAvatar>
+            <div>
+                <MudText Typo="Typo.h5" Style="font-weight: 700; letter-spacing: -0.5px;" Class="mb-1">Quản lý Ngôn ngữ</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Cấu hình các ngôn ngữ hiển thị trên trang web của bạn</MudText>
+            </div>
         </div>
         <MudButton Variant="Variant.Filled" 
                    Color="Color.Primary" 
                    StartIcon="@Icons.Material.Filled.Add" 
                    OnClick="() => OpenAddDialog()"
-                   Style="text-transform: none; border-radius: 8px; px-4">
-            Thêm ngôn ngữ mới
+                   Class="px-6 rounded-lg" DropShadow="false">
+            Thêm ngôn ngữ
         </MudButton>
     </div>
 
-    <MudPaper Elevation="2" Class="pa-4 mt-4 rounded-lg">
-
-        <MudTable Items="@_languages" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0" CustomHeader="true">
+    <MudTable Items="@_languages" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0" Outlined="true" Class="rounded-xl overflow-hidden bg-white mt-4" CustomHeader="true">
             <HeaderContent>
                 <MudTHeadRow>
                     <MudTh Style="width: 300px">Ngôn ngữ</MudTh>
@@ -102,10 +105,7 @@
             <NoRecordsContent>
                 <MudText Class="pa-4 text-center">Chưa có ngôn ngữ nào được cấu hình.</MudText>
             </NoRecordsContent>
-        </MudTable>
-        
-       
-    </MudPaper>
+    </MudTable>
 </MudContainer>
 
 @code {

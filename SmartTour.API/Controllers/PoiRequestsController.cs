@@ -68,8 +68,15 @@ public class PoiRequestsController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var created = await _requestService.SubmitRequestAsync(request, userId.Value);
-        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        try
+        {
+            var created = await _requestService.SubmitRequestAsync(request, userId.Value);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     // POST api/poi-requests/{id}/approve - Admin duyệt
@@ -121,10 +128,17 @@ public class PoiRequestsController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var success = await _requestService.UpdateRequestAsync(id, request.RequestData, userId.Value);
-        if (!success) return NotFound("Yêu cầu không tìm thấy hoặc đã được duyệt.");
+        try
+        {
+            var success = await _requestService.UpdateRequestAsync(id, request.RequestData, userId.Value);
+            if (!success) return NotFound(new { message = "Yêu cầu không tìm thấy hoặc đã được duyệt." });
 
-        return NoContent();
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     private int? GetCurrentUserId()

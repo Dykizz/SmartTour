@@ -4,6 +4,12 @@
 @inject ISnackbar Snackbar
 
 <MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.Category" Color="Color.Primary" Class="mr-2"/>
+            <MudText Typo="Typo.h6" Style="font-weight: 700;">@(IsEdit ? "Cập nhật danh mục" : "Thêm danh mục mới")</MudText>
+        </div>
+    </TitleContent>
     <DialogContent>
         <EditForm Model="@Model" OnValidSubmit="OnValidSubmit">
             <DataAnnotationsValidator />
@@ -21,8 +27,8 @@
         </EditForm>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Hủy</MudButton>
-        <MudButton Color="Color.Primary" OnClick="Submit">Lưu</MudButton>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Default" Class="px-6 rounded-lg">Hủy</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit" Class="px-6 rounded-lg ml-2" DropShadow="false">Lưu</MudButton>
     </DialogActions>
 </MudDialog>
 

@@ -1,6 +1,9 @@
 @using SmartTour.Web.Services
+@using SmartTour.Shared.Models
+@using System.Net.Http.Json
 @inject UserSessionService UserSession
 @inject AuthenticationStateProvider AuthStateProvider
+@inject HttpClient Http
 @inherits LayoutComponentBase
 
 <MudThemeProvider />
@@ -9,40 +12,79 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1">
+    <MudAppBar Elevation="0" Class="border-b mud-border-lines-default" Style="background-color: var(--mud-palette-surface); color: var(--mud-palette-text-primary);">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-        <MudText Typo="Typo.h6">SmartTour Web</MudText>
+        <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Color="Color.Primary" Class="mr-2" />
+        <MudText Typo="Typo.h6" Style="font-weight: 800; letter-spacing: -0.5px;" Color="Color.Primary">SmartTour</MudText>
+        
         <MudSpacer />
+        
         <AuthorizeView>
             <Authorized>
-                <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                @if (!string.IsNullOrEmpty(_packageLabel))
+                {
+                    bool isAdminLabel = _packageLabel == "Quản trị viên";
+                    <MudChip T="string" Color="@(isAdminLabel ? Color.Primary : Color.Warning)" Size="Size.Small" Variant="Variant.Outlined" Class="mr-2 font-bold" Style="@($"border-width: 1.5px; border-radius: 8px; cursor: {(isAdminLabel ? "default" : "pointer")};")" Icon="@(isAdminLabel ? Icons.Material.Filled.AdminPanelSettings : Icons.Material.Filled.WorkspacePremium)" OnClick="@(() => { if (!isAdminLabel) NavigationManager.NavigateTo("/pricing"); })">
+                        @_packageLabel
+                    </MudChip>
+                }
+                
+                <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true" Class="ml-2">
                     <ActivatorContent>
-                        <MudChip T="string" Icon="@Icons.Material.Filled.Person" Color="Color.Inherit">
-                            @context.User.Identity?.Name
-                        </MudChip>
+                        <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="px-2" Style="text-transform: none;">
+                            <MudAvatar Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined" Class="mr-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                            </MudAvatar>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">@context.User.Identity?.Name</MudText>
+                            <MudIcon Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small" Class="ml-1" Color="Color.Secondary" />
+                        </MudButton>
                     </ActivatorContent>
                     <ChildContent>
-                        <MudMenuItem Icon="@Icons.Material.Filled.Logout" Href="/account/logout">Đăng xuất</MudMenuItem>
+                        <div class="px-4 py-3">
+                            <MudText Typo="Typo.body2" Style="font-weight: 700;">@context.User.Identity?.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="text-muted">Hệ thống quản trị</MudText>
+                        </div>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Filled.AccountCircle" Href="/profile">Hồ sơ cá nhân</MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="@(() => NavigationManager.NavigateTo("/account/logout", forceLoad: true))" IconColor="Color.Error">Đăng xuất</MudMenuItem>
                     </ChildContent>
                 </MudMenu>
             </Authorized>
             <NotAuthorized>
-                <MudButton Href="/login" Variant="Variant.Text" Color="Color.Inherit">Đăng nhập</MudButton>
+                <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" Class="rounded-lg" Style="font-weight: 600;">Đăng nhập</MudButton>
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0" Class="border-r mud-border-lines-default">
         <NavMenu />
     </MudDrawer>
-    <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4">
+
+    <MudMainContent Class="bg-surface">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-6">
             @Body
         </MudContainer>
     </MudMainContent>
 </MudLayout>
 
+<style>
+    .bg-surface {
+        background-color: var(--mud-palette-background-grey);
+        min-height: 100vh;
+    }
+    .text-muted {
+        color: var(--mud-palette-text-secondary) !important;
+    }
+    .font-bold {
+        font-weight: 700 !important;
+    }
+</style>
+
+@inject NavigationManager NavigationManager
+
 @code {
     bool _drawerOpen = true;
+    private string? _packageLabel;
 
     void DrawerToggle()
     {
@@ -70,10 +112,29 @@
                                .FirstOrDefault(v => !int.TryParse(v, out _));
 
                 UserSession.SetUser(userId, user.Identity.Name, role);
+
+                if (_packageLabel == null && !string.IsNullOrEmpty(userId))
+                {
+                    if (role?.ToUpper() == "ADMIN")
+                    {
+                        _packageLabel = "Quản trị viên";
+                    }
+                    else
+                    {
+                        try 
+                        {
+                            var sub = await Http.GetFromJsonAsync<Subscription>($"api/subscriptions/user/{userId}");
+                            _packageLabel = sub?.ServicePackage?.Name ?? "Miễn phí";
+                        }
+                        catch { _packageLabel = "Miễn phí"; }
+                    }
+                    StateHasChanged();
+                }
             }
             else
             {
                 UserSession.SetUser(null, null, null);
+                _packageLabel = null;
             }
         }
         

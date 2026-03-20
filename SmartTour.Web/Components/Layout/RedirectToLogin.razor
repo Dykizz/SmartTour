@@ -1,5 +1,14 @@
 @inject NavigationManager NavigationManager
 
+<div class="d-flex flex-column justify-center align-center min-vh-100" style="background-color: var(--mud-palette-background-grey);">
+    <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" Class="mb-4" />
+    <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">Đang chuyển hướng...</MudText>
+</div>
+
+<style>
+    .min-vh-100 { min-height: 100vh; }
+</style>
+
 @code {
     protected override void OnInitialized()
     {

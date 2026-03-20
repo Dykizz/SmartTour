@@ -6,52 +6,174 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
-<PageTitle>Đăng nhập - SmartTour</PageTitle>
+<PageTitle>Đăng nhập - SmartTour Administrator</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center min-vh-100">
-    <MudPaper Elevation="4" Class="pa-8 rounded-lg w-100" Style="max-width: 450px;">
-        <div class="d-flex flex-column align-center mb-6">
-            <MudAvatar Color="Color.Primary" Size="Size.Large" Class="mb-4">
-                <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Size="Size.Medium" />
-            </MudAvatar>
-            <MudText Typo="Typo.h4" Align="Align.Center" Color="Color.Primary" Style="font-weight: 800; letter-spacing: -0.5px;">
-                SmartTour
-            </MudText>
-            
-            <MudAlert Severity="Severity.Info" Variant="Variant.Filled" Class="mt-6 mb-2 rounded-lg">
-                <MudText Typo="Typo.body2" Style="line-height: 1.5;">
-                    Trang web SmartTour giúp bạn quản lý các điểm POI và như người hướng dẫn viên đa ngôn ngữ tiếp cận đến khách du lịch.
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-0 min-vh-100 d-flex">
+    <MudGrid Spacing="0" Class="w-100 ma-0">
+        <!-- Left Banner Side -->
+        <MudItem xs="12" md="6" lg="7" Class="d-none d-md-flex flex-column justify-center banner-section">
+            <div class="banner-overlay"></div>
+            <div class="banner-content">
+                <MudText Typo="Typo.h1" Class="banner-title">
+                    SmartTour<br/>Administrator
                 </MudText>
-            </MudAlert>
-        </div>
+                <MudText Typo="Typo.h6" Class="banner-subtitle">
+                    Hệ thống quản lý điểm đến, địa điểm du lịch thông minh và đa ngôn ngữ. Trải nghiệm được thiết kế riêng dành cho các đối tác quản trị.
+                </MudText>
+            </div>
+        </MudItem>
 
-        <div class="mb-6 text-center">
-            <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Đăng nhập để bắt đầu quản lý</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Vui lòng sử dụng tài khoản Google để bắt đầu</MudText>
-        </div>
+        <!-- Right Form Side -->
+        <MudItem xs="12" md="6" lg="5" Class="d-flex flex-column align-center justify-center pa-8 pa-sm-12 bg-surface position-relative login-form-container">
+            
+            <div class="login-form-wrapper">
+                <div Class="d-flex align-center mb-10 d-md-none">
+                    <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Color="Color.Primary" Size="Size.Large" Class="mr-3" />
+                    <MudText Typo="Typo.h5" Color="Color.Primary" Class="login-brand-mobile">SmartTour Admin</MudText>
+                </div>
 
-        <MudButton Variant="Variant.Outlined" 
-                   FullWidth="true" 
-                   StartIcon="@Icons.Custom.Brands.Google" 
-                   Color="Color.Inherit" 
-                   Class="py-3"
-                   Style="font-weight: 600; font-size: 1rem;"
-                   Href="/account/login-google"
-                   Target="_self">
-            Tiếp tục với Google
-        </MudButton>
+                <div class="mb-10">
+                    <MudText Typo="Typo.h3" Class="login-title">Chào mừng</MudText>
+                    <MudText Typo="Typo.body1" Class="text-muted">Vui lòng đăng nhập để truy cập hệ thống quản trị.</MudText>
+                </div>
 
-        <div class="mt-8 text-center">
-            <MudText Typo="Typo.caption" Color="Color.Default">
-                Bằng cách đăng nhập, bạn đồng ý với Điều khoản & Chính sách.
-            </MudText>
-        </div>
-    </MudPaper>
+                <MudPaper Elevation="0" Class="pa-8 pa-sm-10 rounded-xl mb-4 login-box">
+                    <div class="d-flex justify-center mb-8">
+                        <MudAvatar Color="Color.Primary" Variant="Variant.Outlined" Class="login-avatar">
+                            <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Color="Color.Primary" Class="login-avatar-icon" />
+                        </MudAvatar>
+                    </div>
+
+                    <MudButton Variant="Variant.Filled" 
+                               FullWidth="true" 
+                               StartIcon="@Icons.Custom.Brands.Google" 
+                               Color="Color.Primary" 
+                               Class="py-3 rounded-lg g-btn"
+                               Href="/account/login-google"
+                               Target="_self">
+                        Tiếp tục với tài khoản Google
+                    </MudButton>
+                    
+                    <div class="mt-6">
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="rounded-lg pa-3 info-alert-transparent">
+                            Theo chính sách bảo mật, chỉ các tài khoản đã được phân quyền quản trị viên hoặc đối tác mới có thể đăng nhập.
+                        </MudAlert>
+                    </div>
+                </MudPaper>
+            </div>
+            
+            <div class="position-absolute version-text-container">
+                <MudText Typo="Typo.caption" Class="text-muted">Phiên bản 1.0.0</MudText>
+            </div>
+        </MudItem>
+    </MudGrid>
 </MudContainer>
 
 <style>
-    .min-vh-100 { min-height: 100vh; }
-    body { background-color: var(--mud-palette-background-grey); }
+    body {
+        margin: 0;
+        overflow-x: hidden;
+    }
+
+    .min-vh-100 { 
+        min-height: 100vh; 
+    }
+    
+    .banner-section {
+        background: url('https://images.unsplash.com/photo-1501504905252-473c47e087f8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        position: relative;
+    }
+
+    .banner-overlay {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.8) 100%);
+    }
+
+    .banner-content {
+        position: relative;
+        z-index: 1;
+        padding: 0 12%;
+    }
+
+    .banner-title {
+        font-weight: 900 !important;
+        color: white !important;
+        margin-bottom: 24px;
+        letter-spacing: -2px;
+        line-height: 1.1;
+    }
+
+    .banner-subtitle {
+        color: rgba(255, 255, 255, 0.7) !important;
+        max-width: 550px;
+        line-height: 1.6;
+        font-weight: 400;
+    }
+
+    .login-form-container {
+        min-height: 100vh;
+    }
+
+    .login-form-wrapper {
+        width: 100%;
+        max-width: 440px;
+    }
+
+    .login-brand-mobile {
+        font-weight: 800 !important;
+        letter-spacing: -0.5px;
+    }
+
+    .login-title {
+        font-weight: 800 !important;
+        margin-bottom: 12px;
+        letter-spacing: -1px;
+    }
+
+    .login-box {
+        background-color: var(--mud-palette-background-grey) !important;
+        border: 1px solid var(--mud-palette-lines-default) !important;
+    }
+
+    .login-avatar {
+        width: 72px;
+        height: 72px;
+        border-width: 2px;
+    }
+
+    .login-avatar-icon {
+        font-size: 2.5rem !important;
+    }
+
+    .g-btn {
+        font-weight: 600 !important;
+        font-size: 1.05rem !important;
+        text-transform: none !important;
+        letter-spacing: 0.2px !important;
+        transition: transform 0.2s ease !important;
+    }
+    
+    .g-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .info-alert-transparent {
+        font-size: 0.85rem !important;
+        background-color: transparent !important;
+    }
+
+    .text-muted {
+        color: var(--mud-palette-text-secondary) !important;
+    }
+
+    .version-text-container {
+        bottom: 24px;
+        right: 32px;
+    }
 </style>
 
 @code {
