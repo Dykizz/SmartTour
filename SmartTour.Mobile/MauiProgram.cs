@@ -36,6 +36,15 @@ public static class MauiProgram
 				webView.Settings.MediaPlaybackRequiresUserGesture = false;
 			}
 		});
+
+		// Cho phép Blazor WebView cấp quyền WebRTC (Camera/Mic) mà không bị chặn đen thui
+		BlazorWebViewHandler.BlazorWebViewMapper.AppendToMapping("PermissionRequested", (handler, view) =>
+		{
+			if (handler.PlatformView is Android.Webkit.WebView webView)
+			{
+				webView.SetWebChromeClient(new PermissionManagingBlazorWebChromeClient());
+			}
+		});
 #endif
 
 		// Authentication & Authorization Services
@@ -46,8 +55,10 @@ public static class MauiProgram
 
 		string baseUrl = "http://127.0.0.1:5164/";
 #if ANDROID
-		baseUrl = "http://10.0.2.2:5164/";
+		// Đổi IP về 127.0.0.1 trên Android dành cho cả Emulator lẫn Thiết bị thật (thông qua adb reverse)
+		baseUrl = "http://127.0.0.1:5164/";
 #endif
+
 		builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(baseUrl) });
 
 		var app = builder.Build();
@@ -60,3 +71,20 @@ public static class MauiProgram
         return app;
 	}
 }
+
+#if ANDROID
+internal class PermissionManagingBlazorWebChromeClient : Android.Webkit.WebChromeClient
+{
+    public override void OnPermissionRequest(Android.Webkit.PermissionRequest request)
+    {
+        try 
+        {
+            request?.Grant(request.GetResources());
+        } 
+        catch 
+        {
+            base.OnPermissionRequest(request);
+        }
+    }
+}
+#endif

@@ -77,6 +77,21 @@ window.mapInterop = {
             });
 
             map.addControl(new mapboxgl.NavigationControl());
+            
+            const geolocate = new mapboxgl.GeolocateControl({
+                positionOptions: { enableHighAccuracy: true },
+                trackUserLocation: true,
+                showUserLocation: true
+            });
+            map.addControl(geolocate);
+
+            geolocate.on('geolocate', (e) => {
+                const lat = e.coords.latitude;
+                const lng = e.coords.longitude;
+                marker.setLngLat([lng, lat]);
+                dotNetHelper.invokeMethodAsync('UpdateCoordinates', lat, lng);
+            });
+
             setTimeout(() => map.resize(), 300);
         });
     },
@@ -137,5 +152,155 @@ window.mapInterop = {
             console.error("Mapbox Retrieve Error:", e);
             return null;
         }
+    },
+
+    showOverviewMap: function(elementId, pois, dotNetHelper, accessToken) {
+        waitForMapbox(() => {
+            mapboxgl.accessToken = accessToken;
+            const container = document.getElementById(elementId);
+            if (!container) return;
+
+            function createGeoJSONCircle(center, radiusInMeters, points = 64) {
+                const coords = { latitude: center[1], longitude: center[0] };
+                const km = radiusInMeters / 1000;
+                const ret = [];
+                const distanceX = km / (111.320 * Math.cos(coords.latitude * Math.PI / 180));
+                const distanceY = km / 110.574;
+            
+                for (let i = 0; i < points; i++) {
+                    const theta = (i / points) * (2 * Math.PI);
+                    const x = distanceX * Math.cos(theta);
+                    const y = distanceY * Math.sin(theta);
+                    ret.push([coords.longitude + x, coords.latitude + y]);
+                }
+                ret.push(ret[0]);
+                return { type: "Feature", geometry: { type: "Polygon", coordinates: [ret] } };
+            }
+
+            const features = [];
+            const geofenceFeatures = [];
+            let bounds = null;
+
+            if (pois && pois.length > 0) {
+                bounds = new mapboxgl.LngLatBounds();
+                pois.forEach(poi => {
+                    bounds.extend([poi.lng, poi.lat]);
+                    const statusHtml = poi.isActive ? '<span style="color:#4caf50">Hoạt động</span>' : '<span style="color:#f44336">Tạm dừng</span>';
+                    features.push({
+                        type: 'Feature',
+                        geometry: { type: 'Point', coordinates: [poi.lng, poi.lat] },
+                        properties: { 
+                            id: poi.id, name: poi.name, radius: poi.radius, isActive: poi.isActive,
+                            tooltipHtml: `<div style="text-align:center">
+                                            <strong style="font-size:15px;color:#1976d2">${poi.name}</strong><br/>
+                                            <small>Bán kính (Geofence): <b>${poi.radius}m</b></small><br/>
+                                            <small>Trạng thái: <b>${statusHtml}</b></small>
+                                          </div>`
+                        }
+                    });
+
+                    if (poi.radius && poi.radius > 0) {
+                        geofenceFeatures.push(createGeoJSONCircle([poi.lng, poi.lat], poi.radius));
+                    }
+                });
+            }
+
+            if (maps[elementId]) {
+                const existingMap = maps[elementId];
+                if (existingMap.getContainer() !== container || !document.body.contains(existingMap.getContainer())) {
+                    existingMap.remove();
+                    delete maps[elementId];
+                } else if (existingMap.isStyleLoaded()) {
+                    if (existingMap.getSource('pois-source')) {
+                        existingMap.getSource('pois-source').setData({ type: 'FeatureCollection', features: features });
+                        if(existingMap.getSource('geofences')) {
+                            existingMap.getSource('geofences').setData({ type: 'FeatureCollection', features: geofenceFeatures });
+                        }
+                        if (bounds && !bounds.isEmpty()) {
+                            existingMap.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+                        }
+                        setTimeout(() => existingMap.resize(), 100);
+                        return;
+                    }
+                }
+            }
+
+            const map = new mapboxgl.Map({
+                container: elementId,
+                style: 'mapbox://styles/mapbox/standard',
+                center: [106.660172, 10.802622],
+                zoom: 12
+            });
+
+            maps[elementId] = map;
+            map.addControl(new mapboxgl.NavigationControl());
+            map.addControl(new mapboxgl.GeolocateControl({
+                positionOptions: { enableHighAccuracy: true },
+                trackUserLocation: true
+            }));
+
+            map.on('style.load', () => {
+                map.addSource('pois-source', {
+                    type: 'geojson', data: { type: 'FeatureCollection', features: features },
+                    cluster: true, clusterMaxZoom: 14, clusterRadius: 50
+                });
+
+                map.addLayer({
+                    id: 'clusters', type: 'circle', source: 'pois-source', filter: ['has', 'point_count'],
+                    paint: { 'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 50, '#f28cb1'], 'circle-radius': ['step', ['get', 'point_count'], 20, 10, 25, 50, 30] }
+                });
+
+                map.addLayer({
+                    id: 'cluster-count', type: 'symbol', source: 'pois-source', filter: ['has', 'point_count'],
+                    layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 14 }
+                });
+
+                map.addLayer({
+                    id: 'unclustered-point', type: 'circle', source: 'pois-source', filter: ['!', ['has', 'point_count']],
+                    paint: { 'circle-color': ['case', ['==', ['get', 'isActive'], true], '#4caf50', '#9e9e9e'], 'circle-radius': 9, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+                });
+
+                map.addSource('geofences', { type: 'geojson', data: { type: 'FeatureCollection', features: geofenceFeatures } });
+                map.addLayer({
+                    id: 'geofence-fills', type: 'fill', source: 'geofences', minzoom: 14,
+                    paint: { 'fill-color': '#1976d2', 'fill-opacity': 0.08 }
+                });
+                map.addLayer({
+                    id: 'geofence-borders', type: 'line', source: 'geofences', minzoom: 14,
+                    paint: { 'line-color': '#1976d2', 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': 0.4 }
+                });
+
+                map.on('click', 'clusters', (e) => {
+                    const featuresClick = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+                    map.getSource('pois-source').getClusterExpansionZoom(featuresClick[0].properties.cluster_id, (err, zoom) => {
+                        if (err) return;
+                        map.easeTo({ center: featuresClick[0].geometry.coordinates, zoom: zoom });
+                    });
+                });
+                map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+                map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
+
+                const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 15 });
+                map.on('mouseenter', 'unclustered-point', (e) => {
+                    map.getCanvas().style.cursor = 'pointer';
+                    const coordinates = e.features[0].geometry.coordinates.slice();
+                    const html = e.features[0].properties.tooltipHtml;
+                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                    popup.setLngLat(coordinates).setHTML(html).addTo(map);
+                });
+                map.on('mouseleave', 'unclustered-point', () => {
+                    map.getCanvas().style.cursor = '';
+                    popup.remove();
+                });
+                map.on('click', 'unclustered-point', (e) => {
+                    if (dotNetHelper) dotNetHelper.invokeMethodAsync('NavigateToDetailFromMap', e.features[0].properties.id);
+                });
+
+                if (bounds && !bounds.isEmpty()) map.fitBounds(bounds, { padding: 50, maxZoom: 16 });
+            });
+            if (bounds && !bounds.isEmpty()) map.fitBounds(bounds, { padding: 50, maxZoom: 16 });
+
+            setTimeout(() => map.resize(), 500);
+        });
     }
 };

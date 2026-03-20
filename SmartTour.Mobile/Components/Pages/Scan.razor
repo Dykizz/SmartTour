@@ -7,6 +7,7 @@
 @inject GeofenceAudioService GeofenceService
 @inject LanguageService LanguageService
 @inject ISnackbar Snackbar
+@implements IAsyncDisposable
 @attribute [Authorize]
 
 <MudLayout>
@@ -32,46 +33,36 @@
             <MudPaper Elevation="3"
                       Class="pa-4 rounded-xl"
                       Style="background:rgba(255,255,255,0.92); border:0.5px solid rgba(14,110,184,0.12);">
-                <MudText Typo="Typo.caption" Style="color:#aaa; margin-top:6px;">
-                    Hướng camera vào mã QR. Nếu camera không hỗ trợ, bạn có thể dán nội dung QR vào ô dưới.
+                <MudText Typo="Typo.caption" Style="color:#aaa; margin-top:6px; display:block; text-align:center;">
+                    Đưa mã QR vào khung ngắm để tự động nhận diện
                 </MudText>
 
-                <div id="qr-video-container" class="qr-video-container mt-4">
-                    @if (!_scanAvailable)
-                    {
-                        <div class="qr-fallback">
-                            <MudIcon Icon="@Icons.Material.Filled.QrCode"
-                                     Style="font-size:2rem; color:rgba(14,110,184,0.7);" />
-                            <MudText Typo="Typo.caption" Style="color:#0a3050; font-weight:700; margin-top:8px;">
-                                Trình duyệt không hỗ trợ quét QR tự động
-                            </MudText>
-                        </div>
-                    }
-                </div>
+                <div class="qr-scanner-wrapper mt-4">
+                    <!-- DOM Độc Lập cho JS gắn Video (Blazor không bao giờ wipe) -->
+                    <div id="qr-video-mount" class="qr-video-mount"></div>
 
-                <div class="mt-4">
-                    <MudTextField @bind-Value="_manualQr"
-                                   Placeholder="Dán nội dung QR (vd: /poi-details/12)"
-                                   Variant="Variant.Outlined"
-                                   Margin="Margin.Dense"
-                                   FullWidth="true" />
-
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               FullWidth="true"
-                               Style="border-radius:14px; font-weight:800; text-transform:none; height:48px; margin-top:10px;"
-                               OnClick="SubmitManualQr"
-                               Disabled="@_manualSubmitting">
-                        @if (_manualSubmitting)
+                    <!-- Lớp phủ Radar Scanner Đẹp Mắt -->
+                    <div class="qr-scanner-overlay">
+                        @if (!_scanAvailable)
                         {
-                            <MudProgressCircular Indeterminate="true" Color="Color.Inherit" Size="Size.Small" Class="mr-2" />
-                            <span>Đang xử lý...</span>
+                            <div class="qr-fallback d-flex flex-column align-center justify-center h-100">
+                                <MudIcon Icon="@Icons.Material.Filled.VideocamOff" Style="font-size:3rem; color:rgba(255,255,255,0.7);" />
+                                <MudText Typo="Typo.body2" Style="color:white; font-weight:600; margin-top:12px;">
+                                    Camera không khả dụng
+                                </MudText>
+                            </div>
                         }
                         else
                         {
-                            <span>Đi tới nội dung</span>
+                            <div class="qr-crosshair">
+                                <span class="border-tl"></span>
+                                <span class="border-tr"></span>
+                                <span class="border-bl"></span>
+                                <span class="border-br"></span>
+                                <div class="qr-laser-line"></div>
+                            </div>
                         }
-                    </MudButton>
+                    </div>
                 </div>
             </MudPaper>
         </div>
@@ -88,45 +79,82 @@
         cursor: pointer;
     }
 
-    .qr-video-container {
-        width: 100%;
-        height: 320px;
-        background: #000;
-        border-radius: 20px;
-        overflow: hidden;
+    /* Khung ngoài cùng bọc Camera */
+    .qr-scanner-wrapper {
         position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        width: 100%;
+        height: 380px;
+        background: #111;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        border: 2px solid rgba(255,255,255,0.1);
     }
 
-    .qr-video-container video {
+    /* Mount point bắt buộc rỗng để JS nhồi video */
+    .qr-video-mount {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .qr-video-mount video {
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
 
-    .qr-fallback {
-        padding: 18px;
-        text-align: center;
-    }
-
-    .qr-target {
+    /* Lớp Overlay cắt rỗng ở giữa để làm tối xung quanh */
+    .qr-scanner-overlay {
         position: absolute;
         inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         pointer-events: none;
+        z-index: 2;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
 
-    .qr-target-box {
-        width: 64%;
-        height: 32%;
-        border-radius: 18px;
-        border: 2px solid rgba(14,110,184,0.85);
-        box-shadow: 0 0 0 9999px rgba(0,0,0,0.25);
-        background: rgba(255,255,255,0.02);
+    /* Khung ngắm đục lỗ (Crosshair) */
+    .qr-crosshair {
+        position: relative;
+        width: 220px;
+        height: 220px;
+        box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.45); /* Làm tối xung quanh */
+        border-radius: 16px;
+    }
+
+    /* 4 góc viền sáng */
+    .qr-crosshair span {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        border-color: #00d2ff;
+        border-style: solid;
+    }
+    .border-tl { top: 0; left: 0; border-width: 4px 0 0 4px; border-top-left-radius: 16px; }
+    .border-tr { top: 0; right: 0; border-width: 4px 4px 0 0; border-top-right-radius: 16px; }
+    .border-bl { bottom: 0; left: 0; border-width: 0 0 4px 4px; border-bottom-left-radius: 16px; }
+    .border-br { bottom: 0; right: 0; border-width: 0 4px 4px 0; border-bottom-right-radius: 16px; }
+
+    /* Tia laser chạy lên xuống */
+    .qr-laser-line {
+        position: absolute;
+        left: 5%;
+        width: 90%;
+        height: 2px;
+        background: #00d2ff;
+        box-shadow: 0 0 10px 2px rgba(0, 210, 255, 0.6);
+        animation: scan-laser 2.5s infinite linear;
+        border-radius: 50%;
+    }
+
+    @@keyframes scan-laser {
+        0% { top: 5%; opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { top: 95%; opacity: 0; }
     }
 </style>
 
@@ -136,9 +164,6 @@
 
     private bool _scanAvailable = true;
     private bool _processing = false;
-
-    private string _manualQr = "";
-    private bool _manualSubmitting = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -163,41 +188,95 @@
         // Setup dotnet callback cho quét QR
         await JS.InvokeVoidAsync("qrHelper.setDotNetReference", _qrDotNetRef);
 
-
-
         try
         {
-            _scanAvailable = await JS.InvokeAsync<bool>("qrHelper.startScan", "qr-video-container");
+            // Yêu cầu quyền Camera (chạy trên MainThread)
+            var cameraStatus = await Microsoft.Maui.ApplicationModel.MainThread.InvokeOnMainThreadAsync(async () =>
+                await Microsoft.Maui.ApplicationModel.Permissions.CheckStatusAsync<Microsoft.Maui.ApplicationModel.Permissions.Camera>());
+                
+            if (cameraStatus != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
+            {
+                cameraStatus = await Microsoft.Maui.ApplicationModel.MainThread.InvokeOnMainThreadAsync(async () =>
+                    await Microsoft.Maui.ApplicationModel.Permissions.RequestAsync<Microsoft.Maui.ApplicationModel.Permissions.Camera>());
+            }
+
+            if (cameraStatus == Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
+            {
+                // Chỉ truyền ID của Mount DOM tĩnh, không chèn vô div có If/Else của Blazor
+                _scanAvailable = await JS.InvokeAsync<bool>("qrHelper.startScan", "qr-video-mount");
+            }
+            else
+            {
+                Snackbar.Add("Vui lòng cấp quyền Camera để quét thẻ QR.", Severity.Warning);
+                _scanAvailable = false;
+            }
         }
-        catch
+        catch (Exception ex)
         {
+            Snackbar.Add($"Mở QR thất bại: {ex.Message}", Severity.Error);
             _scanAvailable = false;
         }
+        StateHasChanged();
     }
 
     // Audio triggered globally by GeofenceBanner
 
+    private DateTime _lastScanTime = DateTime.MinValue;
+
     [JSInvokable]
-    public async Task OnQrCodeDetected(string? rawValue)
+    public async Task<bool> OnQrCodeDetected(string? rawValue)
     {
-        if (_processing) return;
+        // 1. Nếu chưa qua 1.5 giây kể từ lần quét trước, từ chối mọi yêu cầu quét để JS tự quét Frame tiếp theo
+        if ((DateTime.Now - _lastScanTime).TotalMilliseconds < 1500)
+            return false;
+
+        _lastScanTime = DateTime.Now;
+
+        if (_processing) return false;
         _processing = true;
 
         try
         {
-            await JS.InvokeVoidAsync("qrHelper.stopScan");
+            string scannedText = rawValue ?? "";
 
-            if (!TryExtractPoiId(rawValue ?? "", out var poiId))
+            if (!TryExtractPoiId(scannedText, out var poiId))
             {
-                Snackbar.Add("QR không hợp lệ hoặc không chứa mã điểm tham quan.", Severity.Warning);
-                return;
+                try { Microsoft.Maui.Devices.HapticFeedback.Default.Perform(Microsoft.Maui.Devices.HapticFeedbackType.LongPress); } catch { }
+                Snackbar.Add($"Mã QR hệ thống không khớp:\n{scannedText}", Severity.Warning);
+                return false;
             }
 
-            await ProcessPoiId(poiId);
+            try { Microsoft.Maui.Devices.HapticFeedback.Default.Perform(Microsoft.Maui.Devices.HapticFeedbackType.Click); } catch { }
+
+            // Xử lý phát Audio liền mạch (Fire and Forget để luồng máy ảnh hoạt động độc lập ngay lập tức)
+            _ = ProcessPoiId(poiId);
+
+            // Luôn trả về false cho JS để báo Camera ĐƯỢC PHÉP CHẠY TIẾP LIÊN TỤC VĨNH VIỄN
+            return false; 
         }
         finally
         {
             _processing = false;
+        }
+    }
+
+    private int _lastScannedId = -1;
+
+    private async Task ProcessPoiId(int poiId)
+    {
+        var poi = GeofenceService.AllPois.FirstOrDefault(p => p.Id == poiId);
+        if (poi != null)
+        {
+            // Tránh việc lia camera qua lại bị khởi động lại Audio liên tục
+            if (_lastScannedId != poiId)
+            {
+                _lastScannedId = poiId;
+                await GeofenceService.PlayManualAsync(poi, LanguageService.SelectedLanguage);
+            }
+        }
+        else
+        {
+            Snackbar.Add("Không tìm thấy nội dung tương ứng với QR.", Severity.Warning);
         }
     }
 
@@ -207,61 +286,39 @@
         if (string.IsNullOrWhiteSpace(raw)) return false;
 
         var trimmed = raw.Trim();
+
+        // ƯU TIÊN 1: Map theo mã Code (QrValue) do Backend quy định (ví dụ: POI-XXXX)
+        // Dù QR là link "https://domain.com/poi/POI-XXXX" hay chỉ chữ "POI-XXXX",
+        // miễn nó có chứa mã Code hợp lệ thì Mobile xử lý được hết!
+        var matchedPoi = GeofenceService.AllPois.FirstOrDefault(p => 
+            !string.IsNullOrEmpty(p.QrValue) && 
+            trimmed.Contains(p.QrValue, StringComparison.OrdinalIgnoreCase));
+            
+        if (matchedPoi != null)
+        {
+            poiId = matchedPoi.Id;
+            return true;
+        }
+
+        // --- FALLBACK LẠI CHO CÁC MÃ QR CŨ HOẶC MÃ LỖI ĐÃ IN TỪ TRƯỚC ---
         if (int.TryParse(trimmed, out poiId)) return true;
 
-        // Trường hợp QR chứa đường dẫn: /poi-details/{id}
-        var m = Regex.Match(trimmed, @"poi-details\/(\d+)", RegexOptions.IgnoreCase);
+        // Trường hợp QR URL cũ: /poi-details/{id} HOẶC /poi/{id}
+        var m = Regex.Match(trimmed, @"(?:poi-details|poi)\/(\d+)", RegexOptions.IgnoreCase);
         if (m.Success && int.TryParse(m.Groups[1].Value, out poiId)) return true;
 
-        // Trường hợp QR chứa query: ?poiId={id}
+        // Trường hợp QR Query String cũ: ?poiId={id}
         m = Regex.Match(trimmed, @"[?&]poiId=(\d+)", RegexOptions.IgnoreCase);
         if (m.Success && int.TryParse(m.Groups[1].Value, out poiId)) return true;
 
-        // Trường hợp QR chứa URI đầy đủ (http/https/scheme)
+        // Trường hợp URL đầy đủ (fallback)
         if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
         {
-            m = Regex.Match(uri.AbsolutePath, @"poi-details\/(\d+)", RegexOptions.IgnoreCase);
+            m = Regex.Match(uri.AbsolutePath, @"(?:poi-details|poi)\/(\d+)", RegexOptions.IgnoreCase);
             if (m.Success && int.TryParse(m.Groups[1].Value, out poiId)) return true;
         }
 
         return false;
-    }
-
-    private async Task ProcessPoiId(int poiId)
-    {
-        var poi = GeofenceService.AllPois.FirstOrDefault(p => p.Id == poiId);
-        if (poi != null)
-        {
-            await GeofenceService.PlayManualAsync(poi, LanguageService.SelectedLanguage);
-        }
-        else
-        {
-            Snackbar.Add("Không tìm thấy nội dung tương ứng với QR.", Severity.Warning);
-        }
-
-        NavigationManager.NavigateTo($"/poi-details/{poiId}");
-    }
-
-    private async Task SubmitManualQr()
-    {
-        if (_manualSubmitting) return;
-        _manualSubmitting = true;
-        try
-        {
-            await JS.InvokeVoidAsync("qrHelper.stopScan");
-
-            if (!TryExtractPoiId(_manualQr, out var poiId))
-            {
-                Snackbar.Add("QR không hợp lệ hoặc không chứa mã điểm tham quan.", Severity.Warning);
-                return;
-            }
-
-            await ProcessPoiId(poiId);
-        }
-        finally
-        {
-            _manualSubmitting = false;
-        }
     }
 
     public async ValueTask DisposeAsync()

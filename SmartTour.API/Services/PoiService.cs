@@ -16,7 +16,7 @@ public class PoiService : IPoiService
         _storage = storage;
     }
 
-    public async Task<IEnumerable<Poi>> GetPoisAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null)
+    public async Task<IEnumerable<Poi>> GetPoisAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null, bool? isActiveFilter = null)
     {
         var query = _context.Pois
             .Include(p => p.Category)
@@ -28,6 +28,8 @@ public class PoiService : IPoiService
 
         if (onlyActive)
             query = query.Where(p => p.IsActive);
+        else if (isActiveFilter.HasValue)
+            query = query.Where(p => p.IsActive == isActiveFilter.Value);
 
         if (categoryId.HasValue && categoryId.Value > 0)
             query = query.Where(p => p.CategoryId == categoryId.Value);
@@ -76,7 +78,7 @@ public class PoiService : IPoiService
         return await query.CountAsync();
     }
 
-    public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null)
+    public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null, bool? isActiveFilter = null)
     {
         var query = _context.Pois
             .Include(p => p.Category)
@@ -85,6 +87,8 @@ public class PoiService : IPoiService
 
         if (onlyActive)
             query = query.Where(p => p.IsActive);
+        else if (isActiveFilter.HasValue)
+            query = query.Where(p => p.IsActive == isActiveFilter.Value);
 
         if (categoryId.HasValue && categoryId.Value > 0)
             query = query.Where(p => p.CategoryId == categoryId.Value);
@@ -186,6 +190,7 @@ public class PoiService : IPoiService
             Longitude = p.Longitude,
             GeofenceRadius = p.GeofenceRadius,
             CategoryName = p.Category?.Name ?? "Place",
+            QrValue = p.QrValue,
             AudioFiles = p.AudioFiles.ToList()
         });
     }
@@ -201,8 +206,29 @@ public class PoiService : IPoiService
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
+    public async Task<Poi?> GetByQrValueAsync(string qrValue)
+    {
+        return await _context.Pois
+            .Include(p => p.Category)
+            .Include(p => p.Images)
+            .Include(p => p.Contents)
+            .Include(p => p.OperatingHours)
+            .Include(p => p.AudioFiles)
+            .FirstOrDefaultAsync(p => p.QrValue != null && p.QrValue.ToLower() == qrValue.ToLower());
+    }
+
     public async Task<Poi> CreateAsync(Poi poi, int userId)
     {
+        var nameLower = poi.Name.ToLower();
+        var isDuplicate = await _context.Pois.AnyAsync(p => 
+            p.Name.ToLower() == nameLower || 
+            (p.Latitude == poi.Latitude && p.Longitude == poi.Longitude));
+
+        if (isDuplicate)
+        {
+            throw new InvalidOperationException("Điểm đến này đã tồn tại (bị trùng tên hoặc trùng toạ độ).");
+        }
+
         poi.CreatedAt = DateTime.UtcNow;
         poi.CreatedById = userId;
         poi.UpdatedById = userId;
@@ -210,6 +236,23 @@ public class PoiService : IPoiService
         poi.Category = null;
         poi.CreatedBy = null;
         poi.UpdatedBy = null;
+
+        // Tự sinh QrValue nếu trống
+        if (string.IsNullOrWhiteSpace(poi.QrValue))
+        {
+            string newQr;
+            bool qrExists;
+            do
+            {
+                // Sinh tiền tố POI- kèm 8 ký tự ngẫu nhiên
+                var randomStr = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
+                newQr = $"POI-{randomStr}";
+                
+                qrExists = await _context.Pois.AnyAsync(p => p.QrValue == newQr);
+            } while (qrExists);
+            
+            poi.QrValue = newQr;
+        }
         
         _context.Pois.Add(poi);
         await _context.SaveChangesAsync();
@@ -219,6 +262,17 @@ public class PoiService : IPoiService
     public async Task<bool> UpdateAsync(int id, Poi poi, int userId)
     {
         if (id != poi.Id) return false;
+
+        var nameLower = poi.Name.ToLower();
+        var isDuplicate = await _context.Pois.AnyAsync(p => 
+            p.Id != id && 
+            (p.Name.ToLower() == nameLower || 
+            (p.Latitude == poi.Latitude && p.Longitude == poi.Longitude)));
+
+        if (isDuplicate)
+        {
+            throw new InvalidOperationException("Điểm đến này đã tồn tại (bị trùng tên hoặc trùng toạ độ).");
+        }
 
         poi.Category = null;
         poi.CreatedBy = null;

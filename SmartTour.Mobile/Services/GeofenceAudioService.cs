@@ -77,12 +77,15 @@ public class GeofenceAudioService : IAsyncDisposable
     {
         if (IsRunning) return;
 
-        // --- Kiểm tra và xin quyền GPS runtime (Android 6+ bắt buộc) ---
-        var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+        // --- Kiểm tra và xin quyền GPS runtime (bắt buộc chạy trên Main UI Thread của Mobile) ---
+        var status = await MainThread.InvokeOnMainThreadAsync(async () => 
+            await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>());
+
         if (status != PermissionStatus.Granted)
         {
             System.Diagnostics.Debug.WriteLine("[GeofenceService] Đang xin quyền GPS...");
-            status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+            status = await MainThread.InvokeOnMainThreadAsync(async () => 
+                await Permissions.RequestAsync<Permissions.LocationWhenInUse>());
         }
 
         if (status != PermissionStatus.Granted)
@@ -209,6 +212,19 @@ public class GeofenceAudioService : IAsyncDisposable
             var pois = await http.GetFromJsonAsync<List<PoiGeofenceDto>>("api/pois/geofence");
             if (pois != null)
             {
+                string baseUrl = http.BaseAddress?.ToString().TrimEnd('/') ?? "";
+                
+                foreach (var p in pois)
+                {
+                    foreach (var a in p.AudioFiles)
+                    {
+                        if (!string.IsNullOrEmpty(a.FileUrl) && a.FileUrl.StartsWith("/"))
+                        {
+                            a.FileUrl = baseUrl + a.FileUrl;
+                        }
+                    }
+                }
+
                 _allPois = pois;
                 System.Diagnostics.Debug.WriteLine($"[GeofenceService] Loaded {pois.Count} POIs for geofencing.");
             }
