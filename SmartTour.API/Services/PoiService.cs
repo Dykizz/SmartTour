@@ -16,7 +16,7 @@ public class PoiService : IPoiService
         _storage = storage;
     }
 
-    public async Task<IEnumerable<Poi>> GetPoisAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null)
+    public async Task<IEnumerable<Poi>> GetPoisAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null, bool? isActiveFilter = null)
     {
         var query = _context.Pois
             .Include(p => p.Category)
@@ -26,8 +26,10 @@ public class PoiService : IPoiService
             .Include(p => p.AudioFiles)
             .AsQueryable();
 
-        if (isActive.HasValue)
-            query = query.Where(p => p.IsActive == isActive.Value);
+        if (onlyActive)
+            query = query.Where(p => p.IsActive);
+        else if (isActiveFilter.HasValue)
+            query = query.Where(p => p.IsActive == isActiveFilter.Value);
 
         if (categoryId.HasValue && categoryId.Value > 0)
             query = query.Where(p => p.CategoryId == categoryId.Value);
@@ -76,15 +78,17 @@ public class PoiService : IPoiService
         return await query.CountAsync();
     }
 
-    public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null)
+    public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null, bool? isActiveFilter = null)
     {
         var query = _context.Pois
             .Include(p => p.Category)
             .Include(p => p.Images) // Cần thiết cho Mobile Home
             .AsQueryable();
 
-        if (isActive.HasValue)
-            query = query.Where(p => p.IsActive == isActive.Value);
+        if (onlyActive)
+            query = query.Where(p => p.IsActive);
+        else if (isActiveFilter.HasValue)
+            query = query.Where(p => p.IsActive == isActiveFilter.Value);
 
         if (categoryId.HasValue && categoryId.Value > 0)
             query = query.Where(p => p.CategoryId == categoryId.Value);
@@ -186,6 +190,7 @@ public class PoiService : IPoiService
             Longitude = p.Longitude,
             GeofenceRadius = p.GeofenceRadius,
             CategoryName = p.Category?.Name ?? "Place",
+            QrValue = p.QrValue,
             AudioFiles = p.AudioFiles.ToList()
         });
     }
@@ -199,6 +204,17 @@ public class PoiService : IPoiService
             .Include(p => p.OperatingHours)
             .Include(p => p.AudioFiles)
             .FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task<Poi?> GetByQrValueAsync(string qrValue)
+    {
+        return await _context.Pois
+            .Include(p => p.Category)
+            .Include(p => p.Images)
+            .Include(p => p.Contents)
+            .Include(p => p.OperatingHours)
+            .Include(p => p.AudioFiles)
+            .FirstOrDefaultAsync(p => p.QrValue != null && p.QrValue.ToLower() == qrValue.ToLower());
     }
 
     public async Task<Poi> CreateAsync(Poi poi, int userId)

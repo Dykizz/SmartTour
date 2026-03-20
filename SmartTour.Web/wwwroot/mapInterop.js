@@ -160,25 +160,6 @@ window.mapInterop = {
             const container = document.getElementById(elementId);
             if (!container) return;
 
-            if (maps[elementId]) {
-                maps[elementId].remove();
-            }
-
-            const map = new mapboxgl.Map({
-                container: elementId,
-                style: 'mapbox://styles/mapbox/standard',
-                center: [106.660172, 10.802622],
-                zoom: 12
-            });
-
-            maps[elementId] = map;
-            map.addControl(new mapboxgl.NavigationControl());
-            map.addControl(new mapboxgl.GeolocateControl({
-                positionOptions: { enableHighAccuracy: true },
-                trackUserLocation: true
-            }));
-
-            // Hàm toán học vẽ hình tròn tính bằng Mét
             function createGeoJSONCircle(center, radiusInMeters, points = 64) {
                 const coords = { latitude: center[1], longitude: center[0] };
                 const km = radiusInMeters / 1000;
@@ -196,12 +177,16 @@ window.mapInterop = {
                 return { type: "Feature", geometry: { type: "Polygon", coordinates: [ret] } };
             }
 
+            const features = [];
+            const geofenceFeatures = [];
+            let bounds = null;
+
             if (pois && pois.length > 0) {
-                const bounds = new mapboxgl.LngLatBounds();
-                const features = pois.map(poi => {
+                bounds = new mapboxgl.LngLatBounds();
+                pois.forEach(poi => {
                     bounds.extend([poi.lng, poi.lat]);
                     const statusHtml = poi.isActive ? '<span style="color:#4caf50">Hoạt động</span>' : '<span style="color:#f44336">Tạm dừng</span>';
-                    return {
+                    features.push({
                         type: 'Feature',
                         geometry: { type: 'Point', coordinates: [poi.lng, poi.lat] },
                         properties: { 
@@ -212,80 +197,82 @@ window.mapInterop = {
                                             <small>Trạng thái: <b>${statusHtml}</b></small>
                                           </div>`
                         }
-                    };
-                });
-
-                // Chờ map tải style xong rồi mới nhúng Layer
-                map.on('style.load', () => {
-                    // 1. DATA SOURCE (Hỗ trợ Gom cụm - Cluster)
-                    map.addSource('pois-source', {
-                        type: 'geojson',
-                        data: { type: 'FeatureCollection', features: features },
-                        cluster: true,
-                        clusterMaxZoom: 14,
-                        clusterRadius: 50
                     });
 
-                    // 2. LỚP VẼ CỤM (Clusters)
-                    map.addLayer({
-                        id: 'clusters',
-                        type: 'circle',
-                        source: 'pois-source',
-                        filter: ['has', 'point_count'],
-                        paint: {
-                            'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 50, '#f28cb1'],
-                            'circle-radius': ['step', ['get', 'point_count'], 20, 10, 25, 50, 30]
-                        }
-                    });
-
-                    // 3. CHỮ SỐ BÊN TRONG CỤM
-                    map.addLayer({
-                        id: 'cluster-count',
-                        type: 'symbol',
-                        source: 'pois-source',
-                        filter: ['has', 'point_count'],
-                        layout: {
-                            'text-field': '{point_count_abbreviated}',
-                            'text-size': 14
-                        }
-                    });
-
-                    // 4. CÁC ĐIỂM LẺ (Khi Zoom gần)
-                    map.addLayer({
-                        id: 'unclustered-point',
-                        type: 'circle',
-                        source: 'pois-source',
-                        filter: ['!', ['has', 'point_count']],
-                        paint: {
-                            'circle-color': ['case', ['==', ['get', 'isActive'], true], '#4caf50', '#9e9e9e'],
-                            'circle-radius': 9,
-                            'circle-stroke-width': 2,
-                            'circle-stroke-color': '#fff'
-                        }
-                    });
-
-                    // 5. VẼ BÁN KÍNH (GEOFENCES)
-                    const geofenceFeatures = pois.filter(p => p.radius && p.radius > 0).map(p => createGeoJSONCircle([p.lng, p.lat], p.radius));
-                    if(geofenceFeatures.length > 0) {
-                        map.addSource('geofences', { type: 'geojson', data: { type: 'FeatureCollection', features: geofenceFeatures } });
-                        map.addLayer({
-                            id: 'geofence-fills', type: 'fill', source: 'geofences',
-                            minzoom: 14,
-                            paint: { 'fill-color': '#1976d2', 'fill-opacity': 0.08 }
-                        });
-                        map.addLayer({
-                            id: 'geofence-borders', type: 'line', source: 'geofences',
-                            minzoom: 14,
-                            paint: { 'line-color': '#1976d2', 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': 0.4 }
-                        });
+                    if (poi.radius && poi.radius > 0) {
+                        geofenceFeatures.push(createGeoJSONCircle([poi.lng, poi.lat], poi.radius));
                     }
                 });
+            }
 
-                // TƯƠNG TÁC: Click vào Nhóm -> Zoom In
+            if (maps[elementId]) {
+                const existingMap = maps[elementId];
+                if (existingMap.getContainer() !== container || !document.body.contains(existingMap.getContainer())) {
+                    existingMap.remove();
+                    delete maps[elementId];
+                } else if (existingMap.isStyleLoaded()) {
+                    if (existingMap.getSource('pois-source')) {
+                        existingMap.getSource('pois-source').setData({ type: 'FeatureCollection', features: features });
+                        if(existingMap.getSource('geofences')) {
+                            existingMap.getSource('geofences').setData({ type: 'FeatureCollection', features: geofenceFeatures });
+                        }
+                        if (bounds && !bounds.isEmpty()) {
+                            existingMap.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+                        }
+                        setTimeout(() => existingMap.resize(), 100);
+                        return;
+                    }
+                }
+            }
+
+            const map = new mapboxgl.Map({
+                container: elementId,
+                style: 'mapbox://styles/mapbox/standard',
+                center: [106.660172, 10.802622],
+                zoom: 12
+            });
+
+            maps[elementId] = map;
+            map.addControl(new mapboxgl.NavigationControl());
+            map.addControl(new mapboxgl.GeolocateControl({
+                positionOptions: { enableHighAccuracy: true },
+                trackUserLocation: true
+            }));
+
+            map.on('style.load', () => {
+                map.addSource('pois-source', {
+                    type: 'geojson', data: { type: 'FeatureCollection', features: features },
+                    cluster: true, clusterMaxZoom: 14, clusterRadius: 50
+                });
+
+                map.addLayer({
+                    id: 'clusters', type: 'circle', source: 'pois-source', filter: ['has', 'point_count'],
+                    paint: { 'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 50, '#f28cb1'], 'circle-radius': ['step', ['get', 'point_count'], 20, 10, 25, 50, 30] }
+                });
+
+                map.addLayer({
+                    id: 'cluster-count', type: 'symbol', source: 'pois-source', filter: ['has', 'point_count'],
+                    layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 14 }
+                });
+
+                map.addLayer({
+                    id: 'unclustered-point', type: 'circle', source: 'pois-source', filter: ['!', ['has', 'point_count']],
+                    paint: { 'circle-color': ['case', ['==', ['get', 'isActive'], true], '#4caf50', '#9e9e9e'], 'circle-radius': 9, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' }
+                });
+
+                map.addSource('geofences', { type: 'geojson', data: { type: 'FeatureCollection', features: geofenceFeatures } });
+                map.addLayer({
+                    id: 'geofence-fills', type: 'fill', source: 'geofences', minzoom: 14,
+                    paint: { 'fill-color': '#1976d2', 'fill-opacity': 0.08 }
+                });
+                map.addLayer({
+                    id: 'geofence-borders', type: 'line', source: 'geofences', minzoom: 14,
+                    paint: { 'line-color': '#1976d2', 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': 0.4 }
+                });
+
                 map.on('click', 'clusters', (e) => {
                     const featuresClick = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-                    const clusterId = featuresClick[0].properties.cluster_id;
-                    map.getSource('pois-source').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                    map.getSource('pois-source').getClusterExpansionZoom(featuresClick[0].properties.cluster_id, (err, zoom) => {
                         if (err) return;
                         map.easeTo({ center: featuresClick[0].geometry.coordinates, zoom: zoom });
                     });
@@ -293,7 +280,6 @@ window.mapInterop = {
                 map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
                 map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
 
-                // TƯƠNG TÁC: Điểm lẻ (Hover + Click)
                 const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 15 });
                 map.on('mouseenter', 'unclustered-point', (e) => {
                     map.getCanvas().style.cursor = 'pointer';
@@ -307,11 +293,12 @@ window.mapInterop = {
                     popup.remove();
                 });
                 map.on('click', 'unclustered-point', (e) => {
-                    dotNetHelper.invokeMethodAsync('NavigateToDetailFromMap', e.features[0].properties.id);
+                    if (dotNetHelper) dotNetHelper.invokeMethodAsync('NavigateToDetailFromMap', e.features[0].properties.id);
                 });
 
-                map.fitBounds(bounds, { padding: 50, maxZoom: 16 });
-            }
+                if (bounds && !bounds.isEmpty()) map.fitBounds(bounds, { padding: 50, maxZoom: 16 });
+            });
+            if (bounds && !bounds.isEmpty()) map.fitBounds(bounds, { padding: 50, maxZoom: 16 });
 
             setTimeout(() => map.resize(), 500);
         });

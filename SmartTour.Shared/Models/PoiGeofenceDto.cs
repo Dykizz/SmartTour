@@ -17,6 +17,7 @@ public class PoiGeofenceDto
     /// </summary>
     public double GeofenceRadius { get; set; }
     public string CategoryName { get; set; } = string.Empty;
+    public string? QrValue { get; set; }
 
     public List<PoiAudioFile> AudioFiles { get; set; } = new();
 }

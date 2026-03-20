@@ -36,7 +36,7 @@ public class PoisController : ControllerBase
         [FromQuery] bool? hasAudio = null,
         [FromQuery] bool? onlyOpen = null)
     {
-        return Ok(await _poiService.GetPoisPagedAsync(categoryId, lat, lng, radius, createdById, onlyActive, pageNumber, pageSize, searchTerm, onlyFeatured, hasAudio, onlyOpen));
+        return Ok(await _poiService.GetPoisPagedAsync(categoryId, lat, lng, radius, createdById, onlyActive, pageNumber, pageSize, searchTerm, onlyFeatured, hasAudio, onlyOpen, isActive));
     }
 
     /// <summary>

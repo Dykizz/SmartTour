@@ -19,6 +19,21 @@ window.qrHelper = (() => {
         while (container.firstChild) container.removeChild(container.firstChild);
     }
 
+    async function pauseScan() {
+        _running = false;
+        if (_rafId) {
+            cancelAnimationFrame(_rafId);
+            _rafId = null;
+        }
+
+        try {
+            // Chỉ Pause video để đóng băng hình ảnh cuối cùng, không xóa Element!
+            if (_video) {
+                _video.pause();
+            }
+        } catch { }
+    }
+
     async function stopScan() {
         _running = false;
         if (_rafId) {
@@ -39,9 +54,9 @@ window.qrHelper = (() => {
             _stream = null;
         }
 
-        if (_video && _video.parentElement) {
+        if (_video && _video.parentNode) {
             try {
-                _video.parentElement.removeChild(_video);
+                _video.parentNode.removeChild(_video);
             } catch { }
         }
         _video = null;
@@ -49,6 +64,11 @@ window.qrHelper = (() => {
     }
 
     async function startScan(containerId) {
+        // Reset sạch vòng đời nếu bị lỗi State
+        if (_running && !_video) {
+            _running = false;
+        }
+
         if (_running) return true;
 
         if (typeof window.BarcodeDetector === "undefined") {
@@ -99,16 +119,29 @@ window.qrHelper = (() => {
                 const barcodes = await _detector.detect(_video);
                 if (barcodes && barcodes.length > 0) {
                     const rawValue = barcodes[0].rawValue || "";
+
+                    // Tạm ngưng detect ở JS để chờ C# xử lý và delay chống spam
                     _running = false;
 
-                    // Gọi về C# rồi stop camera
+                    let success = false;
                     if (_dotNetRef) {
                         try {
-                            await _dotNetRef.invokeMethodAsync("OnQrCodeDetected", rawValue);
+                            success = await _dotNetRef.invokeMethodAsync("OnQrCodeDetected", rawValue);
                         } catch { }
                     }
-                    await stopScan();
-                    return;
+                    
+                    // NẾU C# đã chèn ngang gọi hàm stopScan() thì _video sẽ bị null.
+                    // Ta phải thoát ngay lập tức tránh việc set lại _running = true bên dưới!
+                    if (!_video) return;
+
+                    if (success) {
+                        // QR ĐÚNG -> C# đã chủ động gọi lệnh pauseScan() để đóng băng (freeze) hình ảnh đẹp đẽ!
+                        // Không gọi stopScan() gây đen thui!
+                        return;
+                    } else {
+                        // QR SAI -> Sau khi C# delay 2.5s xong, trả về false -> JS mở lại cờ quét tiếp liên tục!
+                        _running = true;
+                    }
                 }
             } catch (e) {
                 // detect có thể lỗi khi frame chưa sẵn sàng
@@ -125,7 +158,8 @@ window.qrHelper = (() => {
     return {
         setDotNetReference,
         startScan,
-        stopScan
+        stopScan,
+        pauseScan
     };
 })();
 
