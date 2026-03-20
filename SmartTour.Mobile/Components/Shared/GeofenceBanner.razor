@@ -2,7 +2,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
 @inject LanguageService LanguageService
-@implements IDisposable
+@implements IAsyncDisposable
 
 @if (GeofenceService.BannerVisible && GeofenceService.CurrentPoi != null)
 {
@@ -45,47 +45,6 @@
         </div>
     </MudPaper>
 }
-
-<!-- <style>
-    .geofence-banner {
-        position: fixed;
-        bottom: 75px; /* Giữ nguyên vị trí nằm trên thanh điều hướng dưới */
-        left: 12px;
-        right: 12px;
-        z-index: 9999;
-        border-radius: 16px;
-        background: linear-gradient(135deg, #594AE2, #9C27B0);
-        cursor: pointer; /* Thêm con trỏ để khách biết có thể bấm vào */
-        transition: transform 0.2s;
-    }
-    .geofence-banner:active {
-        transform: scale(0.98);
-    }
-    .geofence-pulse-dot {
-        width: 14px; height: 14px;
-        border-radius: 50%;
-        background: #fff;
-        flex-shrink: 0;
-        animation: pulseDot 1.4s ease-in-out infinite;
-    }
-    .geofence-pause-dot {
-        width: 14px; height: 14px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.4);
-        flex-shrink: 0;
-    }
-    @@keyframes pulseDot {
-        0%, 100% { transform: scale(1);   opacity: 1; }
-        50%       { transform: scale(1.5); opacity: 0.6; }
-    }
-    .animate-slide-down {
-        animation: slideDown 0.4s ease-out;
-    }
-    @@keyframes slideDown {
-        from { transform: translateY(20px); opacity: 0; }
-        to   { transform: translateY(0);    opacity: 1; }
-    }
-</style> -->
 
 <style>
     .geofence-banner {
@@ -140,11 +99,23 @@
 
 @code {
     private bool _lastIsPlaying = false;
+    private DotNetObjectReference<GeofenceAudioService>? _geofenceDotNetRef;
 
     protected override void OnInitialized()
     {
         GeofenceService.BannerStateChanged += OnBannerStateChanged;
         _lastIsPlaying = GeofenceService.IsAudioPlaying;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Đăng ký DotNetReference toàn cục cho audioHelper.
+            // Vì GeofenceBanner nằm trong Main.razor (ngoài Router), nó sẽ tồn tại suốt vòng đời ứng dụng.
+            _geofenceDotNetRef = DotNetObjectReference.Create(GeofenceService);
+            await JS.InvokeVoidAsync("audioHelper.setDotNetReference", _geofenceDotNetRef);
+        }
     }
 
     private void OnBannerStateChanged()
@@ -207,8 +178,9 @@
         await JS.InvokeVoidAsync("audioHelper.stop");
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         GeofenceService.BannerStateChanged -= OnBannerStateChanged;
+        _geofenceDotNetRef?.Dispose();
     }
-}
+}

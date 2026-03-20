@@ -16,7 +16,7 @@ public class PoiService : IPoiService
         _storage = storage;
     }
 
-    public async Task<IEnumerable<Poi>> GetPoisAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false)
+    public async Task<IEnumerable<Poi>> GetPoisAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null)
     {
         var query = _context.Pois
             .Include(p => p.Category)
@@ -35,6 +35,19 @@ public class PoiService : IPoiService
         if (createdById.HasValue)
             query = query.Where(p => p.CreatedById == createdById.Value);
 
+        if (onlyFeatured == true)
+            query = query.Where(p => p.IsFeature);
+
+        if (hasAudio == true)
+            query = query.Where(p => p.AudioFiles.Any());
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var normalizedSearch = searchTerm.ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(normalizedSearch) || 
+                                    (p.Category != null && p.Category.Name.ToLower().Contains(normalizedSearch)));
+        }
+
         var pois = await query
             .OrderByDescending(p => p.IsFeature)
             .ThenByDescending(p => p.CreatedAt)
@@ -42,6 +55,14 @@ public class PoiService : IPoiService
 
         if (lat.HasValue && lng.HasValue && radius.HasValue)
             pois = pois.Where(p => CalculateDistance(lat.Value, lng.Value, p.Latitude, p.Longitude) <= radius.Value).ToList();
+
+        if (onlyOpen == true)
+        {
+            var now = DateTime.UtcNow.AddHours(7); // Giả sử GMT+7 cho Việt Nam
+            var day = (int)now.DayOfWeek;
+            var time = now.TimeOfDay;
+            pois = pois.Where(p => p.OperatingHours.Any(h => (int)h.DayOfWeek == day && time >= h.OpenTime && time <= h.CloseTime)).ToList();
+        }
 
         return pois;
     }
@@ -55,7 +76,7 @@ public class PoiService : IPoiService
         return await query.CountAsync();
     }
 
-    public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10)
+    public async Task<PagedResponse<Poi>> GetPoisPagedAsync(int? categoryId = null, double? lat = null, double? lng = null, double? radius = null, int? createdById = null, bool onlyActive = false, int pageNumber = 1, int pageSize = 10, string? searchTerm = null, bool? onlyFeatured = null, bool? hasAudio = null, bool? onlyOpen = null)
     {
         var query = _context.Pois
             .Include(p => p.Category)
@@ -71,6 +92,19 @@ public class PoiService : IPoiService
         if (createdById.HasValue)
             query = query.Where(p => p.CreatedById == createdById.Value);
 
+        if (onlyFeatured == true)
+            query = query.Where(p => p.IsFeature);
+
+        if (hasAudio == true)
+            query = query.Where(p => p.AudioFiles.Any());
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var normalizedSearch = searchTerm.ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(normalizedSearch) || 
+                                    (p.Category != null && p.Category.Name.ToLower().Contains(normalizedSearch)));
+        }
+
         List<Poi> items;
         int totalCount;
 
@@ -78,6 +112,7 @@ public class PoiService : IPoiService
         {
             // Lọc theo tọa độ (phải load về memory vì CalculateDistance là hàm C#)
             var allFiltered = await query
+                .Include(p => p.OperatingHours) // Load để check OnlyOpen
                 .OrderByDescending(p => p.IsFeature)
                 .ThenByDescending(p => p.CreatedAt)
                 .ToListAsync();
@@ -85,6 +120,14 @@ public class PoiService : IPoiService
             var geoFiltered = allFiltered
                 .Where(p => CalculateDistance(lat.Value, lng.Value, p.Latitude, p.Longitude) <= radius.Value)
                 .ToList();
+
+            if (onlyOpen == true)
+            {
+                var now = DateTime.UtcNow.AddHours(7);
+                var day = (int)now.DayOfWeek;
+                var time = now.TimeOfDay;
+                geoFiltered = geoFiltered.Where(p => p.OperatingHours.Any(h => (int)h.DayOfWeek == day && time >= h.OpenTime && time <= h.CloseTime)).ToList();
+            }
 
             totalCount = geoFiltered.Count;
             items = geoFiltered
@@ -95,6 +138,14 @@ public class PoiService : IPoiService
         else
         {
             // Phân trang chuẩn tại Database
+            if (onlyOpen == true)
+            {
+                var now = DateTime.UtcNow.AddHours(7);
+                var day = (int)now.DayOfWeek;
+                var time = now.TimeOfDay;
+                query = query.Where(p => p.OperatingHours.Any(h => (int)h.DayOfWeek == day && time >= h.OpenTime && time <= h.CloseTime));
+            }
+
             totalCount = await query.CountAsync();
             items = await query
                 .OrderByDescending(p => p.IsFeature)

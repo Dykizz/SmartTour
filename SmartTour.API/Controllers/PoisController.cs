@@ -29,9 +29,13 @@ public class PoisController : ControllerBase
         [FromQuery] int? createdById = null,
         [FromQuery] bool onlyActive = true,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] bool? onlyFeatured = null,
+        [FromQuery] bool? hasAudio = null,
+        [FromQuery] bool? onlyOpen = null)
     {
-        return Ok(await _poiService.GetPoisPagedAsync(categoryId, lat, lng, radius, createdById, onlyActive, pageNumber, pageSize));
+        return Ok(await _poiService.GetPoisPagedAsync(categoryId, lat, lng, radius, createdById, onlyActive, pageNumber, pageSize, searchTerm, onlyFeatured, hasAudio, onlyOpen));
     }
 
     /// <summary>

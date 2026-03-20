@@ -32,9 +32,6 @@
             <MudPaper Elevation="3"
                       Class="pa-4 rounded-xl"
                       Style="background:rgba(255,255,255,0.92); border:0.5px solid rgba(14,110,184,0.12);">
-                <MudText Typo="Typo.subtitle2" Style="font-weight:800; color:#0a3050;">
-                    QR code kích hoạt nội dung tại trạm xe buýt
-                </MudText>
                 <MudText Typo="Typo.caption" Style="color:#aaa; margin-top:6px;">
                     Hướng camera vào mã QR. Nếu camera không hỗ trợ, bạn có thể dán nội dung QR vào ô dưới.
                 </MudText>
@@ -135,7 +132,7 @@
 
 @code {
     private DotNetObjectReference<Scan>? _qrDotNetRef;
-    private DotNetObjectReference<GeofenceAudioService>? _geofenceDotNetRef;
+
 
     private bool _scanAvailable = true;
     private bool _processing = false;
@@ -167,9 +164,7 @@
         // Setup dotnet callback cho quét QR
         await JS.InvokeVoidAsync("qrHelper.setDotNetReference", _qrDotNetRef);
 
-        // Setup dotnet callback cho audio end event
-        _geofenceDotNetRef ??= DotNetObjectReference.Create(GeofenceService);
-        await JS.InvokeVoidAsync("audioHelper.setDotNetReference", _geofenceDotNetRef);
+
 
         try
         {
@@ -281,7 +276,6 @@
         try { await JS.InvokeVoidAsync("qrHelper.stopScan"); } catch { }
         GeofenceService.AudioTriggered -= OnAudioTriggered;
         _qrDotNetRef?.Dispose();
-        _geofenceDotNetRef?.Dispose();
     }
 }
 

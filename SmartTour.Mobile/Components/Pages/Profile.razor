@@ -143,7 +143,7 @@
     private List<Language> _languages = new();
     private string _selectedLanguage = "vi";
 
-    private DotNetObjectReference<GeofenceAudioService>? _geofenceDotNetRef;
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -175,9 +175,7 @@
     {
         if (!firstRender) return;
 
-        // Set dotnet ref để audioHelper gọi OnAudioEnded trên GeofenceAudioService.
-        _geofenceDotNetRef ??= DotNetObjectReference.Create(GeofenceService);
-        await JS.InvokeVoidAsync("audioHelper.setDotNetReference", _geofenceDotNetRef);
+
     }
 
     private void OnAutoPlayChanged(bool value)
@@ -220,9 +218,6 @@
         NavigationManager.NavigateTo("/login");
     }
 
-    public void Dispose()
-    {
-        _geofenceDotNetRef?.Dispose();
     }
 }
 
