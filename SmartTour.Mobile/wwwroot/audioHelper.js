@@ -13,7 +13,7 @@ window.audioHelper = (() => {
     function _getOrCreate() {
         if (!_audio) {
             _audio = document.createElement('audio');
-            _audio.id = '__geofence-audio__';
+            _audio.id = 'geofence-audio-player';
             _audio.preload = 'auto';
 
             _audio.addEventListener('ended', () => {
@@ -36,12 +36,13 @@ window.audioHelper = (() => {
 
     // ── Unlock autoplay (Android WebView) ────────────────────────────────
     function _unlockAudio() {
-        const audio = _getOrCreate();
-        audio.muted = true;
-        audio.play().then(() => {
-            audio.pause();
-            audio.muted = false;
-            audio.currentTime = 0;
+        if (_isPlaying) return;
+
+        const silent = document.createElement('audio');
+        silent.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+        silent.muted = true;
+        silent.play().then(() => {
+            silent.pause();
         }).catch(() => { });
     }
     document.addEventListener('touchstart', _unlockAudio, { once: true });
@@ -116,13 +117,28 @@ window.audioHelper = (() => {
          * Dừng hoàn toàn và xóa queue.
          */
         stop: function () {
+            console.log('[audioHelper] ⏹️ Dừng toàn bộ hệ thống audio...');
             _queue = [];
             _isPlaying = false;
-            if (_audio && !_audio.paused) {
+
+            // 1. Dừng audio singleton
+            if (_audio) {
                 _audio.pause();
+                _audio.src = ""; // Clear src to be sure
+                _audio.load();
                 _audio.currentTime = 0;
             }
-            console.log('[audioHelper] ⏹️ Dừng & xóa queue');
+
+            // 2. Dừng tất cả thẻ <audio> khác trên toàn trang (phòng hờ)
+            try {
+                const allAudios = document.querySelectorAll('audio');
+                allAudios.forEach(a => {
+                    a.pause();
+                    a.currentTime = 0;
+                });
+            } catch (e) {
+                console.error('[audioHelper] Lỗi khi dừng tất cả audio:', e);
+            }
         },
 
         /**

@@ -1,3 +1,88 @@
 @inherits LayoutComponentBase
+@inject SmartTour.Mobile.Services.GeofenceAudioService GeofenceService
+@inject SmartTour.Mobile.Services.LanguageService LanguageService
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.Components.Authorization
+@implements IAsyncDisposable
 
-@Body
+<MudLayout>
+    @Body
+    <audio id="geofence-audio-player" hidden></audio>
+</MudLayout>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+    private DotNetObjectReference<GeofenceAudioService>? _geofenceDotNetRef;
+    private IDisposable? _locationChangedSubscription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe AudioTriggered ở đây — tồn tại suốt vòng đời layout
+        GeofenceService.AudioTriggered += OnAudioTriggered;
+        GeofenceService.PauseAudioRequested += OnPauseAudioRequested;
+
+        // Dừng audio khi navigate vào login
+        _locationChangedSubscription = NavigationManager.RegisterLocationChangingHandler(OnLocationChanging);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AuthenticationStateTask != null)
+        {
+            var authState = await AuthenticationStateTask;
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                await GeofenceService.StartAsync();
+            }
+            else
+            {
+                await GeofenceService.StopAsync();
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // Đăng ký DotNetReference cho audioHelper.js (để JS gọi OnAudioEnded về C#)
+        _geofenceDotNetRef = DotNetObjectReference.Create(GeofenceService);
+        await JS.InvokeVoidAsync("audioHelper.setDotNetReference", _geofenceDotNetRef);
+    }
+
+    // Xử lý phát audio toàn cục — hoạt động trên mọi trang
+    private async Task OnAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio, bool isManual)
+    {
+        if (isManual)
+            await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
+        else
+            await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
+    }
+
+    // Dừng audio khi vào trang login
+    private ValueTask OnLocationChanging(LocationChangingContext context)
+    {
+        if (context.TargetLocation.Contains("/login", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = JS.InvokeVoidAsync("audioHelper.stop");
+            GeofenceService.CloseBanner();
+        }
+        return ValueTask.CompletedTask;
+    }
+
+    private async Task OnPauseAudioRequested()
+    {
+        await JS.InvokeVoidAsync("audioHelper.pause");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        GeofenceService.AudioTriggered -= OnAudioTriggered;
+        GeofenceService.PauseAudioRequested -= OnPauseAudioRequested;
+        _locationChangedSubscription?.Dispose();
+        _geofenceDotNetRef?.Dispose();
+        await GeofenceService.StopAsync();
+    }
+}

@@ -237,7 +237,6 @@
     protected override void OnInitialized()
     {
         GeofenceService.BannerStateChanged += HandleStateChanged;
-        GeofenceService.AudioTriggered     += OnAudioTriggered;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -279,14 +278,6 @@
             _mapError = true;
             await InvokeAsync(StateHasChanged);
         }
-    }
-
-    private async Task OnAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio, bool isManual)
-    {
-        if (isManual)
-            await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
-        else
-            await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
     }
 
     [JSInvokable]
@@ -342,7 +333,6 @@
     public void Dispose()
     {
         GeofenceService.BannerStateChanged -= HandleStateChanged;
-        GeofenceService.AudioTriggered     -= OnAudioTriggered;
         _dotNetRef?.Dispose();
     }
 

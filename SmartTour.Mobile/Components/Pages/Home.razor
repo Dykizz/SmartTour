@@ -274,9 +274,6 @@
 
     </MudMainContent>
 
-
-    <audio id="geofence-audio-player" hidden></audio>
-
     <!-- ── Bottom Navigation ── -->
     <BottomNavigation Active="home" />
 
@@ -477,23 +474,6 @@
         display: inline-block; text-align: center; width: 100%;
     }
 
-    .audio-banner {
-        background: linear-gradient(135deg,#0e6eb8,#1a9de8);
-        border-radius: 16px; padding: 12px 14px;
-        animation: slideUp 0.3s ease-out;
-    }
-    .audio-icon-wrap {
-        width: 38px; height: 38px; border-radius: 12px;
-        background: rgba(255,255,255,0.2);
-        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .audio-ctrl-btn {
-        width: 30px; height: 30px; border-radius: 8px;
-        background: rgba(255,255,255,0.2);
-        display: flex; align-items: center; justify-content: center; cursor: pointer;
-    }
-    .audio-ctrl-btn:active { background: rgba(255,255,255,0.35); }
-
     @@keyframes slideUp {
         from { transform: translateY(20px); opacity: 0; }
         to   { transform: translateY(0);    opacity: 1; }
@@ -558,12 +538,10 @@
             _userName         = authState.User.Identity?.Name ?? "Guest";
             _selectedLanguage = LanguageService.SelectedLanguage;
 
-            GeofenceService.AudioTriggered     += OnGeofenceAudioTriggered;
             GeofenceService.BannerStateChanged += OnBannerStateChanged;
 
             await Task.WhenAll(LoadCategories(), RefreshList(), LoadLanguages());
 
-            await GeofenceService.StartAsync();
         }
         catch (Exception ex)
         {
@@ -572,44 +550,7 @@
     }
 
     // ── Audio ─────────────────────────────────────────────────────────────
-
-    private async Task OnGeofenceAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio, bool isManual)
-    {
-        if (isManual)
-            await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
-        else
-            await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
-    }
-
     private void OnBannerStateChanged() => InvokeAsync(StateHasChanged);
-
-    private async Task PauseAudio()
-    {
-        await JS.InvokeVoidAsync("audioHelper.pause");
-        GeofenceService.SetAudioPlaying(false);
-    }
-
-    private async Task ResumeAudio()
-    {
-        await JS.InvokeVoidAsync("audioHelper.resume");
-        GeofenceService.SetAudioPlaying(true);
-    }
-
-    private async Task ReplayAudio()
-    {
-        if (GeofenceService.CurrentPoi != null)
-        {
-            var audio = GeofenceService.CurrentPoi.AudioFiles
-                .FirstOrDefault(a => a.LanguageCode == LanguageService.SelectedLanguage)
-                ?? GeofenceService.CurrentPoi.AudioFiles.FirstOrDefault();
-
-            if (audio != null)
-            {
-                await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
-                GeofenceService.SetAudioPlaying(true);
-            }
-        }
-    }
 
     private async Task HandleKeyUp(KeyboardEventArgs e)
     {
@@ -764,15 +705,6 @@
         }
     }
 
-    private async Task DisableLocation()
-    {
-        _locationActive = false;
-        _selectedRadius = 1000;
-        await RefreshList();
-    }
-
-
-
     private async Task ChangeLanguage(string code)
     {
         _selectedLanguage = code;
@@ -798,8 +730,6 @@
 
     public async ValueTask DisposeAsync()
     {
-        GeofenceService.AudioTriggered     -= OnGeofenceAudioTriggered;
         GeofenceService.BannerStateChanged -= OnBannerStateChanged;
-        await GeofenceService.StopAsync();
     }
 }

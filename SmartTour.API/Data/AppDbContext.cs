@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<ServicePackage> ServicePackages => Set<ServicePackage>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<Favorite> Favorites => Set<Favorite>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -106,6 +107,11 @@ public class AppDbContext : DbContext
             new ServicePackage { Id = 2, Code = "PRO_MONTH", Name = "Vĩnh Khánh Pro (Tháng)", Price = 150000, DurationDays = 30, Description = "Phù hợp cho các quán kinh doanh nhỏ", MaxPoiAllowed = 5, CreatedAt = DateTime.UtcNow, IsActive = true },
             new ServicePackage { Id = 3, Code = "VIP_YEAR", Name = "VIP Toàn Năng (Năm)", Price = 1200000, DurationDays = 365, Description = "Đầy đủ tính năng cao cấp", MaxPoiAllowed = 20, CreatedAt = DateTime.UtcNow, IsActive = true }
         );
+
+        modelBuilder.Entity<Favorite>(entity =>
+        {
+            entity.HasIndex(e => new { e.UserId, e.PoiId }).IsUnique();
+        });
 
     }
 }

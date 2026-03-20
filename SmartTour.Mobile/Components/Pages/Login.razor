@@ -1,9 +1,11 @@
 @page "/login"
 @using SmartTour.Mobile.Services
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Net.Http.Json
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject HttpClient Http
 
 <div class="login-container d-flex flex-column align-center justify-center" style="height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
     
@@ -17,17 +19,25 @@
         <MudTextField @bind-Value="_username" Label="Tên đăng nhập / Email" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" FullWidth="true" Class="mb-2" />
         <MudTextField @bind-Value="_password" Label="Mật khẩu" Variant="Variant.Outlined" InputType="InputType.Password" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" FullWidth="true" Class="mb-4" />
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true" OnClick="HandleLogin" Style="border-radius: 12px; font-weight: bold; text-transform: none; height: 50px;">
-            Đăng nhập
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true" OnClick="HandleLogin" Disabled="@_loading" Style="border-radius: 12px; font-weight: bold; text-transform: none; height: 50px;">
+            @if (_loading)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Đang xử lý...</MudText>
+            }
+            else
+            {
+                <MudText>Đăng nhập</MudText>
+            }
         </MudButton>
 
         <div class="d-flex align-center my-3" style="width: 100%">
-            <MudDivider Class="flex-grow-1" />
+            <MudDivider Style="flex: 1;" />
             <MudText Typo="Typo.caption" Class="mx-2">HOẶC</MudText>
-            <MudDivider Class="flex-grow-1" />
+            <MudDivider Style="flex: 1;" />
         </div>
 
-        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.AccountCircle" FullWidth="true" OnClick="LoginGoogle" Style="border-radius: 12px; text-transform: none;">
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.AccountCircle" FullWidth="true" OnClick="LoginGoogle" Disabled="@_loading" Style="border-radius: 12px; text-transform: none;">
             Đăng nhập bằng Google
         </MudButton>
 
@@ -44,16 +54,66 @@
 </div>
 
 @code {
-    private string _username = "demo";
-    private string _password = "";
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
 
-    private void HandleLogin()
+    private string _username = "";
+    private string _password = "";
+    private bool   _loading  = false;
+
+   /*private async Task HandleLogin()
     {
-        if (!string.IsNullOrWhiteSpace(_username))
+        if (string.IsNullOrWhiteSpace(_username)) return;
+        _loading = true;
+        try
+        {
+            // Gọi API lấy userId thật từ DB
+            var resp = await Http.PostAsJsonAsync("api/auth/login", new
+            {
+                username = _username,
+                password = _password
+            });
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var result = await resp.Content.ReadFromJsonAsync<LoginResponse>();
+                if (result != null)
+                {
+                    var auth = (MobileAuthStateProvider)AuthStateProvider;
+                    auth.MarkUserAsAuthenticated(result.Email, result.UserId.ToString());
+                    NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl);
+                }
+            }
+            else
+            {
+                var msg = resp.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                    ? "Sai tài khoản hoặc mật khẩu."
+                    : "Đăng nhập thất bại. Thử lại sau.";
+                Snackbar.Add(msg, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi kết nối: {ex.Message}", Severity.Error);
+        }
+        finally { _loading = false; }
+    }*/
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(_username)) return;
+        _loading = true;
+        try 
         {
             var auth = (MobileAuthStateProvider)AuthStateProvider;
-            auth.MarkUserAsAuthenticated(_username, "1");
-            NavigationManager.NavigateTo("/");
+            // TEMP: hardcode userId=1 để test, sau khi fix API login thì xóa
+            auth.MarkUserAsAuthenticated("hoangnguyen7122005@gmail.com", "1");
+            NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl);
+        }
+        finally
+        {
+            _loading = false;
         }
     }
 
@@ -75,7 +135,7 @@
                     result.Properties.TryGetValue("userId", out var userId);
                     var auth = (MobileAuthStateProvider)AuthStateProvider;
                     auth.MarkUserAsAuthenticated(email, userId ?? "");
-                    NavigationManager.NavigateTo("/");
+                    NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl);
                 }
                 else
                 {
@@ -87,11 +147,10 @@
         }
         catch (TaskCanceledException)
         {
-            // Do not use StateHasChanged if component is being disposed
             await InvokeAsync(() => {
                 try {
                     Snackbar.Add("Đăng nhập đã bị hủy.", Severity.Info);
-                } catch { /* Component might be gone */ }
+                } catch {}
             });
         }
         catch (Exception ex)
@@ -99,7 +158,7 @@
             await InvokeAsync(() => {
                 try {
                     Snackbar.Add($"Lỗi đăng nhập Google: {ex.Message}", Severity.Error);
-                } catch { /* Component might be gone */ }
+                } catch {}
             });
         }
     }
@@ -108,6 +167,24 @@
     {
         var auth = (MobileAuthStateProvider)AuthStateProvider;
         auth.MarkUserAsAuthenticated("Guest", "0");
-        NavigationManager.NavigateTo("/");
+        NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl);
+    }
+
+    private class LoginResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("userId")]
+        public int UserId { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("username")]
+        public string Username { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("email")]
+        public string Email { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("fullName")]
+        public string FullName { get; set; } = "";
+
+        [System.Text.Json.Serialization.JsonPropertyName("roleId")]
+        public int RoleId { get; set; }
     }
 }

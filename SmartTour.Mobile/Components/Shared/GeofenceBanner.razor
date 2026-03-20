@@ -1,3 +1,6 @@
+@* GeofenceBanner: chỉ xử lý UI banner và các nút điều khiển audio.
+   Việc khởi động service, phát audio, và dừng khi logout
+   được quản lý bởi MainLayout.razor *@
 @inject GeofenceAudioService GeofenceService
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
@@ -49,24 +52,22 @@
 <style>
     .geofence-banner {
         position: fixed;
-        bottom: 75px; 
+        bottom: 75px;
         left: 12px;
         right: 12px;
         z-index: 9999;
         border-radius: 16px;
         background: rgba(14, 110, 184, 0.85);
         backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px); 
+        -webkit-backdrop-filter: blur(12px);
         border: 0.5px solid rgba(255, 255, 255, 0.2);
         box-shadow: 0 4px 15px rgba(14, 110, 184, 0.15);
-        cursor: pointer; 
+        cursor: pointer;
         transition: transform 0.2s;
     }
-    
-    .geofence-banner:active {
-        transform: scale(0.98);
-    }
-    
+
+    .geofence-banner:active { transform: scale(0.98); }
+
     .geofence-pulse-dot {
         width: 14px; height: 14px;
         border-radius: 50%;
@@ -74,23 +75,21 @@
         flex-shrink: 0;
         animation: pulseDot 1.4s ease-in-out infinite;
     }
-    
+
     .geofence-pause-dot {
         width: 14px; height: 14px;
         border-radius: 50%;
         background: rgba(255,255,255,0.4);
         flex-shrink: 0;
     }
-    
+
     @@keyframes pulseDot {
         0%, 100% { transform: scale(1);   opacity: 1; }
         50%       { transform: scale(1.5); opacity: 0.6; }
     }
-    
-    .animate-slide-down {
-        animation: slideDown 0.4s ease-out;
-    }
-    
+
+    .animate-slide-down { animation: slideDown 0.4s ease-out; }
+
     @@keyframes slideDown {
         from { transform: translateY(20px); opacity: 0; }
         to   { transform: translateY(0);    opacity: 1; }
@@ -98,35 +97,14 @@
 </style>
 
 @code {
-    private bool _lastIsPlaying = false;
-    private DotNetObjectReference<GeofenceAudioService>? _geofenceDotNetRef;
-
+    
     protected override void OnInitialized()
     {
         GeofenceService.BannerStateChanged += OnBannerStateChanged;
-        _lastIsPlaying = GeofenceService.IsAudioPlaying;
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            // Đăng ký DotNetReference toàn cục cho audioHelper.
-            // Vì GeofenceBanner nằm trong Main.razor (ngoài Router), nó sẽ tồn tại suốt vòng đời ứng dụng.
-            _geofenceDotNetRef = DotNetObjectReference.Create(GeofenceService);
-            await JS.InvokeVoidAsync("audioHelper.setDotNetReference", _geofenceDotNetRef);
-        }
     }
 
     private void OnBannerStateChanged()
     {
-        if (_lastIsPlaying && !GeofenceService.IsAudioPlaying)
-        {
-            // Chuyển từ đang phát sang dừng (thường do user gạt tắt AutoPlay)
-            _ = JS.InvokeVoidAsync("audioHelper.pause");
-        }
-
-        _lastIsPlaying = GeofenceService.IsAudioPlaying;
         InvokeAsync(StateHasChanged);
     }
 
@@ -144,32 +122,26 @@
         }
     }
 
-    // --- HÀM REPLAY ĐÃ ĐƯỢC CẬP NHẬT ---
     private async Task ReplayAudio()
     {
         if (GeofenceService.CurrentPoi != null)
         {
-            // Lấy đúng file âm thanh của ngôn ngữ hiện tại
             var audio = GeofenceService.CurrentPoi.AudioFiles
                 .FirstOrDefault(a => a.LanguageCode == LanguageService.SelectedLanguage)
                 ?? GeofenceService.CurrentPoi.AudioFiles.FirstOrDefault();
 
             if (audio != null)
             {
-                // Gọi playAtTime từ giây 0 để Replay mượt mà
                 await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
                 GeofenceService.SetAudioPlaying(true);
             }
         }
     }
 
-    // Hàm chuyển sang trang chi tiết
     private void GoToDetails()
     {
         if (GeofenceService.CurrentPoi != null)
-        {
             NavigationManager.NavigateTo($"/poi-details/{GeofenceService.CurrentPoi.Id}");
-        }
     }
 
     private async Task CloseBannerAsync()
@@ -181,6 +153,6 @@
     public async ValueTask DisposeAsync()
     {
         GeofenceService.BannerStateChanged -= OnBannerStateChanged;
-        _geofenceDotNetRef?.Dispose();
+        await Task.CompletedTask;
     }
-}
+}
