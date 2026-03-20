@@ -41,8 +41,7 @@ public class AuthController : ControllerBase
             bool valid;
             try
             {
-                // valid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
-                valid = request.Password == user.PasswordHash;
+                valid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
             }
             catch
             {

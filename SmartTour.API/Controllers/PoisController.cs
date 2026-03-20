@@ -7,7 +7,6 @@ namespace SmartTour.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
 public class PoisController : ControllerBase
 {
     private readonly IPoiService _poiService;
@@ -132,13 +131,21 @@ public class PoisController : ControllerBase
 
     private async Task<int?> GetCurrentUserIdAsync()
     {
+        // 1. Kiểm tra Header X-User-Id (Dành cho Mobile / Test)
+        if (Request.Headers.TryGetValue("X-User-Id", out var headerVal) 
+            && int.TryParse(headerVal, out int idFromHeader) 
+            && idFromHeader > 0)
+        {
+            return idFromHeader;
+        }
+
+        // 2. Kiểm tra Identity (Dành cho Web / JWT)
         var identity = User.Identity as System.Security.Claims.ClaimsIdentity;
         if (identity == null || !identity.IsAuthenticated) return null;
 
         var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (int.TryParse(userIdClaim, out int id)) return id;
 
-        // Note: For real-world apps, you might need to find user by email from DB here
         return null;
     }
 }

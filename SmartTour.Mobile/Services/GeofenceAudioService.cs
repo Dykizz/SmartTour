@@ -241,6 +241,12 @@ public class GeofenceAudioService : IAsyncDisposable
         {
             try
             {
+                // Nếu chưa có POI nào, thử tải lại (Xử lý trường hợp API chưa sẵn sàng lúc khởi động)
+                if (_allPois.Count == 0 && IsRunning)
+                {
+                    await LoadPoisAsync();
+                }
+
                 await CheckLocationAsync();
                 await Task.Delay(TimeSpan.FromSeconds(PollingIntervalSeconds), token);
             }

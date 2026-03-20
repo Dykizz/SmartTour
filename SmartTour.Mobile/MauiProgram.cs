@@ -52,6 +52,9 @@ public static class MauiProgram
 		builder.Services.AddScoped<AuthenticationStateProvider, MobileAuthStateProvider>();
 		builder.Services.AddSingleton<LanguageService>();
 		builder.Services.AddSingleton<GeofenceAudioService>();
+		
+		// Đăng ký AuthHeaderHandler (Interceptor)
+		builder.Services.AddTransient<AuthHeaderHandler>();
 
 		string baseUrl = "http://127.0.0.1:5164/";
 #if ANDROID
@@ -59,7 +62,15 @@ public static class MauiProgram
 		baseUrl = "http://127.0.0.1:5164/";
 #endif
 
-		builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(baseUrl) });
+		// Cấu hình HttpClient dùng AuthHeaderHandler để chèn X-User-Id Header
+		builder.Services.AddHttpClient("SmartTourApi", client => 
+		{
+			client.BaseAddress = new Uri(baseUrl);
+		})
+		.AddHttpMessageHandler<AuthHeaderHandler>();
+
+		// Đăng ký HttpClient mặc định lấy từ Factory
+		builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("SmartTourApi"));
 
 		var app = builder.Build();
 
@@ -75,7 +86,7 @@ public static class MauiProgram
 #if ANDROID
 internal class PermissionManagingBlazorWebChromeClient : Android.Webkit.WebChromeClient
 {
-    public override void OnPermissionRequest(Android.Webkit.PermissionRequest request)
+    public override void OnPermissionRequest(Android.Webkit.PermissionRequest? request)
     {
         try 
         {

@@ -25,12 +25,21 @@
 
         // Dừng audio khi navigate vào login
         _locationChangedSubscription = NavigationManager.RegisterLocationChangingHandler(OnLocationChanging);
+    }
 
+    protected override async Task OnParametersSetAsync()
+    {
         if (AuthenticationStateTask != null)
         {
             var authState = await AuthenticationStateTask;
             if (authState.User.Identity?.IsAuthenticated == true)
+            {
                 await GeofenceService.StartAsync();
+            }
+            else
+            {
+                await GeofenceService.StopAsync();
+            }
         }
     }
 
