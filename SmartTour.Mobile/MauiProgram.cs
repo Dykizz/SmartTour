@@ -46,7 +46,8 @@ public static class MauiProgram
 
 		string baseUrl = "http://127.0.0.1:5164/";
 #if ANDROID
-		baseUrl = "http://10.0.2.2:5164/";
+		// Đổi IP về 127.0.0.1 trên Android dành cho cả Emulator lẫn Thiết bị thật (thông qua adb reverse)
+		baseUrl = "http://127.0.0.1:5164/";
 #endif
 		builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(baseUrl) });
 

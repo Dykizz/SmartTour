@@ -36,15 +36,30 @@
     @if (mapProvider == "Vietmap")
     {
         <script src="libs/vietmap/vietmap-gl.js"></script>
-        <script src="vietmapInterop.js"></script>
+        <script src="vietmapInterop.js?v=6"></script>
     }
     else
     {
         <script src="libs/mapbox/mapbox-gl.js"></script>
-        <script src="mapInterop.js"></script>
+        <script src="mapInterop.js?v=6"></script>
     }
     <script src="_content/Blazor-ApexCharts/js/apexcharts.js"></script>
     <script src="_content/Blazor-ApexCharts/js/blazor-apex-charts.js"></script>
+
+    <script>
+        window.getAudioDuration = async function (url) {
+            return new Promise(function (resolve) {
+                var audio = new Audio();
+                audio.addEventListener("loadedmetadata", function () {
+                    resolve(audio.duration);
+                });
+                audio.addEventListener("error", function () {
+                    resolve(0);
+                });
+                audio.src = url;
+            });
+        };
+    </script>
 </body>
 
 </html>

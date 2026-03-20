@@ -6,6 +6,7 @@
 @using System.Text.Json
 @using System.Text.RegularExpressions
 @using Microsoft.AspNetCore.Components.Authorization
+@using QRCoder
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -86,11 +87,26 @@
                         <MudItem xs="12" md="3">
                             <MudNumericField @bind-Value="_model.GeofenceRadius" Label="Bán kính" Min="1" Variant="Variant.Outlined" Required="true" Adornment="Adornment.End" AdornmentText="m" Margin="Margin.Dense" />
                         </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_model.QrValue" Label="Mã QR định danh" Variant="Variant.Outlined" 
-                                         Placeholder="ID duy nhất..." Margin="Margin.Dense"
-                                         Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Autorenew" OnAdornmentClick="GenerateRandomQr" />
-                        </MudItem>
+                        @if (IsEdit)
+                        {
+                            <MudItem xs="12" md="6">
+                                <MudCard Outlined="true" Class="pa-3 d-flex align-center gap-4 bg-gray-50 rounded-lg" Style="border: 1px dashed var(--mud-palette-divider);">
+                                    @if (!string.IsNullOrWhiteSpace(_model.QrValue))
+                                    {
+                                        <div class="qr-container" style="position: relative; border-radius: 8px; border: 1px solid var(--mud-palette-divider); overflow: hidden; width: 72px; height: 72px; cursor: pointer;" title="Nhấn để tải Tem ảnh HD" @onclick="DownloadQrCard">
+                                            <img src="@GetQrCodeBase64(_model.QrValue)" style="width: 100%; height: 100%; display: block; background: white;" />
+                                            <div class="qr-overlay d-flex justify-center align-center">
+                                                <MudIcon Icon="@Icons.Material.Filled.Download" Style="color: white;" Size="Size.Medium" />
+                                            </div>
+                                        </div>
+                                    }
+                                    <div class="flex-grow-1">
+                                        <MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="fw-bold">@(_model.Name ?? "Chưa có tên")</MudText>
+                                        <MudText Typo="Typo.caption" Class="mb-0" Style="display:block; color:var(--mud-palette-text-secondary);">ID: @(_model.QrValue ?? "N/A")</MudText>
+                                    </div>
+                                </MudCard>
+                            </MudItem>
+                        }
                         <MudItem xs="6" md="3">
                             <MudCheckBox @bind-Value="_model.IsActive" Label="Hoạt động" Color="@Color.Primary" Dense="true" />
                         </MudItem>
@@ -137,10 +153,10 @@
                                                  Clearable="true" />
                             </MudItem>
                             <MudItem xs="6" md="3">
-                                <MudNumericField @bind-Value="_model.Latitude" Label="Vĩ độ" Format="F6" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudNumericField T="double" Value="_model.Latitude" ValueChanged="OnManualLatitudeChanged" Label="Vĩ độ" Format="F6" Variant="Variant.Outlined" Margin="Margin.Dense" />
                             </MudItem>
                             <MudItem xs="6" md="3">
-                                <MudNumericField @bind-Value="_model.Longitude" Label="Kinh độ" Format="F6" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudNumericField T="double" Value="_model.Longitude" ValueChanged="OnManualLongitudeChanged" Label="Kinh độ" Format="F6" Variant="Variant.Outlined" Margin="Margin.Dense" />
                             </MudItem>
                             <MudItem xs="12">
                                 <div id="editor-map" style="height: 300px; width: 100%; border-radius: 12px; border: 1px solid var(--mud-palette-divider);"></div>
@@ -345,7 +361,7 @@
                                                      Lines="3"
                                                      Variant="Variant.Outlined" 
                                                      Margin="Margin.Dense" 
-                                                     Class="flex-grow-1" />
+                                                     Class="flex-grow-1 resize-textarea" />
                                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => RemoveAudio(audio))" />
                                     </div>
                                 }
@@ -449,6 +465,24 @@
 </MudContainer>
 
 <style>
+    /* Hiệu ứng trỏ chuột vào mã QR trong thẻ thông tin */
+    .qr-container .qr-overlay {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    }
+    .qr-container:hover .qr-overlay {
+        opacity: 1;
+    }
+
+    /* Bật tính năng Kéo giãn dọc cho các ô Textarea (đặc biệt là mục Audio) */
+    .resize-textarea textarea {
+        resize: vertical !important;
+        min-height: 80px;
+    }
+
     /* Smooth Page Entry Animation */
     .animate-fade-in { 
         animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1); 
@@ -851,6 +885,8 @@
         EnsureAllDaysPresent();
     }
 
+
+
     private void EnsureAllDaysPresent()
     {
         var days = new[] { 
@@ -985,6 +1021,11 @@
                 {
                     audio.FileUrl = result.Url;
                     audio.IsTts = false; // Đánh dấu là audio tự upload
+                    
+                    try {
+                        audio.DurationSeconds = await JSRuntime.InvokeAsync<double>("window.getAudioDuration", result.Url);
+                    } catch { /* Ignore JS errors */ }
+
                     Snackbar.Add("Tải âm thanh lên thành công", Severity.Success);
                 }
             }
@@ -1061,7 +1102,10 @@
                             var ttsResult = await ttsResp.Content.ReadFromJsonAsync<TtsResponse>();
                             if (ttsResult != null) {
                                 newAudio.FileUrl = ttsResult.Url;
-                                Console.WriteLine($"[AudioChain] TTS Success: {ttsResult.Url}");
+                                try {
+                                    newAudio.DurationSeconds = await JSRuntime.InvokeAsync<double>("window.getAudioDuration", ttsResult.Url);
+                                } catch { /* Ignore JS errors */ }
+                                Console.WriteLine($"[AudioChain] TTS Success: {ttsResult.Url} ({newAudio.DurationSeconds}s)");
                             }
                         } else {
                             Console.WriteLine($"[AudioChain] TTS FAILED for {lang.Code}");
@@ -1160,12 +1204,32 @@
 
     private void GoBack() => NavigationManager.NavigateTo("/poi-management");
 
+
+
     [JSInvokable]
     public void UpdateCoordinates(double lat, double lng)
     {
         _model.Latitude = lat;
         _model.Longitude = lng;
         StateHasChanged();
+    }
+
+    private async Task OnManualLatitudeChanged(double lat)
+    {
+        _model.Latitude = lat;
+        if (_mapInitialized)
+        {
+            await MapService.SetMarkerAsync(_model.Latitude, _model.Longitude, "editor-map");
+        }
+    }
+
+    private async Task OnManualLongitudeChanged(double lng)
+    {
+        _model.Longitude = lng;
+        if (_mapInitialized)
+        {
+            await MapService.SetMarkerAsync(_model.Latitude, _model.Longitude, "editor-map");
+        }
     }
 
     private async Task<IEnumerable<MapPrediction>> SearchMapPredictions(string value, CancellationToken token)
@@ -1199,11 +1263,92 @@
         }
     }
 
-    private void GenerateRandomQr() => _model.QrValue = "POI_" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
+
 
     public void Dispose() => _objRef?.Dispose();
 
     private class UploadResponse { public string Url { get; set; } = ""; }
     private class TtsResponse { public string Url { get; set; } = ""; }
     private class TranslateResponse { public string TranslatedText { get; set; } = ""; }
+
+
+
+    private async Task DownloadQrCard()
+    {
+        if (string.IsNullOrWhiteSpace(_model.QrValue)) return;
+        var qrBase64 = GetQrCodeBase64(_model.QrValue);
+        var script = @"
+            (function(name, qrBase64, filename) {
+                var canvas = document.createElement('canvas');
+                // Khởi tạo Canvas độ phân giải cao để tem nét căng
+                canvas.width = 800;
+                canvas.height = 960;
+                var ctx = canvas.getContext('2d');
+
+                // Màu nền trắng
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Viền đứt khúc
+                ctx.strokeStyle = '#1976d2';
+                ctx.lineWidth = 10;
+                ctx.setLineDash([20, 20]);
+                ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+
+                // Tên quán
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 48px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // Vẽ chữ tự scale ngang nếu dài quá
+                ctx.fillText(name.toUpperCase(), canvas.width / 2, 140, canvas.width - 120);
+
+                var img = new Image();
+                img.onload = function() {
+                    // Vẽ QR Code
+                    ctx.drawImage(img, (canvas.width - 600) / 2, 210, 600, 600);
+
+                    // Vẽ Slogan đỏ
+                    ctx.fillStyle = '#d32f2f';
+                    ctx.font = 'bold 36px sans-serif';
+                    ctx.fillText('QUÉT MÃ ĐỂ TÌM HIỂU THÊM', canvas.width / 2, 870);
+
+                    // Tự động Download PNG
+                    var link = document.createElement('a');
+                    link.download = filename;
+                    link.href = canvas.toDataURL('image/png');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                };
+                img.src = qrBase64;
+            })
+        ";
+
+        var safeName = System.Text.Json.JsonSerializer.Serialize(_model.Name ?? "Chưa có tên");
+        var safeQr = System.Text.Json.JsonSerializer.Serialize(qrBase64);
+        var safeFilename = System.Text.Json.JsonSerializer.Serialize($"TEM_QR_{_model.Name ?? _model.QrValue}.png");
+
+        await JSRuntime.InvokeVoidAsync("eval", $"{script}({safeName}, {safeQr}, {safeFilename});");
+    }
+
+    private string GetQrCodeBase64(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "";
+        try
+        {
+            // Chèn đường link hoàn chỉnh vào mã QR
+            string url = NavigationManager.BaseUri + "poi/" + value;
+
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrCodeData = qrGenerator.CreateQrCode(url, QRCodeGenerator.ECCLevel.Q);
+            using var qrCode = new PngByteQRCode(qrCodeData);
+            var qrCodeImage = qrCode.GetGraphic(5);
+            return $"data:image/png;base64,{Convert.ToBase64String(qrCodeImage)}";
+        }
+        catch
+        {
+            return "";
+        }
+    }
 }

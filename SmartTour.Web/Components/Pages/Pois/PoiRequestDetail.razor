@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using System.Net.Http.Json
 @using System.Text.Json
+@using QRCoder
 @attribute [Authorize(Roles = "ADMIN")]
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
@@ -125,9 +126,17 @@ else
                                 </MudItem>
                                 <MudItem xs="12" md="6">
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">Mã QR định danh</MudText>
-                                    <MudText Typo="Typo.body2" Style="font-family:monospace; background:#f5f5f5; padding:6px 10px; border-radius:6px; display:inline-block;">
-                                        @(_poi.QrValue ?? "—")
-                                    </MudText>
+                                    <div class="d-flex align-center gap-3 mt-1">
+                                        <MudText Typo="Typo.body2" Style="font-family:monospace; background:#f5f5f5; padding:6px 10px; border-radius:6px; display:inline-block; margin-bottom:0;">
+                                            @(_poi.QrValue ?? "—")
+                                        </MudText>
+                                        @if (!string.IsNullOrWhiteSpace(_poi.QrValue))
+                                        {
+                                            <MudPaper Elevation="0" Class="pa-1" Style="border: 1px solid var(--mud-palette-divider);">
+                                                <img src="@GetQrCodeBase64(_poi.QrValue)" style="width: 64px; height: 64px;" alt="QR Code" />
+                                            </MudPaper>
+                                        }
+                                    </div>
                                 </MudItem>
                                 <MudItem xs="6" md="3">
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">Trạng thái</MudText>
@@ -266,6 +275,55 @@ else
                                             {
                                                 <MudText Typo="Typo.body2" Style="white-space:pre-wrap; line-height:1.8;">@content.Description</MudText>
                                             }
+                                        </MudTabPanel>
+                                    }
+                                </MudTabs>
+                            </div>
+                        </ChildContent>
+                    </MudExpansionPanel>
+                </MudPaper>
+            }
+
+            <!-- ── Section 4.5: File Âm thanh ── -->
+            @if (_poi.AudioFiles.Any())
+            {
+                <MudPaper Elevation="2" Class="mb-4 rounded-xl overflow-hidden stagger-item" Style="border:1px solid rgba(0,0,0,0.08);">
+                    <MudExpansionPanel Expanded="true" Style="background:white;">
+                        <TitleContent>
+                            <div class="d-flex align-center py-1">
+                                <MudAvatar Color="Color.Success" Variant="Variant.Filled" Size="Size.Medium" Class="mr-3">
+                                    <MudIcon Icon="@Icons.Material.Filled.VolumeUp" Size="Size.Medium" />
+                                </MudAvatar>
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-0">File âm thanh / Thuyết minh</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@_poi.AudioFiles.Count audio đính kèm</MudText>
+                                </div>
+                            </div>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudDivider />
+                            <div class="pa-6" style="background:rgba(0,0,0,0.01);">
+                                <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true"
+                                         Border="true" PanelClass="pa-4" MinimumTabWidth="80px">
+                                    @foreach (var group in _poi.AudioFiles.GroupBy(a => a.LanguageCode))
+                                    {
+                                        <MudTabPanel Text="@group.Key.ToUpper()">
+                                            <MudStack Spacing="2">
+                                                @foreach (var audio in group.OrderBy(a => a.SortOrder))
+                                                {
+                                                    <MudPaper Elevation="0" Class="pa-3" Style="border:1px solid var(--mud-palette-divider);">
+                                                        <div class="d-flex flex-column gap-2">
+                                                            <div class="d-flex justify-space-between align-center">
+                                                                <MudText Typo="Typo.subtitle2">Phân đoạn @(audio.SortOrder + 1)</MudText>
+                                                                <MudChip T="string" Color="@(audio.IsTts ? Color.Primary : Color.Info)" Size="Size.Small" Variant="Variant.Outlined">
+                                                                    @(audio.IsTts ? "AI Voice" : "Upload")
+                                                                </MudChip>
+                                                            </div>
+                                                            <audio controls src="@audio.FileUrl" style="width: 100%; height: 40px;"></audio>
+                                                        </div>
+                                                    </MudPaper>
+                                                }
+                                            </MudStack>
                                         </MudTabPanel>
                                     }
                                 </MudTabs>
@@ -495,4 +553,24 @@ else
         DayOfWeek.Sunday    => "Chủ Nhật",
         _ => day.ToString()
     };
+
+    private string GetQrCodeBase64(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "";
+        try
+        {
+            // Chèn đường link hoàn chỉnh vào mã QR
+            string url = NavigationManager.BaseUri + "poi/" + value;
+
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrCodeData = qrGenerator.CreateQrCode(url, QRCodeGenerator.ECCLevel.Q);
+            using var qrCode = new PngByteQRCode(qrCodeData);
+            var qrCodeImage = qrCode.GetGraphic(5);
+            return $"data:image/png;base64,{Convert.ToBase64String(qrCodeImage)}";
+        }
+        catch
+        {
+            return "";
+        }
+    }
 }

@@ -12,9 +12,23 @@
 
 <PageTitle>Quản lý Yêu cầu POI</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6">
-    <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Quản lý Yêu cầu POI</MudText>
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">Xem xét và phê duyệt các yêu cầu tạo/sửa điểm đến của Seller.</MudText>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6 mb-20 animate-fade-in">
+    <MudPaper Elevation="0" Class="pa-6 mb-6 rounded-lg" Style="background: linear-gradient(135deg, rgba(var(--mud-palette-primary-rgb), 0.05) 0%, rgba(var(--mud-palette-primary-rgb), 0.02) 100%); border: 1px solid rgba(var(--mud-palette-primary-rgb), 0.1);">
+        <div class="d-flex align-center justify-space-between">
+            <div class="d-flex align-center">
+                <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Medium" Class="mr-4">
+                    <MudIcon Icon="@Icons.Material.Filled.ListAlt" Size="Size.Medium" />
+                </MudAvatar>
+                <div>
+                    <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Quản lý Yêu cầu POI</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Xem xét và phê duyệt các yêu cầu tạo/sửa điểm đến của hệ thống.</MudText>
+                </div>
+            </div>
+            <div class="d-none d-sm-flex gap-3">
+                <MudButton Variant="Variant.Outlined" OnClick="RefreshAll" Size="Size.Medium" Class="px-6" StartIcon="@Icons.Material.Filled.Refresh">Tải lại</MudButton>
+            </div>
+        </div>
+    </MudPaper>
 
     <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
 
@@ -142,6 +156,30 @@
         </MudTabPanel>
     </MudTabs>
 </MudContainer>
+
+<style>
+    /* Smooth Page Entry Animation */
+    .animate-fade-in { 
+        animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1); 
+    }
+    @@keyframes fadeIn { 
+        from { opacity: 0; transform: translateY(20px); } 
+        to { opacity: 1; transform: translateY(0); } 
+    }
+    
+    /* Layout Enhancements */
+    .mud-tabs .mud-tab {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .mud-tabs .mud-tab:hover {
+        background-color: rgba(0,0,0,0.04);
+    }
+    
+    .mud-table-root {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+</style>
 
 @code {
     private int _pendingCount, _approvedCount, _rejectedCount;
