@@ -2,60 +2,46 @@
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
 @inject LanguageService LanguageService
-@implements IDisposable
+@implements IAsyncDisposable
 
-@if (GeofenceService.BannerVisible)
+@if (GeofenceService.BannerVisible && GeofenceService.CurrentPoi != null)
 {
-    <MudPaper Elevation="12" Class="geofence-banner animate-slide-down pa-3">
+    <MudPaper Elevation="12" Class="geofence-banner animate-slide-down pa-3" @onclick="GoToDetails">
         <div class="d-flex align-center gap-2">
-            <!-- Pulse dot -->
             <div class="@(GeofenceService.IsAudioPlaying ? "geofence-pulse-dot" : "geofence-pause-dot")"></div>
 
-            <!-- Thông tin POI -->
             <div class="flex-grow-1" style="min-width: 0;">
-                <MudText Typo="Typo.caption" Style="font-weight: bold; color: white; display:block;">
-                    @if (GeofenceService.IsAudioPlaying)
-                    {
-                        <span>🔊 @LanguageService.T("Narrating")</span>
-                    }
-                    else
-                    {
-                        <span>📍 @LanguageService.T("NearbyArea")</span>
-                    }
+                <MudText Typo="Typo.caption" Style="font-weight: bold; color: white; display:block; opacity: 0.9;">
+                    @(GeofenceService.IsAudioPlaying ? "🔊 Đang thuyết minh" : "📍 Bạn đang ở gần")
                 </MudText>
-                <MudText Typo="Typo.caption"
-                         Style="color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:block;">
+                <MudText Typo="Typo.subtitle2"
+                         Style="color: white; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display:block;">
                     @GeofenceService.BannerPoiName
                 </MudText>
             </div>
 
-            <!-- Nút Pause / Resume -->
-            <MudIconButton Icon="@(GeofenceService.IsAudioPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)"
-                           Size="Size.Small"
-                           Style="color: white; background: rgba(255,255,255,0.15); border-radius: 50%;"
-                           OnClick="ToggleAudioAsync" />
+            <div class="d-flex align-center gap-1" @onclick:stopPropagation="true">
+                <MudIconButton Icon="@(GeofenceService.IsAudioPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)"
+                               Size="Size.Small"
+                               Style="color: white; background: rgba(255,255,255,0.15); border-radius: 50%;"
+                               OnClick="ToggleAudioAsync" />
 
-            <!-- Nút Nghe lại (Manual Replay) -->
-            <MudIconButton Icon="@Icons.Material.Filled.Replay"
-                           Size="Size.Small"
-                           Style="color: white; background: rgba(255,255,255,0.15); border-radius: 50%;"
-                           OnClick="PlayManualAsync"
-                           Title="@LanguageService.T("Replay")" />
+                <MudIconButton Icon="@Icons.Material.Filled.Replay"
+                               Size="Size.Small"
+                               Style="color: white; background: rgba(255,255,255,0.15); border-radius: 50%;"
+                               OnClick="ReplayAudio"
+                               Title="Nghe lại" />
 
-            <!-- Nút → Xem chi tiết POI -->
-            @if (GeofenceService.CurrentPoi != null)
-            {
                 <MudIconButton Icon="@Icons.Material.Filled.ArrowForwardIos"
                                Size="Size.Small"
                                Style="color: white; background: rgba(255,255,255,0.25); border-radius: 50%;"
-                               OnClick="@(() => NavigationManager.NavigateTo($"/poi-details/{GeofenceService.CurrentPoi.Id}"))" />
-            }
+                               OnClick="GoToDetails" />
 
-            <!-- Nút Đóng -->
-            <MudIconButton Icon="@Icons.Material.Filled.Close"
-                           Size="Size.Small"
-                           Style="color: white;"
-                           OnClick="CloseBannerAsync" />
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               Size="Size.Small"
+                               Style="color: white;"
+                               OnClick="CloseBannerAsync" />
+            </div>
         </div>
     </MudPaper>
 }
@@ -63,13 +49,24 @@
 <style>
     .geofence-banner {
         position: fixed;
-        bottom: 75px;
+        bottom: 75px; 
         left: 12px;
         right: 12px;
         z-index: 9999;
         border-radius: 16px;
-        background: linear-gradient(135deg, #594AE2, #9C27B0);
+        background: rgba(14, 110, 184, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px); 
+        border: 0.5px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 15px rgba(14, 110, 184, 0.15);
+        cursor: pointer; 
+        transition: transform 0.2s;
     }
+    
+    .geofence-banner:active {
+        transform: scale(0.98);
+    }
+    
     .geofence-pulse-dot {
         width: 14px; height: 14px;
         border-radius: 50%;
@@ -77,19 +74,23 @@
         flex-shrink: 0;
         animation: pulseDot 1.4s ease-in-out infinite;
     }
+    
     .geofence-pause-dot {
         width: 14px; height: 14px;
         border-radius: 50%;
         background: rgba(255,255,255,0.4);
         flex-shrink: 0;
     }
+    
     @@keyframes pulseDot {
         0%, 100% { transform: scale(1);   opacity: 1; }
         50%       { transform: scale(1.5); opacity: 0.6; }
     }
+    
     .animate-slide-down {
         animation: slideDown 0.4s ease-out;
     }
+    
     @@keyframes slideDown {
         from { transform: translateY(20px); opacity: 0; }
         to   { transform: translateY(0);    opacity: 1; }
@@ -98,11 +99,23 @@
 
 @code {
     private bool _lastIsPlaying = false;
+    private DotNetObjectReference<GeofenceAudioService>? _geofenceDotNetRef;
 
     protected override void OnInitialized()
     {
         GeofenceService.BannerStateChanged += OnBannerStateChanged;
         _lastIsPlaying = GeofenceService.IsAudioPlaying;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Đăng ký DotNetReference toàn cục cho audioHelper.
+            // Vì GeofenceBanner nằm trong Main.razor (ngoài Router), nó sẽ tồn tại suốt vòng đời ứng dụng.
+            _geofenceDotNetRef = DotNetObjectReference.Create(GeofenceService);
+            await JS.InvokeVoidAsync("audioHelper.setDotNetReference", _geofenceDotNetRef);
+        }
     }
 
     private void OnBannerStateChanged()
@@ -131,22 +144,43 @@
         }
     }
 
+    // --- HÀM REPLAY ĐÃ ĐƯỢC CẬP NHẬT ---
+    private async Task ReplayAudio()
+    {
+        if (GeofenceService.CurrentPoi != null)
+        {
+            // Lấy đúng file âm thanh của ngôn ngữ hiện tại
+            var audio = GeofenceService.CurrentPoi.AudioFiles
+                .FirstOrDefault(a => a.LanguageCode == LanguageService.SelectedLanguage)
+                ?? GeofenceService.CurrentPoi.AudioFiles.FirstOrDefault();
+
+            if (audio != null)
+            {
+                // Gọi playAtTime từ giây 0 để Replay mượt mà
+                await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
+                GeofenceService.SetAudioPlaying(true);
+            }
+        }
+    }
+
+    // Hàm chuyển sang trang chi tiết
+    private void GoToDetails()
+    {
+        if (GeofenceService.CurrentPoi != null)
+        {
+            NavigationManager.NavigateTo($"/poi-details/{GeofenceService.CurrentPoi.Id}");
+        }
+    }
+
     private async Task CloseBannerAsync()
     {
         GeofenceService.CloseBanner();
         await JS.InvokeVoidAsync("audioHelper.stop");
     }
 
-    private async Task PlayManualAsync()
-    {
-        if (GeofenceService.CurrentPoi != null)
-        {
-            await GeofenceService.PlayManualAsync(GeofenceService.CurrentPoi, LanguageService.SelectedLanguage);
-        }
-    }
-
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         GeofenceService.BannerStateChanged -= OnBannerStateChanged;
+        _geofenceDotNetRef?.Dispose();
     }
-}
+}

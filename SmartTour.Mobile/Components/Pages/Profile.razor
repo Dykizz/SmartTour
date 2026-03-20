@@ -1,0 +1,223 @@
+@page "/profile"
+@using System.Net.Http.Json
+@using SmartTour.Mobile.Services
+@using SmartTour.Shared.Models
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject LanguageService LanguageService
+@inject GeofenceAudioService GeofenceService
+@inject IJSRuntime JS
+@attribute [Authorize]
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="true"
+               Style="background:linear-gradient(135deg,#0e6eb8 0%,#1a9de8 100%); z-index:200;">
+        <div class="appbar-icon-btn" @onclick="@(() => NavigationManager.NavigateTo("/"))">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowBack"
+                     Style="color:white; font-size:1.1rem;" />
+        </div>
+        <MudSpacer />
+        <MudText Style="font-size:0.95rem; font-weight:600; color:white;">
+            @LanguageService.T("Profile")
+        </MudText>
+        <MudSpacer />
+        <div class="appbar-icon-btn">
+            <MudIcon Icon="@Icons.Material.Filled.Settings"
+                     Style="color:white; font-size:1.1rem;" />
+        </div>
+    </MudAppBar>
+
+    <MudMainContent Style="background:#f0f7ff; min-height:100vh; padding-bottom:80px;">
+        <div class="px-4 pt-4">
+            <MudPaper Elevation="3"
+                      Class="pa-4 rounded-xl"
+                      Style="background:rgba(255,255,255,0.92); border:0.5px solid rgba(14,110,184,0.12);">
+                <div class="d-flex align-center gap-3">
+                    <div class="profile-avatar">
+                        <MudIcon Icon="@Icons.Material.Filled.Person"
+                                 Style="color:white; font-size:1.4rem;" />
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:800; color:#0a3050; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            @_userName
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color:#aaa;">
+                            SmartTour
+                        </MudText>
+                    </div>
+                </div>
+            </MudPaper>
+
+            <div class="mt-4">
+                <!-- Auto-play -->
+                <MudPaper Elevation="0"
+                          Class="d-flex align-center px-3 py-3 rounded-xl gap-3"
+                          Style="background:white; border:0.5px solid rgba(14,110,184,0.1);">
+                    <div class="autoplay-icon-wrap">
+                        <MudIcon Icon="@Icons.Material.Filled.AutoMode"
+                                 Style="@($"color:{(GeofenceService.IsAutoPlayEnabled ? "#0e6eb8" : "#bbb")}; font-size:1.1rem;")" />
+                    </div>
+                    <div style="flex:1;">
+                        <MudText Typo="Typo.body2"
+                                 Style="font-weight:700; color:#0a3050; line-height:1.2;">
+                            @LanguageService.T("AutoPlayTitle")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color:#aaa;">
+                            @LanguageService.T("AutoPlayDesc")
+                        </MudText>
+                    </div>
+                    <MudSwitch T="bool"
+                               Value="GeofenceService.IsAutoPlayEnabled"
+                               ValueChanged="@OnAutoPlayChanged"
+                               Color="Color.Primary" />
+                </MudPaper>
+            </div>
+
+            <div class="mt-3">
+                <!-- Language -->
+                <MudPaper Elevation="0"
+                          Class="pa-3 rounded-xl"
+                          Style="background:white; border:0.5px solid rgba(14,110,184,0.1);">
+                    <MudText Typo="Typo.body2" Style="font-weight:800; color:#0a3050;">
+                        Ngôn ngữ
+                    </MudText>
+                    <MudSelect T="string"
+                               Label="Chọn ngôn ngữ"
+                               Dense="true"
+                               Value="_selectedLanguage"
+                               ValueChanged="OnLanguageChanged"
+                               Variant="Variant.Outlined"
+                               Style="width: 100%; margin-top: 8px;">
+                        @foreach (var lang in _languages)
+                        {
+                            <MudSelectItem T="string" Value="@lang.Code">@lang.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudPaper>
+            </div>
+
+            <div class="mt-5">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Error"
+                           FullWidth="true"
+                           Style="border-radius:16px; font-weight:700; text-transform:none; height:50px;"
+                           OnClick="Logout">
+                    @LanguageService.T("Logout")
+                </MudButton>
+            </div>
+        </div>
+    </MudMainContent>
+
+    <BottomNavigation Active="profile" />
+</MudLayout>
+
+<style>
+    .appbar-icon-btn {
+        width: 32px; height: 32px; border-radius: 10px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+    }
+
+    .profile-avatar {
+        width: 54px; height: 54px;
+        border-radius: 18px;
+        background: linear-gradient(135deg,#0e6eb8,#1a9de8);
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 8px 22px rgba(14,110,184,0.25);
+        flex-shrink: 0;
+    }
+
+    .autoplay-icon-wrap {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: rgba(14,110,184,0.08);
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+</style>
+
+@code {
+    private string _userName = "Guest";
+    private List<Language> _languages = new();
+    private string _selectedLanguage = "vi";
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _userName = authState.User.Identity?.Name ?? "Guest";
+
+            _selectedLanguage = LanguageService.SelectedLanguage;
+            _languages = await Http.GetFromJsonAsync<List<Language>>("api/languages") ?? new();
+
+            if (_languages.Count == 0)
+            {
+                // fallback để UI không bị trống
+                _languages = new()
+                {
+                    new Language { Code = "vi", Name = "Tiếng Việt" },
+                    new Language { Code = "en", Name = "English" }
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi khởi tạo: {ex.Message}", Severity.Error);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+
+    }
+
+    private void OnAutoPlayChanged(bool value)
+    {
+        GeofenceService.ToggleAutoPlay(value);
+    }
+
+    private async Task OnLanguageChanged(string code)
+    {
+        await ChangeLanguage(code);
+    }
+
+    private async Task ChangeLanguage(string code)
+    {
+        _selectedLanguage = code;
+        LanguageService.SetLanguage(code);
+
+        // Nếu đang phát banner, phát lại đúng ngôn ngữ để chuyển ngôn ngữ không bị “đợi lần sau”.
+        if (GeofenceService.BannerVisible && GeofenceService.CurrentPoi != null)
+        {
+            var audio = GeofenceService.CurrentPoi.AudioFiles
+                .FirstOrDefault(a => a.LanguageCode == code)
+                ?? GeofenceService.CurrentPoi.AudioFiles.FirstOrDefault();
+
+            if (audio != null)
+            {
+                var t = 0.0;
+                try { t = await JS.InvokeAsync<double>("audioHelper.getCurrentTime"); } catch { }
+                await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, t < 10 ? 0 : t);
+                GeofenceService.SetAudioPlaying(true);
+                return;
+            }
+        }
+    }
+
+    private void Logout()
+    {
+        var auth = (MobileAuthStateProvider)AuthStateProvider;
+        auth.MarkUserAsLoggedOut();
+        NavigationManager.NavigateTo("/login");
+    }
+
+    }
+}
+

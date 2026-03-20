@@ -31,10 +31,12 @@ public class PoisController : ControllerBase
         [FromQuery] bool? isActive = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] string? search = null)
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] bool? onlyFeatured = null,
+        [FromQuery] bool? hasAudio = null,
+        [FromQuery] bool? onlyOpen = null)
     {
-        bool? finalIsActive = isActive.HasValue ? isActive : (onlyActive ? true : null);
-        return Ok(await _poiService.GetPoisPagedAsync(categoryId, lat, lng, radius, createdById, finalIsActive, pageNumber, pageSize, search));
+        return Ok(await _poiService.GetPoisPagedAsync(categoryId, lat, lng, radius, createdById, onlyActive, pageNumber, pageSize, searchTerm, onlyFeatured, hasAudio, onlyOpen));
     }
 
     /// <summary>
