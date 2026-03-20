@@ -8,6 +8,7 @@
 @inject ISnackbar Snackbar
 @inject LanguageService LanguageService
 @inject IJSRuntime JS
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <div class="poi-detail-container">
     @if (_loading)
@@ -93,9 +94,9 @@
                     </div>
                     <MudText Typo="Typo.caption" Class="mt-1">@LanguageService.T("Share")</MudText>
                 </div>
-                <div class="action-item">
-                    <div class="icon-circle info">
-                        <MudIcon Icon="@Icons.Material.Filled.FavoriteBorder" />
+                <div class="action-item" @onclick="ToggleFavorite">
+                    <div class="icon-circle @(_isFavorite ? "favorite-active" : "info")">
+                        <MudIcon Icon="@(_isFavorite ? Icons.Material.Filled.Favorite : Icons.Material.Filled.FavoriteBorder)" />
                     </div>
                     <MudText Typo="Typo.caption" Class="mt-1">@LanguageService.T("Favorite")</MudText>
                 </div>
@@ -303,6 +304,7 @@
     .icon-circle.secondary { background: linear-gradient(135deg, #FF4081, #FF80AB); }
     .icon-circle.success { background: linear-gradient(135deg, #4CAF50, #81C784); }
     .icon-circle.info { background: linear-gradient(135deg, #2196F3, #64B5F6); }
+    .icon-circle.favorite-active { background: linear-gradient(135deg, #ff4d4d, #f92c2c); box-shadow: 0 4px 15px rgba(255, 77, 77, 0.4); }
 
     .description-text {
         color: #555;
@@ -390,10 +392,27 @@
     private string _currentTime = "0:00";
     private string _duration = "0:00";
     private PoiAudioFile? _currentAudio;
+    private bool _isFavorite = false;
+    private int _userId = 0;
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var idClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        int.TryParse(idClaim, out _userId);
+
         await LoadPoi();
+        await CheckFavoriteStatus();
+    }
+
+    private async Task CheckFavoriteStatus()
+    {
+        if (_userId <= 0) return;
+        try
+        {
+            _isFavorite = await Http.GetFromJsonAsync<bool>($"api/favorites/check/{Id}");
+        }
+        catch { }
     }
 
     private async Task LoadPoi()
@@ -435,6 +454,38 @@
         // Mở app bản đồ (Google Maps hoặc Apple Maps)
         var uri = $"https://www.google.com/maps/dir/?api=1&destination={_poi.Latitude},{_poi.Longitude}";
         Launcher.Default.OpenAsync(new Uri(uri));
+    }
+
+    private async Task ToggleFavorite()
+    {
+        if (_userId <= 0)
+        {
+            // Logic cho Guest dùng Snackbar Action
+            Snackbar.Add("Bạn cần đăng nhập để lưu địa điểm này", Severity.Info, config => {
+                config.Action = "Đăng nhập ngay";
+                config.ActionColor = Color.Primary;
+                config.OnClick = snackbar => {
+                    NavigationManager.NavigateTo($"/login?returnUrl=/poi-details/{Id}");
+                    return Task.CompletedTask;
+                };
+            });
+            return;
+        }
+
+        try
+        {
+            var response = await Http.PostAsync($"api/favorites/toggle/{Id}", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<dynamic>();
+                _isFavorite = !_isFavorite;
+                Snackbar.Add(_isFavorite ? "Đã lưu vào danh sách yêu thích" : "Đã bỏ lưu", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Lỗi khi lưu địa điểm: " + ex.Message, Severity.Error);
+        }
     }
 
     private void StartVoiceGuide()

@@ -35,13 +35,13 @@
         </div>
 
         <div class="bottomnav-scan-item"
-             @onclick="@(() => NavigationManager.NavigateTo("/scan"))">
-            <div class="bottomnav-scan-button">
+            @onclick="@(() => NavigationManager.NavigateTo("/scan"))">
+            <div class="@(Active == "scan" ? "bottomnav-icon bottomnav-icon-active" : "bottomnav-icon")">
                 <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner"
-                         Style="color:white; font-size:1.55rem;" />
+                        Style="@(Active == "scan" ? "color:#0e6eb8; font-size:1.2rem;" : "color:#bbb; font-size:1.2rem;")" />
             </div>
             <MudText Typo="Typo.caption"
-                     Class="bottomnav-scan-text">
+                    Class="@(Active == "scan" ? "bottomnav-text bottomnav-text-active" : "bottomnav-text")">
                 @LanguageService.T("Scan")
             </MudText>
         </div>
@@ -107,33 +107,14 @@
 
     .bottomnav-scan-item {
         cursor: pointer;
-        min-width: 84px;
+        min-width: 60px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        margin-top: -10px;
     }
 
     .bottomnav-scan-item:active {
         opacity: 0.7;
-    }
-
-    .bottomnav-scan-button {
-        width: 56px;
-        height: 56px;
-        border-radius: 18px;
-        background: linear-gradient(135deg,#0e6eb8,#1a9de8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 10px 26px rgba(14,110,184,0.25);
-    }
-
-    .bottomnav-scan-text {
-        margin-top: 2px;
-        font-size: 0.65rem;
-        color: #0e6eb8;
-        font-weight: 700;
     }
 </style>
 

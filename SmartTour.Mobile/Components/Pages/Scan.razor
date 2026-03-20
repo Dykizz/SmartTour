@@ -143,7 +143,6 @@
     protected override async Task OnInitializedAsync()
     {
         // Đảm bảo audio phát khi QR kích hoạt
-        GeofenceService.AudioTriggered += OnAudioTriggered;
 
         try
         {
@@ -176,13 +175,7 @@
         }
     }
 
-    private async Task OnAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio, bool isManual)
-    {
-        if (isManual)
-            await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
-        else
-            await JS.InvokeVoidAsync("audioHelper.play", audio.FileUrl);
-    }
+    // Audio triggered globally by GeofenceBanner
 
     [JSInvokable]
     public async Task OnQrCodeDetected(string? rawValue)
@@ -274,7 +267,6 @@
     public async ValueTask DisposeAsync()
     {
         try { await JS.InvokeVoidAsync("qrHelper.stopScan"); } catch { }
-        GeofenceService.AudioTriggered -= OnAudioTriggered;
         _qrDotNetRef?.Dispose();
     }
 }

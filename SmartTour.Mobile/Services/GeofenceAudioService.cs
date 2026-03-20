@@ -25,7 +25,7 @@ public class GeofenceAudioService : IAsyncDisposable
 
     // --- Thêm biến trạng thái công tắc Auto-Play ---
     public bool IsAutoPlayEnabled { get; private set; } = true; // Mặc định bật theo yêu cầu thông thường, hoặc false nếu muốn user tự chọn
-
+    public event Func<Task>? PauseAudioRequested;
     public void ToggleAutoPlay(bool isEnabled)
     {
         IsAutoPlayEnabled = isEnabled;
@@ -34,6 +34,7 @@ public class GeofenceAudioService : IAsyncDisposable
         {
             // Chỉ tắt trạng thái phát nhạc, KHÔNG tắt BannerVisible
             IsAudioPlaying = false;
+            _ = PauseAudioRequested?.Invoke();
             System.Diagnostics.Debug.WriteLine("[Geofence] 🛑 User tắt AutoPlay -> Dừng nhạc, giữ banner chờ.");
         }
 
@@ -114,6 +115,31 @@ public class GeofenceAudioService : IAsyncDisposable
         _cts?.Cancel();
         System.Diagnostics.Debug.WriteLine("[GeofenceService] Đã dừng.");
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Reset toàn bộ trạng thái (Dùng khi LOGOUT).
+    /// </summary>
+    public async Task HardResetAsync()
+    {
+        // 1. Dừng vòng lặp GPS
+        await StopAsync();
+
+        // 2. Dọn sạch dữ liệu POI hiện tại
+        CurrentPoi = null;
+        CurrentLocationPoi = null;
+        BannerPoiName = string.Empty;
+        
+        // 3. Tắt cờ trạng thái
+        BannerVisible = false;
+        IsAudioPlaying = false;
+        
+        // 4. Xóa lịch sử đã phát
+        _playedPoiIds.Clear();
+        _insidePoiIds.Clear();
+
+        // 5. Báo cho UI (Banner) cập nhật để ẩn đi
+        BannerStateChanged?.Invoke();
     }
 
     /// <summary>
@@ -217,6 +243,7 @@ public class GeofenceAudioService : IAsyncDisposable
 
     private async Task CheckLocationAsync()
     {
+        if (!IsRunning) return;
         try
         {
             var request = new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(5));
@@ -260,6 +287,7 @@ public class GeofenceAudioService : IAsyncDisposable
             // --- Pass 2: Xử lý POI gần nhất ---
             if (closestPoi != null)
             {
+                if (!IsRunning) return;
                 // LUÔN CẬP NHẬT vị trí GPS hiện tại (không phụ thuộc audio)
                 CurrentLocationPoi = closestPoi;
 
@@ -275,7 +303,7 @@ public class GeofenceAudioService : IAsyncDisposable
                 }
 
                 // LOGIC TỰ ĐỘNG PHÁT: Phải BẬT công tắc, chưa phát trong lần vào vùng này, VÀ LOA ĐANG RẢNH
-                if (IsAutoPlayEnabled && !_playedPoiIds.Contains(closestPoi.Id) && !IsAudioPlaying)
+                if (IsAutoPlayEnabled && !_playedPoiIds.Contains(closestPoi.Id) && !IsAudioPlaying && IsRunning)
                 {
                     _playedPoiIds.Add(closestPoi.Id);
                     _insidePoiIds.Add(closestPoi.Id);
@@ -324,6 +352,7 @@ public class GeofenceAudioService : IAsyncDisposable
 
     private async Task TriggerNewAudio(PoiGeofenceDto poi, string langCode)
     {
+        if (!IsRunning) return;
         var audio = poi.AudioFiles.FirstOrDefault(a => a.LanguageCode == langCode)
                  ?? poi.AudioFiles.FirstOrDefault(a => a.LanguageCode == "vi")
                  ?? poi.AudioFiles.FirstOrDefault();
