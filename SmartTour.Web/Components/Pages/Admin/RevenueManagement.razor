@@ -10,7 +10,15 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8 mb-12">
     <div class="d-flex align-center justify-space-between mb-6">
-        <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Báo cáo Doanh thu</MudText>
+        <div class="d-flex align-center gap-3">
+            <MudAvatar Color="MudBlazor.Color.Primary" Variant="Variant.Filled" Size="MudBlazor.Size.Medium">
+                <MudIcon Icon="@Icons.Material.Filled.Insights" />
+            </MudAvatar>
+            <div>
+                <MudText Typo="Typo.h5" Style="font-weight: 700; letter-spacing: -0.5px;" Class="mb-1">Báo cáo Doanh thu</MudText>
+                <MudText Typo="Typo.body2" Color="MudBlazor.Color.Secondary">Phân tích hiệu suất bán gói dịch vụ</MudText>
+            </div>
+        </div>
         
         <div class="d-flex align-center gap-4">
             <MudSelect T="TimeRange" Label="Khoảng thời gian" @bind-Value="_selectedRange" @bind-Value:after="LoadData" Dense="true" Variant="Variant.Outlined" Style="width: 200px;" AnchorOrigin="Origin.BottomCenter">
@@ -36,18 +44,18 @@
             @for (int i = 0; i < 4; i++)
             {
                 <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="2" Class="pa-6 rounded-lg">
+                    <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl">
                         <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="60px" />
                     </MudPaper>
                 </MudItem>
             }
             <MudItem xs="12" md="8">
-                <MudPaper Elevation="2" Class="pa-6 rounded-lg" Height="450px">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl" Height="450px">
                     <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
                 </MudPaper>
             </MudItem>
             <MudItem xs="12" md="4">
-                <MudPaper Elevation="2" Class="pa-6 rounded-lg" Height="450px">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl" Height="450px">
                     <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
                 </MudPaper>
             </MudItem>
@@ -58,7 +66,7 @@
         <MudGrid>
             <!-- Thống kê tổng quan -->
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Elevation="2" Class="pa-6 rounded-lg d-flex align-center transition-zoom">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl d-flex align-center transition-zoom">
                     <div class="pa-3 rounded-lg mr-4 bg-light-primary text-primary">
                         <MudIcon Icon="@Icons.Material.Filled.Payments" />
                     </div>
@@ -70,7 +78,7 @@
             </MudItem>
             
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Elevation="2" Class="pa-6 rounded-lg d-flex align-center transition-zoom">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl d-flex align-center transition-zoom">
                     <div class="pa-3 rounded-lg mr-4 bg-light-success text-success">
                         <MudIcon Icon="@Icons.Material.Filled.ShoppingBag" />
                     </div>
@@ -82,7 +90,7 @@
             </MudItem>
 
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Elevation="2" Class="pa-6 rounded-lg d-flex align-center transition-zoom">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl d-flex align-center transition-zoom">
                     <div class="pa-3 rounded-lg mr-4 bg-light-warning text-warning">
                         <MudIcon Icon="@Icons.Material.Filled.Moving" />
                     </div>
@@ -94,7 +102,7 @@
             </MudItem>
 
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Elevation="2" Class="pa-6 rounded-lg d-flex align-center transition-zoom">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl d-flex align-center transition-zoom">
                     <div class="pa-3 rounded-lg mr-4 bg-light-purple text-purple">
                         <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" />
                     </div>
@@ -107,7 +115,7 @@
 
             <!-- Biểu đồ Doanh thu & Số đơn Kết hợp (ApexCharts) -->
             <MudItem xs="12" md="8">
-                <MudPaper Elevation="2" Class="pa-6 rounded-lg border-hover">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl border-hover">
                     <div class="mb-4">
                         <MudText Typo="Typo.h6" Style="font-weight: 700;">@GetChartTitle()</MudText>
                         <MudText Typo="Typo.body2" Class="mud-text-secondary">Hiệu suất Doanh thu & Đơn hàng</MudText>
@@ -142,7 +150,7 @@
 
             <!-- Tỷ trọng theo Gói -->
             <MudItem xs="12" md="4">
-                <MudPaper Elevation="2" Class="pa-6 rounded-lg border-hover" Style="min-height: 450px;">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl border-hover" Style="min-height: 450px;">
                     <div class="d-flex align-center mb-4">
                         <MudIcon Icon="@Icons.Material.Filled.PieChart" Class="mr-2" Color="MudBlazor.Color.Primary" />
                         <MudText Typo="Typo.h6" Style="font-weight: 700;">Tỷ trọng theo Gói</MudText>
@@ -171,7 +179,7 @@
 
             <!-- Danh sách giao dịch -->
             <MudItem xs="12">
-                <MudPaper Elevation="2" Class="pa-6 rounded-lg mt-4 border-hover">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl mt-4 border-hover">
                     <div class="d-flex align-center justify-space-between mb-4">
                         <div class="d-flex align-center">
                             <MudIcon Icon="@Icons.Material.Filled.ListAlt" Class="mr-2" Color="MudBlazor.Color.Primary" />
@@ -180,7 +188,7 @@
                         <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Primary" Size="MudBlazor.Size.Small" OnClick="LoadData" StartIcon="@Icons.Material.Filled.Refresh">Làm mới</MudButton>
                     </div>
                     <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<Payment>>>(ServerReload))" 
-                              Hover="true" Breakpoint="MudBlazor.Breakpoint.Sm" Elevation="0" Striped="true" FixedHeader="true" Height="400px" @ref="_table">
+                              Hover="true" Breakpoint="MudBlazor.Breakpoint.Sm" Elevation="0" Outlined="true" Class="rounded-xl overflow-hidden mt-4" Striped="true" FixedHeader="true" Height="400px" @ref="_table">
                         <HeaderContent>
                             <MudTh>Ngày</MudTh>
                             <MudTh>Khách hàng</MudTh>

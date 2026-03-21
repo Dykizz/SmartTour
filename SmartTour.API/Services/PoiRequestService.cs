@@ -96,6 +96,23 @@ public class PoiRequestService : IPoiRequestService
 
     public async Task<PoiRequest> SubmitRequestAsync(PoiRequest request, int userId)
     {
+        if (request.Type == RequestType.Create)
+        {
+            var subscription = await _context.Subscriptions
+                .Include(s => s.ServicePackage)
+                .FirstOrDefaultAsync(s => s.UserId == userId);
+
+            int maxPoi = subscription?.ServicePackage?.MaxPoiAllowed ?? 0;
+            int approvedPois = await _context.Pois.CountAsync(p => p.CreatedById == userId);
+            int pendingCreateRequests = await _context.PoiRequests.CountAsync(
+                r => r.UserId == userId && r.Status == RequestStatus.Pending && r.Type == RequestType.Create);
+
+            if (approvedPois + pendingCreateRequests >= maxPoi)
+            {
+                throw new InvalidOperationException($"Bạn đã đạt giới hạn tối đa {maxPoi} điểm đến (Bao gồm POI đã duyệt và đang chờ duyệt). Vui lòng nâng cấp gói để tiếp tục tạo mới.");
+            }
+        }
+
         request.UserId = userId;
         request.Status = RequestStatus.Pending;
         request.CreatedAt = DateTime.UtcNow;
@@ -170,6 +187,23 @@ public class PoiRequestService : IPoiRequestService
 
         // Cho phép sửa nếu đang Pending hoặc Rejected
         if (request.Status == RequestStatus.Approved) return false;
+
+        if (request.Status == RequestStatus.Rejected && request.Type == RequestType.Create)
+        {
+            var subscription = await _context.Subscriptions
+                .Include(s => s.ServicePackage)
+                .FirstOrDefaultAsync(s => s.UserId == userId);
+
+            int maxPoi = subscription?.ServicePackage?.MaxPoiAllowed ?? 0;
+            int approvedPois = await _context.Pois.CountAsync(p => p.CreatedById == userId);
+            int pendingCreateRequests = await _context.PoiRequests.CountAsync(
+                r => r.UserId == userId && r.Status == RequestStatus.Pending && r.Type == RequestType.Create);
+
+            if (approvedPois + pendingCreateRequests >= maxPoi)
+            {
+                throw new InvalidOperationException($"Bạn đã đạt giới hạn tối đa {maxPoi} điểm đến (Bao gồm POI đã duyệt và đang chờ duyệt). Vui lòng nâng cấp gói để gửi lại yêu cầu tạo mới.");
+            }
+        }
 
         request.RequestData = requestData;
         request.Status = RequestStatus.Pending; // Gửi lại thì thành Pending

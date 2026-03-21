@@ -1,0 +1,310 @@
+@page "/profile"
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using SmartTour.Shared.Models
+@inject AuthenticationStateProvider AuthProvider
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Hồ sơ cá nhân - SmartTour</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8 mb-12">
+    <div class="d-flex align-center gap-3 mb-6">
+        <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Medium">
+            <MudIcon Icon="@Icons.Material.Filled.AccountCircle" />
+        </MudAvatar>
+        <div>
+            <MudText Typo="Typo.h5" Style="font-weight: 700; letter-spacing: -0.5px;" Class="mb-1">Hồ sơ cá nhân</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Quản lý thông tin tài khoản và hệ thống</MudText>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl">
+                    <MudSkeleton SkeletonType="SkeletonType.Circle" Width="100px" Height="100px" Class="mx-auto mb-4"/>
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="30px" Class="mb-2"/>
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="20px" Width="50%" Class="mx-auto"/>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl">
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+    else if (_user != null)
+    {
+        <MudGrid>
+            <!-- Cột Avatar & Thông tin cơ bản -->
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl d-flex flex-column align-center text-center bg-gray-50 h-100">
+                    <MudAvatar Color="Color.Primary" Style="width: 100px; height: 100px; font-size: 2.5rem;" Class="mb-4 shadow-sm">
+                        @(_user.Identity?.Name?.FirstOrDefault().ToString().ToUpper() ?? "U")
+                    </MudAvatar>
+                    
+                    <MudText Typo="Typo.h5" Style="font-weight: 700;">@_user.Identity?.Name</MudText>
+                    
+                    <div class="mt-2 text-center">
+                        <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Variant="Variant.Filled" Class="mb-2">
+                            @(GetRoleName())
+                        </MudChip>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">ID Hệ thống: @_userId</MudText>
+                    </div>
+
+                    <MudDivider Class="w-100 my-6"/>
+
+                    <div class="w-100 text-left">
+                        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mb-1">PHÂN QUYỀN & DỊCH VỤ</MudText>
+                        
+                        @if (IsAdmin)
+                        {
+                            <MudPaper Elevation="0" Outlined="true" Class="pa-4 rounded-lg overflow-hidden border-2 border-primary mt-2 bg-gray-50 d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Color="Color.Primary" Size="Size.Large" Class="mr-3" />
+                                <div>
+                                    <MudText Typo="Typo.body1" Style="font-weight: 700;" Color="Color.Primary">Quản trị viên</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Toàn quyền hệ thống</MudText>
+                                </div>
+                            </MudPaper>
+                        }
+                        else if (_subscription != null && _subscription.ServicePackage != null)
+                        {
+                            <MudPaper Elevation="0" Class="pa-3 rounded-lg overflow-hidden border-2 border-warning mt-2 bg-white">
+                                <div class="d-flex align-center justify-space-between mb-2">
+                                    <MudText Typo="Typo.body1" Style="font-weight: 700; color: var(--mud-palette-warning);">@_subscription.ServicePackage.Name</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.WorkspacePremium" Color="Color.Warning" Size="Size.Small" />
+                                </div>
+                                <MudText Typo="Typo.body2" Class="mb-1">Giá: <b>@_subscription.ServicePackage.Price.ToString("N0") VND</b></MudText>
+                                <MudText Typo="Typo.body2" Class="mb-1">Hạn dùng: <b>@_subscription.EndDate.ToString("dd/MM/yyyy")</b></MudText>
+                                <MudText Typo="Typo.body2">Max POI: <b>@_subscription.ServicePackage.MaxPoiAllowed</b></MudText>
+                            </MudPaper>
+                            
+                            <MudButton Variant="Variant.Filled" Color="Color.Warning" FullWidth="true" Class="mt-4 rounded-lg font-bold" DropShadow="false" OnClick="@(() => Navigation.NavigateTo("/pricing"))">
+                                Nâng cấp gói
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Normal" Variant="Variant.Outlined" Class="mt-2 rounded-lg pa-2">
+                                Đang sử dụng gói Miễn phí.
+                            </MudAlert>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4 rounded-lg font-bold" DropShadow="false" OnClick="@(() => Navigation.NavigateTo("/pricing"))">
+                                Xem bảng giá nâng cấp
+                            </MudButton>
+                        }
+                    </div>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Cột cập nhật thông tin -->
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl h-100">
+                    <div class="d-flex align-center mb-6">
+                        <MudIcon Icon="@Icons.Material.Filled.Insights" Color="Color.Primary" Class="mr-2" />
+                        <MudText Typo="Typo.h6" Style="font-weight: 700;">Thống kê hoạt động</MudText>
+                    </div>
+                    
+                    <MudGrid Class="mb-8" Spacing="3">
+                        @if (IsAdmin)
+                        {
+                            <!-- Stat 1: Tổng số POI Admin -->
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Elevation="0" Outlined="true" Class="pa-4 rounded-lg d-flex flex-column align-center justify-center text-center h-100 bg-gray-50" Style="min-height: 140px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Medium" Class="mb-2" Color="Color.Primary" />
+                                    <MudText Typo="Typo.h5" Style="font-weight: 700;" Color="Color.Primary">@_poiCount</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Tổng POI trên hệ thống</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <!-- Stat 2: Thời gian hoạt động -->
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Elevation="0" Outlined="true" Class="pa-4 rounded-lg d-flex flex-column align-center justify-center text-center h-100 bg-gray-50" Style="min-height: 140px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Size="Size.Medium" Class="mb-2" Color="Color.Success" />
+                                    <MudText Typo="Typo.h6" Style="font-weight: 700;" Color="Color.Success">@GetJoinDuration()</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Thời gian quản trị</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                        else
+                        {
+                            <!-- Stat 1: Tổng số POI -->
+                            <MudItem xs="12" sm="4">
+                                <MudPaper Elevation="0" Outlined="true" Class="pa-4 rounded-lg d-flex flex-column align-center justify-center text-center h-100 bg-gray-50" Style="min-height: 140px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Medium" Class="mb-2" Color="Color.Primary" />
+                                    <MudText Typo="Typo.h5" Style="font-weight: 700;" Color="Color.Primary">@_poiCount</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Tổng POI hiện có</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <!-- Stat 2: Thời gian tham gia -->
+                            <MudItem xs="12" sm="4">
+                                <MudPaper Elevation="0" Outlined="true" Class="pa-4 rounded-lg d-flex flex-column align-center justify-center text-center h-100 bg-gray-50" Style="min-height: 140px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Size="Size.Medium" Class="mb-2" Color="Color.Success" />
+                                    <MudText Typo="Typo.h6" Style="font-weight: 700;" Color="Color.Success">@GetJoinDuration()</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Tham gia hệ thống</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <!-- Stat 3: Gói hiện tại -->
+                            <MudItem xs="12" sm="4">
+                                <MudPaper Elevation="0" Outlined="true" Class="pa-4 rounded-lg d-flex flex-column align-center justify-center text-center h-100 bg-gray-50" Style="min-height: 140px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Medium" Class="mb-2" Color="Color.Warning" />
+                                    <MudText Typo="Typo.h5" Style="font-weight: 700;" Color="Color.Warning">@GetPackageDuration()</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Đã dùng gói hiện tại</MudText>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <div class="d-flex align-center mb-6">
+                        <MudIcon Icon="@Icons.Material.Filled.Settings" Color="Color.Primary" Class="mr-2" />
+                        <MudText Typo="Typo.h6" Style="font-weight: 700;">Thông tin tài khoản</MudText>
+                    </div>
+
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Value="@(_user.Identity?.Name)" Label="Họ tên / Tên đăng nhập" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField Value="@(_email)" Label="Email" Variant="Variant.Outlined" ReadOnly="true"/>
+                        </MudItem>
+                        
+                    </MudGrid>
+
+                    <div class="d-flex align-center justify-end mt-8">
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.Logout" Class="px-6 rounded-lg font-bold" DropShadow="false" OnClick="@(() => Navigation.NavigateTo("/account/logout", forceLoad: true))">
+                            Đăng xuất
+                        </MudButton>
+                    </div>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+<style>
+    .bg-gray-50 {
+        background-color: #f9fafb !important;
+    }
+    .font-bold {
+         font-weight: 700 !important;
+    }
+    .border-2 {
+        border-width: 2px !important;
+        border-style: solid !important;
+    }
+    .border-warning {
+        border-color: var(--mud-palette-warning) !important;
+    }
+</style>
+
+@code {
+    private bool _loading = true;
+    private ClaimsPrincipal? _user;
+    private bool IsAdmin => _user?.FindAll(ClaimTypes.Role)
+                             .Select(c => c.Value)
+                             .FirstOrDefault(v => !int.TryParse(v, out _))?.ToUpper() == "ADMIN";
+
+    private string? _userId;
+    private string? _email;
+    private Subscription? _subscription;
+    private int _poiCount = 0;
+    private UserDto? _userInfo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            _user = authState.User;
+
+            if (_user.Identity?.IsAuthenticated == true)
+            {
+                _userId = _user.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                          ?? _user.FindFirst("UserId")?.Value;
+                
+                _email = _user.FindFirst(ClaimTypes.Email)?.Value 
+                         ?? _user.FindFirst("Email")?.Value
+                         ?? "Không xác định";
+
+                if (!string.IsNullOrEmpty(_userId))
+                {
+                    try
+                    {
+                        var taskUser = Http.GetFromJsonAsync<UserDto>($"api/users/{_userId}");
+                        var poiApi = IsAdmin ? "api/pois/count" : $"api/pois/count?createdById={_userId}";
+                        var taskPoi = Http.GetFromJsonAsync<int>(poiApi);
+                        
+                        // Execute tasks safely
+                        if (!IsAdmin)
+                        {
+                            try { _subscription = await Http.GetFromJsonAsync<Subscription>($"api/subscriptions/user/{_userId}"); } catch { }
+                        }
+                        try { _poiCount = await taskPoi; } catch {  }
+                        try { _userInfo = await taskUser; } catch { }
+                    }
+                    catch { /* Tạm bỏ qua nếu errors */ }
+                }
+            }
+            else
+            {
+                Navigation.NavigateTo("/login");
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string GetJoinDuration()
+    {
+        if (_userInfo == null) return "N/A";
+        
+        var duration = DateTime.UtcNow - _userInfo.CreatedAt.ToUniversalTime();
+        if (duration.TotalDays <= 0) return "Chưa tới 1 ngày";
+
+        int years = (int)(duration.TotalDays / 365);
+        int months = (int)((duration.TotalDays % 365) / 30);
+        int days = (int)((duration.TotalDays % 365) % 30);
+
+        List<string> parts = new();
+        if (years > 0) parts.Add($"{years} năm");
+        if (months > 0) parts.Add($"{months} tháng");
+        if (days > 0 || parts.Count == 0) parts.Add($"{days} ngày");
+
+        return string.Join(" ", parts);
+    }
+
+    private string GetPackageDuration()
+    {
+        if (_subscription == null) return "N/A";
+
+        var duration = DateTime.UtcNow - _subscription.StartDate;
+        int days = (int)duration.TotalDays;
+        return days <= 0 ? "Chưa tới 1 ngày" : $"{days} ngày";
+    }
+
+    private string GetRoleName()
+    {
+        var role = _user?.FindAll(ClaimTypes.Role)
+                         .Select(c => c.Value)
+                         .FirstOrDefault(v => !int.TryParse(v, out _));
+        
+        return role?.ToUpper() switch
+        {
+            "ADMIN" => "QUẢN TRỊ VIÊN",
+            "SELLER" => "ĐỐI TÁC",
+            "VISITOR" => "KHÁCH THAM QUAN",
+            _ => role ?? "HOẠT ĐỘNG"
+        };
+    }
+}

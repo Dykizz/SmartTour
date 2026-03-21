@@ -8,16 +8,50 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8 mb-12">
     <div class="d-flex align-center justify-space-between mb-6">
-        <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Quản lý Người dùng</MudText>
+        <div class="d-flex align-center gap-3">
+            <MudAvatar Color="Color.Info" Variant="Variant.Filled" Size="Size.Medium">
+                <MudIcon Icon="@Icons.Material.Filled.People" />
+            </MudAvatar>
+            <div>
+                <MudText Typo="Typo.h5" Style="font-weight: 700; letter-spacing: -0.5px;" Class="mb-1">Quản lý Người dùng</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Theo dõi và phân quyền các tài khoản hệ thống</MudText>
+            </div>
+        </div>
     </div>
 
-    <MudPaper Elevation="2" Class="pa-4 mt-4 rounded-lg" Style="width: 100%;">
-        <MudTabs Elevation="0" Rounded="true" PanelClass="pt-4" Style="width: 100%;" @bind-ActivePanelIndex="_activeTab">
+    <MudPaper Elevation="0" Outlined="true" Class="pa-4 mb-4 rounded-xl bg-gray-50">
+        <div class="d-flex flex-wrap align-center gap-4">
+            <MudTextField T="string" Value="@_searchString" ValueChanged="OnSearchDebounced"
+                          Placeholder="Tìm kiếm tên, email..."
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          IconSize="Size.Medium" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Immediate="true" DebounceInterval="500" 
+                          Clearable="true" OnClearButtonClick="ResetFilters"
+                          Style="background-color: white; min-width: 250px; max-width: 350px;" />
+
+            <MudSelect T="int?" Value="@_filterPackageId" ValueChanged="@(async v => await OnPackageChanged(v))"
+                       Placeholder="Tất cả gói dịch vụ" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Clearable="true" Style="background-color: white; min-width: 220px;">
+                <MudSelectItem T="int?" Value="@((int?)0)">Chưa có gói / Hết hạn</MudSelectItem>
+                @if (_packages != null)
+                {
+                    @foreach (var pkg in _packages)
+                    {
+                        <MudSelectItem T="int?" Value="@pkg.Id">@pkg.Name</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+
+            <MudButton Variant="Variant.Outlined" Color="MudBlazor.Color.Default" StartIcon="@Icons.Material.Filled.FilterListOff" OnClick="ResetFilters">Bỏ lọc</MudButton>
+        </div>
+    </MudPaper>
+
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4" Style="border: 1px solid var(--mud-palette-divider);" @bind-ActivePanelIndex="_activeTab">
             <MudTabPanel Text="Tất cả" Icon="@Icons.Material.Filled.People"
                          BadgeData="@(_allCount > 0 ? _allCount.ToString() : null)"
                          BadgeColor="MudBlazor.Color.Primary">
                 <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<UserDto>>>((s, t) => ServerReload(s, 0)))"
-                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" @ref="_tableAll" Style="width: 100%;">
+                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true" Class="rounded-xl bg-white" @ref="_tableAll" Style="width: 100%;">
                     <HeaderContent>
                         <MudTh>STT</MudTh>
                         <MudTh>Tên</MudTh>
@@ -47,7 +81,7 @@
                          BadgeData="@(_sellerCount > 0 ? _sellerCount.ToString() : null)"
                          BadgeColor="MudBlazor.Color.Secondary">
                 <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<UserDto>>>((s, t) => ServerReload(s, 2)))"
-                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" @ref="_tableSeller" Style="width: 100%;">
+                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true" Class="rounded-xl bg-white" @ref="_tableSeller" Style="width: 100%;">
                     <HeaderContent>
                         <MudTh>STT</MudTh>
                         <MudTh>Tên</MudTh>
@@ -77,7 +111,7 @@
                          BadgeData="@(_visitorCount > 0 ? _visitorCount.ToString() : null)"
                          BadgeColor="MudBlazor.Color.Info">
                 <MudTable ServerData="@(new Func<TableState, CancellationToken, Task<TableData<UserDto>>>((s, t) => ServerReload(s, 3)))"
-                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" @ref="_tableVisitor" Style="width: 100%;">
+                          Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true" Class="rounded-xl bg-white" @ref="_tableVisitor" Style="width: 100%;">
                     <HeaderContent>
                         <MudTh>STT</MudTh>
                         <MudTh>Tên</MudTh>
@@ -102,8 +136,7 @@
                     <LoadingContent><MudText>Đang tải dữ liệu...</MudText></LoadingContent>
                 </MudTable>
             </MudTabPanel>
-        </MudTabs>
-    </MudPaper>
+    </MudTabs>
 </MudContainer>
 
 @code {
@@ -115,14 +148,59 @@
     private List<UserDto> _usersSeller = new();
     private List<UserDto> _usersVisitor = new();
 
-    protected override async Task OnInitializedAsync() => await LoadCounts();
+    private List<ServicePackage> _packages = new();
+    private string _searchString = string.Empty;
+    private int? _filterPackageId = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try 
+        { 
+            var p = await Http.GetFromJsonAsync<List<ServicePackage>>("api/servicepackages"); 
+            if (p != null) _packages = p;
+        } 
+        catch {}
+
+        await LoadCounts();
+    }
+
+    private async Task OnSearchDebounced(string text)
+    {
+        _searchString = text;
+        await InvokeFiltersChanged();
+    }
+
+    private async Task OnPackageChanged(int? packageId)
+    {
+        _filterPackageId = packageId;
+        await InvokeFiltersChanged();
+    }
+
+    private async Task ResetFilters()
+    {
+        _searchString = string.Empty;
+        _filterPackageId = null;
+        await InvokeFiltersChanged();
+    }
+
+    private async Task InvokeFiltersChanged()
+    {
+        await LoadCounts();
+        if (_tableAll != null) await _tableAll.ReloadServerData();
+        if (_tableSeller != null) await _tableSeller.ReloadServerData();
+        if (_tableVisitor != null) await _tableVisitor.ReloadServerData();
+    }
 
     private async Task LoadCounts()
     {
         try 
         {
             var t = DateTime.UtcNow.Ticks;
-            var counts = await Http.GetFromJsonAsync<Dictionary<int, int>>($"api/users/counts?t={t}");
+            var url = $"api/users/counts?t={t}";
+            if (!string.IsNullOrWhiteSpace(_searchString)) url += $"&searchTerm={Uri.EscapeDataString(_searchString)}";
+            if (_filterPackageId.HasValue) url += $"&packageId={_filterPackageId.Value}";
+
+            var counts = await Http.GetFromJsonAsync<Dictionary<int, int>>(url);
             
             if (counts != null)
             {
@@ -140,6 +218,9 @@
         try
         {
             var url = $"api/users?roleId={roleId}&pageNumber={state.Page + 1}&pageSize={state.PageSize}&t={DateTime.UtcNow.Ticks}";
+            if (!string.IsNullOrWhiteSpace(_searchString)) url += $"&searchTerm={Uri.EscapeDataString(_searchString)}";
+            if (_filterPackageId.HasValue) url += $"&packageId={_filterPackageId.Value}";
+
             var response = await Http.GetFromJsonAsync<PagedResponse<UserDto>>(url);
 
             if (response != null && response.Items != null)

@@ -4,18 +4,25 @@
 @inject ISnackbar Snackbar
 
 <MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Class="mr-2"/>
+            <MudText Typo="Typo.h6" Style="font-weight: 700;">Từ chối yêu cầu</MudText>
+        </div>
+    </TitleContent>
     <DialogContent>
-        <MudText Class="mb-4">
-            Nhập lý do từ chối yêu cầu của <b>@RequesterName</b>:
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Nhập lý do từ chối yêu cầu của <b style="color:var(--mud-palette-text-primary);">@RequesterName</b>. Lý do sẽ được gửi cho tác giả.
         </MudText>
-        <MudTextField @bind-Value="_note" Label="Lý do từ chối" Lines="3"
+        <MudTextField @bind-Value="_note" Label="Lý do chi tiết" Lines="3"
                       Variant="Variant.Outlined" Required="true"
+                      Placeholder="Vd: Tên điểm đến chưa rõ ràng, ảnh mờ..."
                       RequiredError="Vui lòng nhập lý do" />
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Variant="Variant.Text">Hủy</MudButton>
+        <MudButton OnClick="Cancel" Variant="Variant.Outlined" Color="Color.Default" Class="px-6 rounded-lg">Hủy</MudButton>
         <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="SubmitReject"
-                   Disabled="string.IsNullOrWhiteSpace(_note)">Xác nhận từ chối</MudButton>
+                   Disabled="string.IsNullOrWhiteSpace(_note)" Class="px-6 rounded-lg ml-2" DropShadow="false">Từ chối</MudButton>
     </DialogActions>
 </MudDialog>
 

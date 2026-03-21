@@ -8,17 +8,21 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-8">
     <div class="d-flex align-center justify-space-between mb-6">
-        <div>
-            <MudText Typo="Typo.h5" Style="font-weight: 700;" Class="mb-1">Quản lý Gói dịch vụ</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Quản lý các gói thanh toán và giới hạn trên hệ thống</MudText>
+        <div class="d-flex align-center gap-3">
+            <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Medium">
+                <MudIcon Icon="@Icons.Material.Filled.CardGiftcard" />
+            </MudAvatar>
+            <div>
+                <MudText Typo="Typo.h5" Style="font-weight: 700; letter-spacing: -0.5px;" Class="mb-1">Quản lý Gói dịch vụ</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Quản lý các gói thanh toán và giới hạn trên hệ thống</MudText>
+            </div>
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => OpenDialog()">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => OpenDialog()" Class="px-6 rounded-lg" DropShadow="false">
             Thêm gói mới
         </MudButton>
     </div>
 
-    <MudPaper Elevation="2" Class="pa-4 mt-4 rounded-lg">
-        <MudTable Items="@_packages" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0">
+    <MudTable Items="@_packages" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@_loading" Elevation="0" Outlined="true" Class="rounded-xl overflow-hidden bg-white mt-4">
             <HeaderContent>
                 <MudTh>Tên gói</MudTh>
                 <MudTh>Giá (VND)</MudTh>
@@ -58,7 +62,6 @@
                 <MudText>Chưa có gói dịch vụ nào. Hãy thêm mới!</MudText>
             </NoRecordsContent>
         </MudTable>
-    </MudPaper>
 </MudContainer>
 
 @code {
@@ -92,7 +95,7 @@
         };
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<ServicePackageDetailDialog>("Chi tiết gói dịch vụ", parameters, options);
+        var dialog = await DialogService.ShowAsync<ServicePackageDetailDialog>("", parameters, options);
         var result = await dialog.Result;
 
         if (result is { Canceled: false })
@@ -132,7 +135,7 @@
         };
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<ServicePackageDialog>(isEdit ? "Chỉnh sửa gói" : "Thêm gói mới", parameters, options);
+        var dialog = await DialogService.ShowAsync<ServicePackageDialog>("", parameters, options);
         var result = await dialog.Result;
 
         if (result is { Canceled: false })

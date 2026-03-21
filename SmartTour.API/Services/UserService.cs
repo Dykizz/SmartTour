@@ -18,7 +18,7 @@ public class UserService : IUserService
         _context = context;
     }
 
-    public async Task<PagedResponse<UserDto>> GetUsersPagedAsync(int roleId = 0, int pageNumber = 1, int pageSize = 10)
+    public async Task<PagedResponse<UserDto>> GetUsersPagedAsync(int roleId = 0, string? searchTerm = null, int? packageId = null, int pageNumber = 1, int pageSize = 10)
     {
         var query = _context.Users
             .Include(u => u.Role)
@@ -32,6 +32,29 @@ public class UserService : IUserService
         {
             // Mặc định không lấy ADMIN ra danh sách (tuỳ chỉnh nếu cần)
             query = query.Where(u => u.RoleId != 1);
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(u => u.FullName.Contains(searchTerm) || u.Email.Contains(searchTerm));
+        }
+
+        if (packageId.HasValue)
+        {
+            if (packageId.Value == 0)
+            {
+                var allActiveUserIds = _context.Subscriptions
+                    .Where(s => s.StartDate <= DateTime.UtcNow && s.EndDate >= DateTime.UtcNow)
+                    .Select(s => s.UserId);
+                query = query.Where(u => !allActiveUserIds.Contains(u.Id));
+            }
+            else
+            {
+                var activePackageUserIds = _context.Subscriptions
+                    .Where(s => s.PackageId == packageId.Value && s.StartDate <= DateTime.UtcNow && s.EndDate >= DateTime.UtcNow)
+                    .Select(s => s.UserId);
+                query = query.Where(u => activePackageUserIds.Contains(u.Id));
+            }
         }
 
         var totalCount = await query.CountAsync();
@@ -80,10 +103,33 @@ public class UserService : IUserService
         };
     }
 
-    public async Task<Dictionary<int, int>> GetUserRoleCountsAsync()
+    public async Task<Dictionary<int, int>> GetUserRoleCountsAsync(string? searchTerm = null, int? packageId = null)
     {
         // Exclude admin (roleId = 1) from general counts as done in GetUsersPagedAsync
         var query = _context.Users.AsNoTracking().Where(u => u.RoleId != 1); 
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(u => u.FullName.Contains(searchTerm) || u.Email.Contains(searchTerm));
+        }
+
+        if (packageId.HasValue)
+        {
+            if (packageId.Value == 0)
+            {
+                var allActiveUserIds = _context.Subscriptions
+                    .Where(s => s.StartDate <= DateTime.UtcNow && s.EndDate >= DateTime.UtcNow)
+                    .Select(s => s.UserId);
+                query = query.Where(u => !allActiveUserIds.Contains(u.Id));
+            }
+            else
+            {
+                var activePackageUserIds = _context.Subscriptions
+                    .Where(s => s.PackageId == packageId.Value && s.StartDate <= DateTime.UtcNow && s.EndDate >= DateTime.UtcNow)
+                    .Select(s => s.UserId);
+                query = query.Where(u => activePackageUserIds.Contains(u.Id));
+            }
+        }
 
         var roleCounts = await query
             .GroupBy(u => u.RoleId)
