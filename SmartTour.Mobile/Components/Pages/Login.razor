@@ -183,10 +183,11 @@
                 {
 
                     result.Properties.TryGetValue("userId", out var userId);
+                    result.Properties.TryGetValue("name", out var fullName);
 
                     var auth = (MobileAuthStateProvider)AuthStateProvider;
 
-                    auth.MarkUserAsAuthenticated(email, userId ?? "");
+                    auth.MarkUserAsAuthenticated(email, userId ?? "", fullName ?? "");
 
                     NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl);
 

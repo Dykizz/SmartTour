@@ -78,13 +78,13 @@ public class GeofenceAudioService : IAsyncDisposable
         if (IsRunning) return;
 
         // --- Kiểm tra và xin quyền GPS runtime (bắt buộc chạy trên Main UI Thread của Mobile) ---
-        var status = await MainThread.InvokeOnMainThreadAsync(async () => 
+        var status = await MainThread.InvokeOnMainThreadAsync(async () =>
             await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>());
 
         if (status != PermissionStatus.Granted)
         {
             System.Diagnostics.Debug.WriteLine("[GeofenceService] Đang xin quyền GPS...");
-            status = await MainThread.InvokeOnMainThreadAsync(async () => 
+            status = await MainThread.InvokeOnMainThreadAsync(async () =>
                 await Permissions.RequestAsync<Permissions.LocationWhenInUse>());
         }
 
@@ -132,11 +132,11 @@ public class GeofenceAudioService : IAsyncDisposable
         CurrentPoi = null;
         CurrentLocationPoi = null;
         BannerPoiName = string.Empty;
-        
+
         // 3. Tắt cờ trạng thái
         BannerVisible = false;
         IsAudioPlaying = false;
-        
+
         // 4. Xóa lịch sử đã phát
         _playedPoiIds.Clear();
         _insidePoiIds.Clear();
@@ -213,7 +213,7 @@ public class GeofenceAudioService : IAsyncDisposable
             if (pois != null)
             {
                 string baseUrl = http.BaseAddress?.ToString().TrimEnd('/') ?? "";
-                
+
                 foreach (var p in pois)
                 {
                     foreach (var a in p.AudioFiles)

@@ -1,0 +1,285 @@
+@page "/profile/edit"
+@using MudBlazor
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Authorization
+@using SmartTour.Mobile.Services
+@using SmartTour.Shared.Models
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject LanguageService LanguageService
+@attribute [Authorize]
+@implements IDisposable
+
+<MudAppBar Elevation="0" Dense="true"
+           Style="background:linear-gradient(135deg,#0e6eb8 0%,#1a9de8 100%); z-index:200;">
+    <div class="appbar-icon-btn" @onclick="@(() => NavigationManager.NavigateTo("/profile"))">
+        <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Style="color:white; font-size:1.1rem;" />
+    </div>
+    <MudSpacer />
+    <MudText Style="font-size:0.95rem; font-weight:600; color:white;">
+        @LanguageService.T("PersonalInfo")
+    </MudText>
+    <MudSpacer />
+    <div class="appbar-icon-btn" style="visibility:hidden;">
+        <MudIcon Icon="@Icons.Material.Filled.Check" Style="color:white; font-size:1.1rem;" />
+    </div>
+</MudAppBar>
+
+<MudMainContent Style="background:white; min-height:100vh;">
+    <div class="pa-4 pt-8">
+        <!-- Avatar Section -->
+        <div class="d-flex flex-column align-center mb-8">
+            <div class="edit-avatar-wrapper">
+                @if (_isUploading)
+                {
+                    <div class="avatar-loading">
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
+                    </div>
+                }
+                <MudAvatar Image="@(string.IsNullOrEmpty(_user.AvatarUrl) ? "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200&h=200" : _user.AvatarUrl)"
+                           Style="width:110px; height:110px; border-radius:38px; border:3px solid #f1f5f9; box-shadow:0 8px 20px rgba(0,0,0,0.06);" />
+                <div class="avatar-edit-btn" @onclick="ChangeAvatar">
+                    <MudIcon Icon="@Icons.Material.Filled.CameraAlt" Size="Size.Small" Style="color:white;" />
+                </div>
+            </div>
+            <MudText Typo="Typo.caption" Style="color:#64748b; margin-top:12px; font-weight:600;">@LanguageService.T("ChangeAvatarHint")</MudText>
+        </div>
+
+        <!-- Form -->
+        <div class="edit-form gap-6 d-flex flex-column">
+            <MudTextField T="string" Label="@LanguageService.T("FullNameLabel")" @bind-Value="_user.FullName"
+                          Variant="Variant.Outlined" For="@(() => _user.FullName)"
+                          HelperText="@LanguageService.T("FullNameHint")"
+                          Class="custom-field" />
+
+            <MudTextField T="string" Label="@LanguageService.T("EmailLabel")" @bind-Value="_user.Email"
+                          Variant="Variant.Outlined" ReadOnly="true"
+                          HelperText="@LanguageService.T("LockEmailHint")"
+                          Class="custom-field readonly-field"
+                          Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Lock" AdornmentColor="Color.Default" />
+
+            <div class="mt-8">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           Disabled="_isSaving"
+                           Style="border-radius:18px; height:56px; text-transform:none; font-weight:700; background:linear-gradient(135deg,#0e6eb8,#1a9de8); box-shadow:0 10px 20px rgba(14,110,184,0.2);"
+                           OnClick="SaveProfile">
+                    @if (_isSaving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>@LanguageService.T("Saving")</span>
+                    }
+                    else
+                    {
+                        <span>@LanguageService.T("SaveChange")</span>
+                    }
+                </MudButton>
+            </div>
+        </div>
+    </div>
+</MudMainContent>
+
+<style>
+    .appbar-icon-btn {
+        width: 32px; height: 32px; border-radius: 10px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+    }
+
+    .edit-avatar-wrapper {
+        position: relative;
+    }
+
+    .avatar-edit-btn {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 34px;
+        height: 34px;
+        background: #0e6eb8;
+        border: 3px solid white;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(14,110,184,0.3);
+    }
+
+    .custom-field .mud-input-outlined-border {
+        border-radius: 16px !important;
+        border-color: #e1e9f5 !important;
+    }
+    .custom-field.mud-input-focus .mud-input-outlined-border {
+        border-color: #0e6eb8 !important;
+    }
+    .readonly-field {
+        background: #f8fafc;
+        border-radius: 16px;
+    }
+
+    .edit-form .mud-input-helper-text {
+        font-size: 0.72rem;
+        color: #94a3b8;
+        margin-top: 4px;
+        margin-left: 4px;
+    }
+    .avatar-edit-container {
+        position: relative;
+        display: inline-block;
+    }
+    .avatar-edit-btn {
+        position: absolute;
+        bottom: -5px;
+        right: -5px;
+        background: white !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        color: #0e6eb8 !important;
+        padding: 6px;
+    }
+    .avatar-loading {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.7);
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 32px;
+    }
+</style>
+
+@code {
+    private UserDto _user = new();
+    private int _userId = 0;
+    private bool _isSaving = false;
+    private bool _isUploading = false;
+
+    private async Task ChangeAvatar()
+    {
+        try
+        {
+            var result = await Microsoft.Maui.Storage.FilePicker.Default.PickAsync(new Microsoft.Maui.Storage.PickOptions
+            {
+                PickerTitle = "Chọn ảnh đại diện",
+                FileTypes = Microsoft.Maui.Storage.FilePickerFileType.Images
+            });
+
+            if (result != null)
+            {
+                _isUploading = true;
+                StateHasChanged();
+
+                using var stream = await result.OpenReadAsync();
+                var content = new MultipartFormDataContent();
+                var fileContent = new StreamContent(stream);
+                fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(result.ContentType);
+                content.Add(fileContent, "file", result.FileName);
+
+                var response = await Http.PostAsync($"/api/users/{_userId}/avatar", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    var resObj = await response.Content.ReadFromJsonAsync<UploadResult>();
+                    _user.AvatarUrl = resObj?.Url;
+                    Snackbar.Add("Cập nhật ảnh đại diện thành công!", Severity.Success);
+                }
+                else
+                {
+                    var errorMsg = await response.Content.ReadAsStringAsync();
+                    Snackbar.Add($"Lỗi: {errorMsg}", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    public class UploadResult { public string? Url { get; set; } }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var idClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (int.TryParse(idClaim, out _userId))
+        {
+            await LoadUser();
+        }
+        else
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+
+        LanguageService.OnLanguageChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        LanguageService.OnLanguageChanged -= StateHasChanged;
+    }
+
+    private async Task LoadUser()
+    {
+        try
+        {
+            // Use absolute path to ensure correct resolution on sub-pages
+            var user = await Http.GetFromJsonAsync<UserDto>($"/api/users/{_userId}");
+            if (user != null)
+            {
+                _user = user;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi tải thông tin (ID: {_userId}): {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SaveProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_user.FullName))
+        {
+            Snackbar.Add("Vui lòng nhập họ và tên", Severity.Warning);
+            return;
+        }
+
+        _isSaving = true;
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"/api/users/{_userId}", _user);
+            if (response.IsSuccessStatusCode)
+            {
+                // Cập nhật Identity cục bộ để các trang khác (như Home) thấy tên mới ngay lập tức
+                var auth = (MobileAuthStateProvider)AuthStateProvider;
+                auth.MarkUserAsAuthenticated(_user.Email, _userId.ToString(), _user.FullName);
+
+                Snackbar.Add("Cập nhật thông tin thành công!", Severity.Success);
+                await Task.Delay(1500);
+                NavigationManager.NavigateTo("/profile");
+            }
+            else
+            {
+                Snackbar.Add("Lỗi cập nhật. Vui lòng thử lại.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi hệ thống: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

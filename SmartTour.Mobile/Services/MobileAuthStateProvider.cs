@@ -24,17 +24,18 @@ public class MobileAuthStateProvider : AuthenticationStateProvider
         {
             var email = await Microsoft.Maui.Storage.SecureStorage.GetAsync("auth_email");
             var userId = await Microsoft.Maui.Storage.SecureStorage.GetAsync("auth_userid");
+            var fullName = await Microsoft.Maui.Storage.SecureStorage.GetAsync("auth_fullname");
 
             if (!string.IsNullOrEmpty(email) && !string.IsNullOrEmpty(userId))
             {
-                var identity = CreateIdentity(email, userId);
+                var identity = CreateIdentity(email, userId, fullName ?? "");
                 _currentUser = new ClaimsPrincipal(identity);
             }
         }
         catch { /* Fallback to guest if storage fails */ }
     }
 
-    private ClaimsIdentity CreateIdentity(string email, string userId)
+    private ClaimsIdentity CreateIdentity(string email, string userId, string fullName)
     {
         return new ClaimsIdentity(new[]
         {
@@ -42,19 +43,21 @@ public class MobileAuthStateProvider : AuthenticationStateProvider
             new Claim(ClaimTypes.Email, email),
             new Claim(ClaimTypes.NameIdentifier, userId),
             new Claim("UserId", userId),
+            new Claim("FullName", fullName),
             new Claim("MobileUser", "true")
         }, "MobileAuth");
     }
 
-    public async void MarkUserAsAuthenticated(string email, string userId)
+    public async void MarkUserAsAuthenticated(string email, string userId, string fullName = "")
     {
-        var identity = CreateIdentity(email, userId);
+        var identity = CreateIdentity(email, userId, fullName);
         _currentUser = new ClaimsPrincipal(identity);
         
         try
         {
             await Microsoft.Maui.Storage.SecureStorage.SetAsync("auth_email", email);
             await Microsoft.Maui.Storage.SecureStorage.SetAsync("auth_userid", userId);
+            await Microsoft.Maui.Storage.SecureStorage.SetAsync("auth_fullname", fullName);
         }
         catch { }
 

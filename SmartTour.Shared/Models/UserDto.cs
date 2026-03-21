@@ -12,4 +12,5 @@ public class UserDto
     public string? CurrentPackageName { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool IsActive { get; set; }
+    public string? AvatarUrl { get; set; }
 }
