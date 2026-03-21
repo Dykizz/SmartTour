@@ -12,10 +12,12 @@ namespace SmartTour.API.Services;
 public class UserService : IUserService
 {
     private readonly AppDbContext _context;
+    private readonly ICloudStorageService _cloudStorageService;
 
-    public UserService(AppDbContext context)
+    public UserService(AppDbContext context, ICloudStorageService cloudStorageService)
     {
         _context = context;
+        _cloudStorageService = cloudStorageService;
     }
 
     public async Task<PagedResponse<UserDto>> GetUsersPagedAsync(int roleId = 0, string? searchTerm = null, int? packageId = null, int pageNumber = 1, int pageSize = 10)
@@ -144,5 +146,41 @@ public class UserService : IUserService
             { 2, roleCounts.GetValueOrDefault(2, 0) },
             { 3, roleCounts.GetValueOrDefault(3, 0) }
         };
+    }
+
+    public async Task<bool> UpdateUserAsync(int id, UserDto userDto)
+    {
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return false;
+
+        user.FullName = userDto.FullName;
+        // Email is not allowed to be updated per user request, but we could add it if needed.
+        
+        _context.Users.Update(user);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<string> UpdateAvatarAsync(int id, Stream fileStream, string fileName, string contentType)
+    {
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) throw new Exception("User not found");
+
+        // 1. Upload mới lên GCS
+        var newFileName = $"avatars/user_{id}_{DateTime.UtcNow:yyyyMMddHHmmss}{Path.GetExtension(fileName)}";
+        var avatarUrl = await _cloudStorageService.UploadFileAsync(fileStream, newFileName, contentType);
+
+        // 2. Xóa ảnh cũ trên GCS (nếu có và không phải ảnh mặc định)
+        if (!string.IsNullOrEmpty(user.AvatarUrl) && user.AvatarUrl.Contains("storage.googleapis.com"))
+        {
+            try { await _cloudStorageService.DeleteFileAsync(user.AvatarUrl); } catch { }
+        }
+
+        // 3. Cập nhật DB
+        user.AvatarUrl = avatarUrl;
+        _context.Users.Update(user);
+        await _context.SaveChangesAsync();
+
+        return avatarUrl;
     }
 }

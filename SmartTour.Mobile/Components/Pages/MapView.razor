@@ -21,7 +21,7 @@
         </div>
         <MudSpacer />
         <MudText Style="font-size:0.95rem; font-weight:600; color:white;">
-            🗺️ Bản đồ
+            🗺️ @LanguageService.T("Map")
         </MudText>
         <MudSpacer />
         <div class="map-icon-btn" @onclick="CenterOnUser">
@@ -31,8 +31,8 @@
     </MudAppBar>
 
     <MudMainContent Class="pa-0">
-        <div class="map-container">
-            <div id="map"></div>
+        <div class="map-wrapper">
+            <div id="map" style="width:100%; height:100%;"></div>
 
             <!-- Loading -->
             @if (!_mapInitialized && !_mapError)
@@ -45,11 +45,11 @@
                         </div>
                         <MudText Typo="Typo.subtitle2" Class="mt-3 mb-1"
                                  Style="font-weight:600; color:#0a3050;">
-                            Đang tải bản đồ
+                            @LanguageService.T("LoadingMap")
                         </MudText>
                         <MudText Typo="Typo.caption" Class="mb-3"
                                  Style="color:#aaa;">
-                            Vui lòng chờ giây lát...
+                            @LanguageService.T("WaitMoment")
                         </MudText>
                         <MudProgressLinear Color="Color.Primary"
                                            Indeterminate="true" Rounded="true"
@@ -70,7 +70,7 @@
                         </div>
                         <MudText Typo="Typo.subtitle2" Class="mt-3 mb-1"
                                  Style="font-weight:600; color:#7a2010;">
-                            Không thể tải bản đồ
+                            @LanguageService.T("MapLoadError")
                         </MudText>
                         <MudText Typo="Typo.caption" Class="mb-3"
                                  Style="color:#aaa; text-align:center; max-width:200px;">
@@ -80,17 +80,16 @@
                                    Style="background:linear-gradient(135deg,#0e6eb8,#1a9de8);
                                           color:white; border-radius:20px; padding:6px 28px;"
                                    OnClick="InitializeMap">
-                            Thử lại
+                            @LanguageService.T("Retry")
                         </MudButton>
                     </div>
                 </div>
             }
 
-            <!-- POI Preview Card -->
+            @* Legacy POI Card - hidden in favor of Mapbox Popups *@
             @if (_selectedPoi != null)
             {
                 <div class="poi-card-wrapper">
-                    <div class="poi-card-handle"></div>
                     <div class="d-flex align-center gap-3 mb-3">
                         <div class="poi-icon-badge">
                             <MudIcon Icon="@Icons.Material.Filled.Place"
@@ -104,7 +103,7 @@
                             </MudText>
                             <div class="d-flex align-center gap-2 mt-1">
                                 <span class="poi-category-tag">
-                                    @(_selectedPoi.CategoryName ?? "Địa điểm")
+                                    @(_selectedPoi.CategoryName ?? LanguageService.T("Place"))
                                 </span>
                                 <MudText Typo="Typo.caption" Style="color:#aaa;">
                                     @_selectedPoi.Latitude.ToString("F4"),
@@ -112,7 +111,7 @@
                                 </MudText>
                             </div>
                         </div>
-                        <div class="poi-close-btn" @onclick="@(() => _selectedPoi = null)">
+                        <div class="poi-close-btn" @onclick="CloseSelectedPoi">
                             <MudIcon Icon="@Icons.Material.Filled.Close"
                                      Style="color:#bbb; font-size:1rem;" />
                         </div>
@@ -124,7 +123,7 @@
                                           text-transform:none;"
                                    StartIcon="@Icons.Material.Filled.Info"
                                    OnClick="@(() => NavigationManager.NavigateTo($"/poi-details/{_selectedPoi.Id}"))">
-                            Chi tiết
+                            @LanguageService.T("Details")
                         </MudButton>
                         <MudButton FullWidth="true"
                                    Style="border:1.5px solid #0e6eb8; color:#0e6eb8;
@@ -132,7 +131,7 @@
                                           text-transform:none; background:rgba(14,110,184,0.04);"
                                    StartIcon="@Icons.Material.Filled.PlayCircle"
                                    OnClick="PlaySelectedPoi">
-                            Nghe
+                            @LanguageService.T("Listen")
                         </MudButton>
                     </div>
                 </div>
@@ -145,16 +144,26 @@
 </MudLayout>
 
 <style>
-    /* ── Map container ── */
-    .map-container {
-        width: 100%;
-        height: calc(100vh - 112px);
+    .map-wrapper {
         position: relative;
+        width: 100%;
+        height: calc(100dvh - 48px);
+        box-sizing: border-box;
         overflow: hidden;
+        background: #f0f7ff;
     }
-    #map { width: 100%; height: 100%; }
 
-    /* ── AppBar icon btn ── */
+    .mapboxgl-ctrl-top-right {
+        top: 90px !important; 
+        right: 10px !important;
+        z-index: 300 !important;
+    }
+
+    .mapboxgl-ctrl-bottom-left,
+    .mapboxgl-ctrl-bottom-right {
+        bottom: 5px !important;
+    }
+
     .map-icon-btn {
         width: 32px; height: 32px;
         border-radius: 10px;
@@ -163,12 +172,12 @@
         cursor: pointer;
     }
 
-    /* ── Overlay ── */
     .map-overlay {
         position: absolute; inset: 0; z-index: 10;
         background: #f0f7ff;
         display: flex; align-items: center; justify-content: center;
     }
+
     .map-loading-card, .map-error-card {
         background: rgba(255,255,255,0.9);
         backdrop-filter: blur(16px);
@@ -179,29 +188,21 @@
         box-shadow: 0 8px 32px rgba(14,110,184,0.1);
         min-width: 220px;
     }
-    .map-loading-icon, .map-error-icon {
-        width: 68px; height: 68px; border-radius: 20px;
-        background: linear-gradient(135deg,rgba(14,110,184,0.1),rgba(26,157,232,0.06));
-        display: flex; align-items: center; justify-content: center;
+
+    .poi-card-wrapper {
+        position: absolute; 
+        top: 15px; 
+        left: 15px; right: 15px; 
+        z-index: 1200;
+        background: rgba(255,255,255,0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 24px !important; 
+        padding: 16px 16px 20px;
+        border: 0.5px solid rgba(14,110,184,0.15);
+        box-shadow: 0 12px 32px rgba(14,110,184,0.15); 
+        animation: slideDown 0.35s cubic-bezier(0.34,1.56,0.64,1);
     }
 
-    /* ── POI Card ── */
-    .poi-card-wrapper {
-        position: absolute; bottom: 0; left: 0; right: 0;
-        z-index: 50;
-        background: rgba(255,255,255,0.92);
-        backdrop-filter: blur(20px);
-        border-top-left-radius: 24px; border-top-right-radius: 24px;
-        padding: 8px 16px 20px;
-        border-top: 0.5px solid rgba(14,110,184,0.15);
-        box-shadow: 0 -4px 24px rgba(14,110,184,0.1);
-        animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
-    }
-    .poi-card-handle {
-        width: 40px; height: 4px;
-        background: #dce8f5; border-radius: 2px;
-        margin: 0 auto 14px;
-    }
     .poi-icon-badge {
         width: 46px; height: 46px; border-radius: 14px;
         background: linear-gradient(135deg,#0e6eb8,#1a9de8);
@@ -209,11 +210,13 @@
         flex-shrink: 0;
         box-shadow: 0 4px 12px rgba(14,110,184,0.35);
     }
+
     .poi-category-tag {
         background: rgba(14,110,184,0.1);
         color: #0e6eb8; font-size: 0.7rem;
         padding: 2px 8px; border-radius: 8px;
     }
+
     .poi-close-btn {
         width: 28px; height: 28px; border-radius: 8px;
         background: rgba(0,0,0,0.04);
@@ -221,22 +224,27 @@
         cursor: pointer;
     }
 
-    @@keyframes slideUp {
-        from { transform: translateY(100%); opacity: 0; }
+    /* ── Custom Mapbox Popup (Unused) ── */
+    .mapboxgl-popup { display: none; }
+
+    @@keyframes slideDown {
+        from { transform: translateY(-50px); opacity: 0; }
         to   { transform: translateY(0);    opacity: 1; }
     }
 </style>
 
 @code {
     private DotNetObjectReference<MapView>? _dotNetRef;
-    private PoiGeofenceDto?                 _selectedPoi;
-    private bool                            _mapInitialized = false;
-    private bool                            _mapError       = false;
-    private string                          _errorMessage   = "";
+    private PoiGeofenceDto? _selectedPoi;
+    private int _selectedPoiId = 0;
+    private bool _mapInitialized = false;
+    private bool _mapError = false;
+    private string _errorMessage = "";
 
     protected override void OnInitialized()
     {
         GeofenceService.BannerStateChanged += HandleStateChanged;
+        LanguageService.OnLanguageChanged += StateHasChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -262,14 +270,16 @@
                 await InvokeAsync(StateHasChanged);
                 return;
             }
+
             _dotNetRef = DotNetObjectReference.Create(this);
-            var lat = GeofenceService.LastKnownLatitude  ?? 10.7769;
+            var lat = GeofenceService.LastKnownLatitude ?? 10.7769;
             var lng = GeofenceService.LastKnownLongitude ?? 106.7009;
             await JS.InvokeVoidAsync("window.mapHelper.initMap",
                 config.MapboxAccessToken, lat, lng, 15, _dotNetRef);
             _mapInitialized = true;
+
             await InvokeAsync(StateHasChanged);
-            await UpdateMarkers();
+            await UpdateMarkersWithSelected();
             await UpdateUserLocation();
         }
         catch (Exception ex)
@@ -284,7 +294,28 @@
     public void OnMarkerClick(int poiId)
     {
         _selectedPoi = GeofenceService.AllPois.FirstOrDefault(p => p.Id == poiId);
-        InvokeAsync(StateHasChanged);
+        _selectedPoiId = poiId;
+        _ = InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            await UpdateMarkersWithSelected();
+        });
+    }
+
+    [JSInvokable]
+    public void OnPlayClick(int poiId)
+    {
+        var poi = GeofenceService.AllPois.FirstOrDefault(p => p.Id == poiId);
+        if (poi != null)
+        {
+            _selectedPoi = poi;
+            _selectedPoiId = poiId;
+            _ = InvokeAsync(async () =>
+            {
+                await PlaySelectedPoi();
+                StateHasChanged();
+            });
+        }
     }
 
     private async void HandleStateChanged()
@@ -293,18 +324,22 @@
         {
             if (_mapInitialized)
             {
-                await UpdateMarkers();
+                await UpdateMarkersWithSelected();
                 await UpdateUserLocation();
             }
             StateHasChanged();
         });
     }
 
-    private async Task UpdateMarkers()
+    private async Task UpdateMarkersWithSelected()
     {
         if (!_mapInitialized) return;
+        int closestId = _selectedPoiId != 0 ? 0 : (GeofenceService.CurrentPoi?.Id ?? 0);
+
         await JS.InvokeVoidAsync("window.mapHelper.updateMarkers",
-            GeofenceService.AllPois, GeofenceService.CurrentPoi?.Id ?? 0);
+            GeofenceService.AllPois,
+            closestId,
+            _selectedPoiId);
     }
 
     private async Task UpdateUserLocation()
@@ -326,13 +361,24 @@
 
     private async Task PlaySelectedPoi()
     {
-        if (_selectedPoi != null)
-            await GeofenceService.PlayManualAsync(_selectedPoi, LanguageService.SelectedLanguage);
+        if (_selectedPoi == null) return;
+        _selectedPoiId = _selectedPoi.Id;
+        await GeofenceService.PlayManualAsync(_selectedPoi, LanguageService.SelectedLanguage);
+        await UpdateMarkersWithSelected();
+    }
+
+    private async Task CloseSelectedPoi()
+    {
+        _selectedPoi = null;
+        _selectedPoiId = 0;
+        StateHasChanged();
+        await UpdateMarkersWithSelected();
     }
 
     public void Dispose()
     {
         GeofenceService.BannerStateChanged -= HandleStateChanged;
+        LanguageService.OnLanguageChanged -= StateHasChanged;
         _dotNetRef?.Dispose();
     }
 

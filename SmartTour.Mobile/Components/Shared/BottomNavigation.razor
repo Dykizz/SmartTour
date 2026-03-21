@@ -1,5 +1,6 @@
 @inject NavigationManager NavigationManager
 @inject LanguageService LanguageService
+@implements IDisposable
 
 <MudPaper Elevation="8"
           Class="py-2"
@@ -130,5 +131,15 @@
 
     private string GetTextClass(string key) =>
         Active == key ? "bottomnav-text bottomnav-text-active" : "bottomnav-text";
+
+    protected override void OnInitialized()
+    {
+        LanguageService.OnLanguageChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        LanguageService.OnLanguageChanged -= StateHasChanged;
+    }
 }
 

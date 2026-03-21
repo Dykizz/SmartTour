@@ -31,7 +31,7 @@
             <MudPaper Elevation="3" Class="pa-4 rounded-xl"
                 Style="background:rgba(255,255,255,0.92); border:0.5px solid rgba(14,110,184,0.12);">
                 <MudText Typo="Typo.caption" Style="color:#aaa; margin-top:6px; display:block; text-align:center;">
-                    Đưa mã QR vào khung ngắm để tự động nhận diện
+                    @LanguageService.T("QRHint")
                 </MudText>
                 <div class="qr-scanner-wrapper mt-4">
                     <div id="qr-video-mount" class="qr-video-mount"></div>
@@ -42,7 +42,7 @@
                                 <MudIcon Icon="@Icons.Material.Filled.VideocamOff"
                                     Style="font-size:3rem; color:rgba(255,255,255,0.7);" />
                                 <MudText Typo="Typo.body2" Style="color:white; font-weight:600; margin-top:12px;">
-                                    Camera không khả dụng
+                                    @LanguageService.T("CameraUnavailable")
                                 </MudText>
                             </div>
                         }
@@ -196,295 +196,149 @@
 
 @code {
     private DotNetObjectReference<Scan>? _qrDotNetRef;
-
     private bool _scanAvailable = true;
-
     private bool _processing = false;
-
     private int _lastScannedId = -1;
-
     private DateTime _lastScanTime = DateTime.MinValue;
 
-
-
     protected override async Task OnInitializedAsync()
-
     {
-
         GeofenceService.AudioTriggered += OnAudioTriggered;
-
+        LanguageService.OnLanguageChanged += StateHasChanged;
         try
-
         {
-
             await GeofenceService.ReloadPoisAsync();
-
         }
-
         catch (Exception ex)
-
         {
-
-            Snackbar.Add($"Lỗi tải nội dung QR: {ex.Message}", Severity.Error);
-
+            Snackbar.Add($"{LanguageService.T("QRLoadError")}: {ex.Message}", Severity.Error);
         }
-
     }
-
-
 
     private async Task OnAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio, bool isManual)
-
     {
-
         await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
-
     }
-
-
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
-
     {
-
         if (!firstRender) return;
 
-
-
         _qrDotNetRef ??= DotNetObjectReference.Create(this);
-
         await JS.InvokeVoidAsync("qrHelper.setDotNetReference", _qrDotNetRef);
 
-
-
         try
-
         {
-
             var cameraStatus = await Microsoft.Maui.ApplicationModel.MainThread.InvokeOnMainThreadAsync(async () =>
-
-            await
-            Microsoft.Maui.ApplicationModel.Permissions.CheckStatusAsync<Microsoft.Maui.ApplicationModel.Permissions.Camera>());
-
-
+                await Microsoft.Maui.ApplicationModel.Permissions.CheckStatusAsync<Microsoft.Maui.ApplicationModel.Permissions.Camera>());
 
             if (cameraStatus != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-
             {
-
                 cameraStatus = await Microsoft.Maui.ApplicationModel.MainThread.InvokeOnMainThreadAsync(async () =>
-
-                await Microsoft.Maui.ApplicationModel.Permissions.RequestAsync<Microsoft.Maui.ApplicationModel.Permissions.Camera>());
-
+                    await Microsoft.Maui.ApplicationModel.Permissions.RequestAsync<Microsoft.Maui.ApplicationModel.Permissions.Camera>());
             }
-
-
 
             if (cameraStatus == Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-
             {
-
                 _scanAvailable = await JS.InvokeAsync<bool>("qrHelper.startScan", "qr-video-mount");
-
             }
-
             else
-
             {
-
-                Snackbar.Add("Vui lòng cấp quyền Camera để quét thẻ QR.", Severity.Warning);
-
+                Snackbar.Add(LanguageService.T("CameraPermission"), Severity.Warning);
                 _scanAvailable = false;
-
             }
-
         }
-
         catch (Exception ex)
-
         {
-
-            Snackbar.Add($"Mở QR thất bại: {ex.Message}", Severity.Error);
-
+            Snackbar.Add($"{LanguageService.T("QROpenError")}: {ex.Message}", Severity.Error);
             _scanAvailable = false;
-
         }
-
-
 
         StateHasChanged();
-
     }
-
-
 
     [JSInvokable]
-
     public async Task<bool> OnQrCodeDetected(string? rawValue)
-
     {
-
         if ((DateTime.Now - _lastScanTime).TotalMilliseconds < 1500) return false;
-
         _lastScanTime = DateTime.Now;
 
-
-
         if (_processing) return false;
-
         _processing = true;
 
-
-
         try
-
         {
-
             string scannedText = rawValue ?? "";
-
-
-
             if (!TryExtractPoiId(scannedText, out var poiId))
-
             {
-
                 try { Microsoft.Maui.Devices.HapticFeedback.Default.Perform(Microsoft.Maui.Devices.HapticFeedbackType.LongPress); }
                 catch { }
-
-                Snackbar.Add($"Mã QR hệ thống không khớp:\n{scannedText}", Severity.Warning);
-
+                Snackbar.Add($"{LanguageService.T("QRMismatch")}:\n{scannedText}", Severity.Warning);
                 return false;
-
             }
-
-
 
             try { Microsoft.Maui.Devices.HapticFeedback.Default.Perform(Microsoft.Maui.Devices.HapticFeedbackType.Click); }
-            catch
-            {
-            }
+            catch { }
 
             _ = ProcessPoiId(poiId);
-
             return false;
-
         }
-
         finally
-
         {
-
             _processing = false;
-
         }
-
     }
-
-
 
     private async Task ProcessPoiId(int poiId)
-
     {
-
         var poi = GeofenceService.AllPois.FirstOrDefault(p => p.Id == poiId);
-
         if (poi != null)
-
         {
-
             if (_lastScannedId != poiId)
-
             {
-
                 _lastScannedId = poiId;
-
                 await GeofenceService.PlayManualAsync(poi, LanguageService.SelectedLanguage);
-
             }
-
         }
-
         else
-
         {
-
-            Snackbar.Add("Không tìm thấy nội dung tương ứng với QR.", Severity.Warning);
-
+            Snackbar.Add(LanguageService.T("QRNoPoi"), Severity.Warning);
         }
-
     }
-
-
 
     private bool TryExtractPoiId(string raw, out int poiId)
-
     {
-
         poiId = 0;
-
         if (string.IsNullOrWhiteSpace(raw)) return false;
 
-
-
         var trimmed = raw.Trim();
-
-
-
         var matchedPoi = GeofenceService.AllPois.FirstOrDefault(p =>
-
-        !string.IsNullOrEmpty(p.QrValue) &&
-
-        trimmed.Contains(p.QrValue, StringComparison.OrdinalIgnoreCase));
-
-
+            !string.IsNullOrEmpty(p.QrValue) &&
+            trimmed.Contains(p.QrValue, StringComparison.OrdinalIgnoreCase));
 
         if (matchedPoi != null) { poiId = matchedPoi.Id; return true; }
-
-
-
         if (int.TryParse(trimmed, out poiId)) return true;
 
-
-
         var m = Regex.Match(trimmed, @"(?:poi-details|poi)\/(\d+)", RegexOptions.IgnoreCase);
-
         if (m.Success && int.TryParse(m.Groups[1].Value, out poiId)) return true;
-
-
 
         m = Regex.Match(trimmed, @"[?&]poiId=(\d+)", RegexOptions.IgnoreCase);
-
         if (m.Success && int.TryParse(m.Groups[1].Value, out poiId)) return true;
 
-
-
         if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
-
         {
-
             m = Regex.Match(uri.AbsolutePath, @"(?:poi-details|poi)\/(\d+)", RegexOptions.IgnoreCase);
-
             if (m.Success && int.TryParse(m.Groups[1].Value, out poiId)) return true;
-
         }
 
-
-
         return false;
-
     }
 
-
-
     public async ValueTask DisposeAsync()
-
     {
-
         GeofenceService.AudioTriggered -= OnAudioTriggered;
-
+        LanguageService.OnLanguageChanged -= StateHasChanged;
         try { await JS.InvokeVoidAsync("qrHelper.stopScan"); } catch { }
-
         _qrDotNetRef?.Dispose();
-
     }
 }

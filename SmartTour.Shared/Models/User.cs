@@ -30,15 +30,12 @@ public class User
 
     public bool IsActive { get; set; } = true;
 
-    /// <summary>
-    /// Nhà cung cấp xác thực (Local, Google, ...)
-    /// </summary>
     [MaxLength(50)]
     public string AuthProvider { get; set; } = "Local";
 
-    /// <summary>
-    /// ID định danh từ nhà cung cấp bên ngoài (ví dụ: Google Sub ID)
-    /// </summary>
     [MaxLength(255)]
     public string? ProviderId { get; set; }
+
+    [MaxLength(500)]
+    public string? AvatarUrl { get; set; }
 }
