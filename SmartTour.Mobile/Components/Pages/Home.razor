@@ -50,8 +50,7 @@
     </MudAppBar>
 
     <MudMainContent Style="background:#f0f7ff; min-height:100vh; padding-bottom:80px;"
-                    id="home-main-content"
-                    @onscroll="OnPageScroll">
+                    id="home-main-content">
 
         <!-- ── Search Bar — sticky, always above audio banner ── -->
         <div class="px-4 pt-3 pb-2"
@@ -87,7 +86,7 @@
                 </div>
                 @foreach (var cat in _categories)
                 {
-                    var catId   = cat.Id;
+                    var catId = cat.Id;
                     var catIcon = _categoryIcons[_categories.IndexOf(cat) % _categoryIcons.Length];
                     <div class="@(_selectedCategoryId == catId ? "cat-chip cat-chip-active" : "cat-chip cat-chip-inactive")"
                          @onclick="@(() => FilterByCategory(catId))">
@@ -118,14 +117,14 @@
             </MudPaper>
         </div>
 
-        <!-- ── Featured POIs ── -->
+        <!-- ── POIs Section ── -->
         <div class="px-4">
             <div class="d-flex justify-space-between align-center mb-3">
-                <MudText Typo="Typo.subtitle2" Style="font-weight:600; color:#0a3050;">
-                    @LanguageService.T("Featured")
+                <MudText Typo="Typo.subtitle2" Style="font-weight:700; color:#0a3050;">
+                    ⭐⭐⭐ ĐIỂM ĐẾN NỔI BẬT ⭐⭐⭐
                 </MudText>
                 <MudText Typo="Typo.caption" Style="color:#888;">
-                    @(_totalCount > 0 ? $"{_pois.Count}/{_totalCount} địa điểm" : "")
+                    @(_totalCount > 0 ? $"{_pois.Count} / {_totalCount} địa điểm" : "")
                 </MudText>
             </div>
 
@@ -137,33 +136,35 @@
             }
             else if (_pois.Any())
             {
-                @if (_featuredPoi != null)
+                @if (_featuredPois.Any())
                 {
-                    <MudPaper Elevation="3" Class="rounded-xl overflow-hidden mb-3"
-                              Style="cursor:pointer; border:0.5px solid rgba(14,110,184,0.1);"
-                              @onclick="@(() => NavigationManager.NavigateTo($"/poi-details/{_featuredPoi.Id}"))">
-                        <div class="featured-img-wrap"
-                             style="@(string.IsNullOrEmpty(GetThumb(_featuredPoi))
-                                 ? "background:linear-gradient(135deg,#0e6eb8,#1a9de8);"
-                                 : $"background:url('{GetThumb(_featuredPoi)}') center/cover no-repeat;")">
-                            <div class="featured-overlay">
-                                <div>
-                                    <MudText Style="font-size:1rem; font-weight:700; color:white;">@_featuredPoi.Name</MudText>
-                                    <div class="d-flex align-center gap-1 mt-1">
-                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn"
-                                                 Style="font-size:0.75rem; color:rgba(255,255,255,0.8);" />
-                                        <MudText Typo="Typo.caption" Style="color:rgba(255,255,255,0.8);">
-                                            @(_featuredPoi.Category?.Name ?? "Địa điểm")
-                                        </MudText>
+                    <MudPaper Elevation="3" Class="rounded-xl overflow-hidden mb-3" Style="border:0.5px solid rgba(14,110,184,0.1);">
+                        <MudCarousel TData="Poi" AutoCycle="true" ShowBullets="true" Class="mud-width-full" Style="height:180px;">
+                            @foreach (var poi in _featuredPois)
+                            {
+                                <MudCarouselItem Transition="Transition.Slide">
+                                    <div class="featured-img-wrap"
+                                         style="@(string.IsNullOrEmpty(GetThumb(poi))
+                                             ? "background:linear-gradient(135deg,#0e6eb8,#1a9de8);"
+                                             : $"background:url('{GetThumb(poi)}') center/cover no-repeat;")"
+                                         @onclick="@(() => NavigationManager.NavigateTo($"/poi-details/{poi.Id}"))">
+                                        <div class="featured-overlay">
+                                            <div>
+                                                <MudText Style="font-size:1.1rem; font-weight:700; color:white;">@poi.Name</MudText>
+                                                <div class="d-flex align-center gap-1 mt-1">
+                                                    <MudIcon Icon="@Icons.Material.Filled.LocationOn"
+                                                             Style="font-size:0.75rem; color:rgba(255,255,255,0.8);" />
+                                                    <MudText Typo="Typo.caption" Style="color:rgba(255,255,255,0.8);">
+                                                        @(poi.Category?.Name ?? "Địa điểm")
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="featured-badge">⭐</div>
                                     </div>
-                                </div>
-                            </div>
-                            <div class="featured-badge">⭐ Nổi bật</div>
-                        </div>
-                        <div class="d-flex align-center justify-space-between px-3 py-2">
-                            <MudText Typo="Typo.caption" Style="color:#888;">Đang mở cửa</MudText>
-                            <div class="detail-chip">Chi tiết</div>
-                        </div>
+                                </MudCarouselItem>
+                            }
+                        </MudCarousel>
                     </MudPaper>
                 }
 
@@ -234,24 +235,16 @@
     <BottomNavigation Active="home" />
 
     <!-- ── Filter Bottom Sheet ── -->
-    <!--
-        z-index:1300 ensures the drawer always renders ABOVE the audio banner (z-index ~9999 for banner,
-        but MudDrawer overlay sits at a high z-index itself; the key fix is making the drawer content
-        scrollable so "Điểm biểu tượng" is never hidden even when the banner is visible).
-    -->
     <MudDrawer @bind-Open="_filterOpen" Anchor="Anchor.Bottom" Elevation="25"
                Class="filter-sheet" OverlayAutoClose="true" Variant="DrawerVariant.Temporary"
                Overlay="true">
-        <!-- Fixed header inside drawer -->
         <div class="filter-header">
             <MudText Typo="Typo.h6" Style="font-weight:800; color:#0a3050;">Bộ lọc nâng cao</MudText>
             <MudIconButton Icon="@Icons.Material.Filled.Close"
                            OnClick="@(() => _filterOpen = false)" Size="Size.Small" />
         </div>
 
-        <!-- Scrollable body — no item can ever be clipped by the banner -->
         <div class="filter-body">
-
             <!-- Location Toggle -->
             <div class="d-flex align-center justify-space-between mb-4">
                 <div class="d-flex align-center gap-2">
@@ -306,7 +299,6 @@
             </div>
         </div>
 
-        <!-- Fixed action buttons at bottom of drawer -->
         <div class="filter-actions">
             <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Default"
                        Style="border-radius:12px; height:48px;" OnClick="ResetFilters">
@@ -331,19 +323,19 @@
         box-shadow: 0 -8px 24px rgba(0,0,0,0.05) !important;
         display: flex;
         flex-direction: column;
-        /* Cap height so it never covers the full screen; leaves room for the banner */
         max-height: 72vh !important;
+        z-index: 2000 !important;
     }
     .filter-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         padding: 16px 16px 8px;
-        flex-shrink: 0;    /* never compressed */
+        flex-shrink: 0;
     }
     .filter-body {
         flex: 1;
-        overflow-y: auto;  /* scrollable — items never clipped by banner */
+        overflow-y: auto;
         padding: 0 16px 8px;
         -webkit-overflow-scrolling: touch;
     }
@@ -414,7 +406,13 @@
         background: rgba(14,110,184,0.08);
         display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .featured-img-wrap { height: 160px; position: relative; }
+    .featured-img-wrap { 
+        height: 180px; 
+        position: relative; 
+        background-size: cover; 
+        background-position: center; 
+        background-repeat: no-repeat; 
+    }
     .featured-overlay {
         position: absolute; inset: 0;
         background: linear-gradient(to top,rgba(0,0,0,0.6) 0%,transparent 60%);
@@ -430,7 +428,13 @@
         font-size: 0.75rem; font-weight: 500;
         padding: 4px 14px; border-radius: 10px; display: inline-block;
     }
-    .grid-img-wrap { height: 90px; position: relative; }
+    .grid-img-wrap { 
+        height: 100px; 
+        position: relative; 
+        background-size: cover; 
+        background-position: center; 
+        background-repeat: no-repeat; 
+    }
     .grid-overlay {
         position: absolute; inset: 0;
         background: linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 60%);
@@ -449,16 +453,41 @@
 </style>
 
 <script>
-    // Inline helper — checks if a scrollable element is near its bottom.
-    // Called from C# via JS.InvokeAsync so no extra .js file is needed.
     window.homeScroll = {
+        _dotNetRef: null,
+        _threshold: 300,
+
+        init: function (dotNetRef) {
+            this._dotNetRef = dotNetRef;
+            window.addEventListener('scroll', this._onScroll.bind(this), { passive: true });
+            console.log("[HomeScroll] Window scroll listener initialized");
+        },
+
+        dispose: function() {
+            window.removeEventListener('scroll', this._onScroll.bind(this));
+        },
+
+        _onScroll: function() {
+            if (!this._dotNetRef) return;
+
+            // Check if near bottom
+            const isNearBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - this._threshold);
+
+            if (isNearBottom) {
+                this._dotNetRef.invokeMethodAsync('LoadMoreFromJS');
+            }
+        },
+
         isNearBottom: function (elementId, threshold) {
             var el = document.getElementById(elementId);
-            if (!el) {
-                // Fallback: check the window itself
-                return (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - threshold);
+            if (!el) return (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - threshold);
+
+            // If the element itself is scrolling
+            if (el.scrollHeight > el.clientHeight) {
+                return (el.scrollHeight - el.scrollTop - el.clientHeight) < threshold;
             }
-            return (el.scrollHeight - el.scrollTop - el.clientHeight) < threshold;
+            // Fallback to window
+            return (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - threshold);
         }
     };
 </script>
@@ -466,6 +495,8 @@
 @code {
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+
+    private DotNetObjectReference<Home>? _thisRef;
 
     private string         _userName           = "Guest";
     private List<Category> _categories         = new();
@@ -476,7 +507,7 @@
     private bool           _loadingMore        = false;
     private int            _selectedCategoryId = 0;
     private int            _currentPage        = 1;
-    private const int      _pageSize           = 10;
+    private const int      _pageSize           = 9;
     private bool           _hasMore            = false;
     private int            _totalCount         = 0;
     private double?        _userLat;
@@ -499,11 +530,8 @@
         Icons.Material.Filled.LocalCafe
     };
 
-    private Poi? _featuredPoi =>
-        _pois.FirstOrDefault(p => p.IsFeature) ?? _pois.FirstOrDefault();
-
-    private List<Poi> _restPois =>
-        _featuredPoi == null ? _pois : _pois.Where(p => p.Id != _featuredPoi.Id).ToList();
+    private List<Poi> _featuredPois => _pois.Where(p => p.IsFeature).Take(5).ToList();
+    private List<Poi> _restPois => _pois.Where(p => !_featuredPois.Any(fp => fp.Id == p.Id)).ToList();
 
     private string GetThumb(Poi poi) =>
         poi.Images?.FirstOrDefault(x => x.IsThumbnail)?.ImageUrl
@@ -520,6 +548,7 @@
             _selectedLanguage = LanguageService.SelectedLanguage;
             GeofenceService.BannerStateChanged += OnBannerStateChanged;
             LanguageService.OnLanguageChanged  += OnLanguageChanged;
+
             await Task.WhenAll(LoadCategories(), RefreshList(), LoadLanguages());
         }
         catch (Exception ex)
@@ -528,23 +557,33 @@
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Task.Delay(200);
+            _thisRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("homeScroll.init", _thisRef);
+        }
+    }
+
+    // ── Events ───────────────────────────────────────────────────────────
+
+    [JSInvokable]
+    public async Task LoadMoreFromJS()
+    {
+        if (!_hasMore || _loadingMore || _loadingPois) return;
+        await LoadMore();
+        StateHasChanged();
+    }
+
+    private void OnBannerStateChanged() => InvokeAsync(StateHasChanged);
+
     private void OnLanguageChanged()
     {
         _selectedLanguage = LanguageService.SelectedLanguage;
         InvokeAsync(StateHasChanged);
     }
-
-    // ── Events ───────────────────────────────────────────────────────────
-
-    // Triggered by @onscroll on MudMainContent — no extra JS file needed
-    private async Task OnPageScroll(EventArgs _)
-    {
-        if (!_hasMore || _loadingMore || _loadingPois) return;
-        var nearBottom = await JS.InvokeAsync<bool>("homeScroll.isNearBottom", "home-main-content", 300);
-        if (nearBottom) await LoadMore();
-    }
-
-    private void OnBannerStateChanged() => InvokeAsync(StateHasChanged);
 
     private async Task HandleKeyUp(KeyboardEventArgs e)
     {
@@ -715,5 +754,8 @@
     {
         GeofenceService.BannerStateChanged -= OnBannerStateChanged;
         LanguageService.OnLanguageChanged  -= OnLanguageChanged;
+
+        try { await JS.InvokeVoidAsync("homeScroll.dispose"); } catch { }
+        _thisRef?.Dispose();
     }
 }

@@ -3,6 +3,7 @@ window.mapHelper = {
     markers: {},
     userMarker: null,
     dotNetRef: null,
+    currentPopup: null,
 
     initMap: function (token, lat, lng, zoom, dotNetRef) {
         if (this.map) {
@@ -128,6 +129,10 @@ window.mapHelper = {
 
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
+                
+                // Remove existing popup if any
+                if (this.currentPopup) this.currentPopup.remove();
+
                 if (this.dotNetRef) {
                     this.dotNetRef.invokeMethodAsync('OnMarkerClick', poi.id);
                 }
@@ -172,5 +177,16 @@ window.mapHelper = {
     flyTo: function (lat, lng, zoom) {
         if (!this.map) return;
         this.map.flyTo({ center: [lng, lat], zoom, speed: 1.5, curve: 1.2, essential: true });
+    },
+
+    onDetailClick: function(id) {
+        if (this.currentPopup) this.currentPopup.remove();
+        window.location.href = '/poi-details/' + id;
+    },
+
+    onPlayClick: function(id) {
+        if (this.dotNetRef) {
+            this.dotNetRef.invokeMethodAsync('OnPlayClick', id);
+        }
     }
 };
