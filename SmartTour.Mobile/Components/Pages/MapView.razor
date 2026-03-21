@@ -30,9 +30,9 @@
         </div>
     </MudAppBar>
 
-    <MudMainContent Class="pa-0">
-        <div class="map-container">
-            <div id="map"></div>
+    <MudMainContent Class="pa-0" Style="padding-top:0 !important;">
+        <div class="map-wrapper">
+            <div id="map" style="width:100%; height:100%; position:absolute; top:0; left:0;"></div>
 
             <!-- Loading -->
             @if (!_mapInitialized && !_mapError)
@@ -112,7 +112,7 @@
                                 </MudText>
                             </div>
                         </div>
-                        <div class="poi-close-btn" @onclick="@(() => _selectedPoi = null)">
+                        <div class="poi-close-btn" @onclick="CloseSelectedPoi">
                             <MudIcon Icon="@Icons.Material.Filled.Close"
                                      Style="color:#bbb; font-size:1rem;" />
                         </div>
@@ -145,16 +145,20 @@
 </MudLayout>
 
 <style>
-    /* ── Map container ── */
-    .map-container {
-        width: 100%;
-        height: calc(100vh - 112px);
+    /*
+     * map-wrapper:
+     *   100vh - AppBar(48px) - BottomNav(64px) - extra top margin(10px)
+     * The 10px margin-top pushes map content down so the Mapbox (+) zoom
+     * button is not hidden behind the AppBar.
+     */
+    .map-wrapper {
         position: relative;
+        width: 100%;
+        height: calc(100vh - 48px - 64px - 10px);
+        margin-top: 10px;
         overflow: hidden;
     }
-    #map { width: 100%; height: 100%; }
 
-    /* ── AppBar icon btn ── */
     .map-icon-btn {
         width: 32px; height: 32px;
         border-radius: 10px;
@@ -163,7 +167,6 @@
         cursor: pointer;
     }
 
-    /* ── Overlay ── */
     .map-overlay {
         position: absolute; inset: 0; z-index: 10;
         background: #f0f7ff;
@@ -185,7 +188,6 @@
         display: flex; align-items: center; justify-content: center;
     }
 
-    /* ── POI Card ── */
     .poi-card-wrapper {
         position: absolute; bottom: 0; left: 0; right: 0;
         z-index: 50;
@@ -229,10 +231,11 @@
 
 @code {
     private DotNetObjectReference<MapView>? _dotNetRef;
-    private PoiGeofenceDto?                 _selectedPoi;
-    private bool                            _mapInitialized = false;
-    private bool                            _mapError       = false;
-    private string                          _errorMessage   = "";
+    private PoiGeofenceDto? _selectedPoi;
+    private int _selectedPoiId = 0;
+    private bool _mapInitialized = false;
+    private bool _mapError = false;
+    private string _errorMessage = "";
 
     protected override void OnInitialized()
     {
@@ -269,7 +272,7 @@
                 config.MapboxAccessToken, lat, lng, 15, _dotNetRef);
             _mapInitialized = true;
             await InvokeAsync(StateHasChanged);
-            await UpdateMarkers();
+            await UpdateMarkersWithSelected();
             await UpdateUserLocation();
         }
         catch (Exception ex)
@@ -283,8 +286,13 @@
     [JSInvokable]
     public void OnMarkerClick(int poiId)
     {
-        _selectedPoi = GeofenceService.AllPois.FirstOrDefault(p => p.Id == poiId);
-        InvokeAsync(StateHasChanged);
+        _selectedPoi   = GeofenceService.AllPois.FirstOrDefault(p => p.Id == poiId);
+        _selectedPoiId = poiId;
+        _ = InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            await UpdateMarkersWithSelected();   // redraw: clicked marker gets ring, others normal
+        });
     }
 
     private async void HandleStateChanged()
@@ -293,18 +301,30 @@
         {
             if (_mapInitialized)
             {
-                await UpdateMarkers();
+                await UpdateMarkersWithSelected();
                 await UpdateUserLocation();
             }
             StateHasChanged();
         });
     }
 
-    private async Task UpdateMarkers()
+    // Pass IDs to JS:
+    //   closestId  = POI playing via geofence auto (orange pulse)
+    //              → pass 0 when user has manually selected a POI so the
+    //                geofence-active POI does NOT also light up orange
+    //   selectedId = POI user tapped (blue ring, always stays visible)
+    private async Task UpdateMarkersWithSelected()
     {
         if (!_mapInitialized) return;
+
+        // If the user has manually tapped a POI, suppress the geofence orange
+        // highlight entirely — only the selected (ring) style shows.
+        int closestId = _selectedPoiId != 0 ? 0 : (GeofenceService.CurrentPoi?.Id ?? 0);
+
         await JS.InvokeVoidAsync("window.mapHelper.updateMarkers",
-            GeofenceService.AllPois, GeofenceService.CurrentPoi?.Id ?? 0);
+            GeofenceService.AllPois,
+            closestId,
+            _selectedPoiId);
     }
 
     private async Task UpdateUserLocation()
@@ -326,8 +346,26 @@
 
     private async Task PlaySelectedPoi()
     {
-        if (_selectedPoi != null)
-            await GeofenceService.PlayManualAsync(_selectedPoi, LanguageService.SelectedLanguage);
+        if (_selectedPoi == null) return;
+
+        // Lock _selectedPoiId BEFORE calling PlayManualAsync so that when
+        // HandleStateChanged fires (GeofenceService raises BannerStateChanged),
+        // UpdateMarkersWithSelected will see closestId=0 (suppressed) and
+        // selectedId=this POI → ring stays, no stray orange dot appears.
+        _selectedPoiId = _selectedPoi.Id;
+
+        await GeofenceService.PlayManualAsync(_selectedPoi, LanguageService.SelectedLanguage);
+
+        // Immediate redraw so the ring is never lost during the async gap
+        await UpdateMarkersWithSelected();
+    }
+
+    private async Task CloseSelectedPoi()
+    {
+        _selectedPoi   = null;
+        _selectedPoiId = 0;   // reset → geofence orange can show again
+        StateHasChanged();
+        await UpdateMarkersWithSelected();
     }
 
     public void Dispose()

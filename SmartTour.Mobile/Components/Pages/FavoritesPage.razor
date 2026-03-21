@@ -1,0 +1,212 @@
+@page "/favorites"
+@using System.Net.Http.Json
+@using SmartTour.Mobile.Services
+@using SmartTour.Shared.Models
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject LanguageService LanguageService
+@attribute [Authorize]
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="true"
+               Style="background:linear-gradient(135deg,#0e6eb8 0%,#1a9de8 100%); z-index:200;">
+        <div class="appbar-icon-btn" @onclick="@(() => NavigationManager.NavigateTo("/profile"))">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Style="color:white; font-size:1.1rem;" />
+        </div>
+        <MudSpacer />
+        <MudText Style="font-size:0.95rem; font-weight:600; color:white;">
+            🔖 Địa điểm yêu thích
+        </MudText>
+        <MudSpacer />
+        <div style="width:32px;"></div>
+    </MudAppBar>
+
+    <MudMainContent Style="background:#f0f7ff; min-height:100vh; padding-bottom:80px;">
+        <div class="px-4 pt-4">
+
+            @if (_loading)
+            {
+                <div class="d-flex justify-center py-8">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                </div>
+            }
+            else if (_favorites.Any())
+            {
+                <MudText Typo="Typo.caption" Style="color:#888; margin-bottom:12px; display:block;">
+                    @_favorites.Count địa điểm đã lưu
+                </MudText>
+
+                <div class="d-flex flex-column gap-3">
+                    @foreach (var poi in _favorites)
+                    {
+                        var poiId = poi.Id;
+                        var thumb = poi.Images?.FirstOrDefault(i => i.IsThumbnail)?.ImageUrl
+                                    ?? poi.Images?.FirstOrDefault()?.ImageUrl ?? "";
+
+                        <MudPaper Elevation="2" Class="fav-card rounded-xl overflow-hidden"
+                                  Style="background:white; border:0.5px solid rgba(14,110,184,0.08);">
+                            <div class="d-flex" style="cursor:pointer;"
+                                 @onclick="@(() => NavigationManager.NavigateTo($"/poi-details/{poiId}"))">
+                                <!-- Image -->
+                                <div class="fav-img"
+                                     style="@(string.IsNullOrEmpty(thumb)
+                                         ? "background:linear-gradient(135deg,#0e6eb8,#1a9de8);"
+                                         : $"background:url('{thumb}') center/cover no-repeat;")">
+                                    @if (string.IsNullOrEmpty(thumb))
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.Place" Style="color:white; font-size:1.8rem;" />
+                                    }
+                                </div>
+                                <!-- Content -->
+                                <div class="flex-grow-1 pa-3 overflow-hidden">
+                                    <MudText Style="font-weight:700; color:#0a3050; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                        @poi.Name
+                                    </MudText>
+                                    <div class="d-flex align-center gap-1 mt-1 mb-2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Category"
+                                                 Style="font-size:0.7rem; color:#0e6eb8;" />
+                                        <MudText Typo="Typo.caption" Style="color:#888;">
+                                            @(poi.Category?.Name ?? "Địa điểm")
+                                        </MudText>
+                                    </div>
+                                    @if (poi.AudioFiles?.Any() == true)
+                                    {
+                                        <div class="d-flex align-center gap-1">
+                                            <MudIcon Icon="@Icons.Material.Filled.Headset"
+                                                     Style="font-size:0.65rem; color:#4caf50;" />
+                                            <MudText Typo="Typo.caption" Style="color:#4caf50; font-size:0.68rem;">
+                                                Có thuyết minh âm thanh
+                                            </MudText>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            <!-- Action row -->
+                            <div class="d-flex align-center justify-space-between px-3 py-2"
+                                 Style="border-top:0.5px solid rgba(14,110,184,0.06);">
+                                <MudButton Size="Size.Small"
+                                           Variant="Variant.Text"
+                                           Style="color:#0e6eb8; text-transform:none; font-weight:600; padding:4px 8px;"
+                                           StartIcon="@Icons.Material.Filled.Info"
+                                           OnClick="@(() => NavigationManager.NavigateTo($"/poi-details/{poiId}"))">
+                                    Xem chi tiết
+                                </MudButton>
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Size="Size.Small"
+                                               Style="color:#e53935;"
+                                               Disabled="@_removingIds.Contains(poiId)"
+                                               OnClick="@(() => RemoveFavorite(poiId))" />
+                            </div>
+                        </MudPaper>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="d-flex flex-column align-center py-14 text-center">
+                    <div style="width:80px; height:80px; border-radius:24px; background:rgba(14,110,184,0.06); display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
+                        <MudIcon Icon="@Icons.Material.Filled.FavoriteBorder"
+                                 Style="font-size:2.5rem; color:rgba(14,110,184,0.2);" />
+                    </div>
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:700; color:#0a3050; margin-bottom:8px;">
+                        Chưa có địa điểm yêu thích
+                    </MudText>
+                    <MudText Typo="Typo.body2" Style="color:#aaa; max-width:240px; margin-bottom:20px;">
+                        Khám phá và lưu các địa điểm bạn yêu thích để xem lại sau
+                    </MudText>
+                    <MudButton Variant="Variant.Filled"
+                               Style="background:#0e6eb8; color:white; border-radius:20px; text-transform:none; font-weight:600;"
+                               StartIcon="@Icons.Material.Filled.Explore"
+                               OnClick="@(() => NavigationManager.NavigateTo("/"))">
+                        Khám phá ngay
+                    </MudButton>
+                </div>
+            }
+        </div>
+    </MudMainContent>
+
+    <BottomNavigation Active="profile" />
+</MudLayout>
+
+<style>
+    .appbar-icon-btn {
+        width: 32px; height: 32px; border-radius: 10px;
+        background: rgba(255,255,255,0.2);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+    }
+    .fav-card { transition: transform 0.15s; }
+    .fav-card:active { transform: scale(0.99); }
+    .fav-img {
+        width: 90px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 90px;
+    }
+</style>
+
+@code {
+    private List<Poi>    _favorites   = new();
+    private bool         _loading     = true;
+    private HashSet<int> _removingIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var idClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idClaim, out int userId) || userId <= 0)
+        {
+            NavigationManager.NavigateTo("/login?returnUrl=/favorites");
+            return;
+        }
+        await LoadFavorites();
+    }
+
+    private async Task LoadFavorites()
+    {
+        _loading = true;
+        try
+        {
+            _favorites = await Http.GetFromJsonAsync<List<Poi>>("api/favorites") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Không thể tải danh sách: {ex.Message}", Severity.Error);
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task RemoveFavorite(int poiId)
+    {
+        if (_removingIds.Contains(poiId)) return;
+        _removingIds.Add(poiId);
+        StateHasChanged();
+
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/favorites/{poiId}");
+            if (resp.IsSuccessStatusCode || resp.StatusCode == System.Net.HttpStatusCode.NoContent)
+            {
+                _favorites.RemoveAll(p => p.Id == poiId);
+                Snackbar.Add("🗑️ Đã xóa khỏi yêu thích", Severity.Info);
+            }
+            else
+            {
+                Snackbar.Add("Không thể xóa. Thử lại sau.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _removingIds.Remove(poiId);
+            StateHasChanged();
+        }
+    }
+}

@@ -7,184 +7,248 @@
 @inject ISnackbar Snackbar
 @inject HttpClient Http
 
-<div class="login-container d-flex flex-column align-center justify-center" style="height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-    
-    <MudPaper Class="pa-8 d-flex flex-column align-center gap-4" Elevation="12" Style="width: 85%; max-width: 400px; border-radius: 24px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);">
-        
-        <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Color="Color.Primary" Size="Size.Large" Style="font-size: 64px;" />
-        
-        <MudText Typo="Typo.h4" Style="font-weight: 800; color: #333; text-align: center;">SmartTour</MudText>
-        <MudText Typo="Typo.body2" Class="mb-4" Color="Color.Secondary" Style="text-align: center;">Khám phá Việt Nam theo cách thông minh nhất!</MudText>
+<div style="height:100vh; background:linear-gradient(160deg,#0a3050 0%,#0e6eb8 50%,#1a9de8 100%); position:relative; overflow:hidden;">
 
-        <MudTextField @bind-Value="_username" Label="Tên đăng nhập / Email" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" FullWidth="true" Class="mb-2" />
-        <MudTextField @bind-Value="_password" Label="Mật khẩu" Variant="Variant.Outlined" InputType="InputType.Password" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" FullWidth="true" Class="mb-4" />
+    <!-- Background decorative circles -->
+    <div style="position:absolute; top:-80px; right:-60px; width:260px; height:260px; border-radius:50%; background:rgba(255,255,255,0.05);"></div>
+    <div style="position:absolute; bottom:-100px; left:-80px; width:320px; height:320px; border-radius:50%; background:rgba(255,255,255,0.04);"></div>
+    <div style="position:absolute; top:40%; left:-40px; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.03);"></div>
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true" OnClick="HandleLogin" Disabled="@_loading" Style="border-radius: 12px; font-weight: bold; text-transform: none; height: 50px;">
-            @if (_loading)
-            {
-                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                <MudText Class="ms-2">Đang xử lý...</MudText>
-            }
-            else
-            {
-                <MudText>Đăng nhập</MudText>
-            }
-        </MudButton>
+    <div class="d-flex flex-column align-center justify-center" style="height:100%; padding:24px; position:relative; z-index:1;">
 
-        <div class="d-flex align-center my-3" style="width: 100%">
-            <MudDivider Style="flex: 1;" />
-            <MudText Typo="Typo.caption" Class="mx-2">HOẶC</MudText>
-            <MudDivider Style="flex: 1;" />
+        <!-- Logo + Title -->
+        <div class="d-flex flex-column align-center mb-10">
+            <div style="width:80px; height:80px; border-radius:24px; background:rgba(255,255,255,0.15); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; margin-bottom:20px; box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+                <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Style="color:white; font-size:2.5rem;" />
+            </div>
+            <MudText Style="font-size:2rem; font-weight:800; color:white; letter-spacing:-0.5px; margin-bottom:6px;">
+                SmartTour
+            </MudText>
+            <MudText Style="font-size:0.9rem; color:rgba(255,255,255,0.7); text-align:center; max-width:240px; line-height:1.5;">
+                Khám phá Việt Nam theo cách thông minh nhất
+            </MudText>
         </div>
 
-        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.AccountCircle" FullWidth="true" OnClick="LoginGoogle" Disabled="@_loading" Style="border-radius: 12px; text-transform: none;">
-            Đăng nhập bằng Google
-        </MudButton>
+        <!-- Login Card -->
+        <div style="width:100%; max-width:360px; background:rgba(255,255,255,0.12); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.2); border-radius:28px; padding:32px 28px; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
 
-        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="ExploreGuest" Class="mt-2" Style="text-transform: none;">
-            Chỉ muốn tham quan? Bỏ qua đăng nhập
-        </MudButton>
+            <MudText Style="font-size:1.1rem; font-weight:700; color:white; margin-bottom:6px; text-align:center;">
+                Chào mừng bạn!
+            </MudText>
+            <MudText Style="font-size:0.82rem; color:rgba(255,255,255,0.6); text-align:center; margin-bottom:28px;">
+                Đăng nhập để khám phá các địa điểm tuyệt vời
+            </MudText>
 
-    </MudPaper>
+            <!-- Google Login Button -->
+            <button class="google-btn" @onclick="LoginGoogle" disabled="@_loading">
+                @if (_loading)
 
-    <MudText Typo="Typo.caption" Class="mt-6" Style="color: rgba(255,255,255,0.8);">
-        © 2024 SmartTour Tech
-    </MudText>
+                {
+                        <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="color:#4285F4;" />
+                            <span>Đang xử lý...</span>
+                        </div>
+                }
 
+                else
+
+                {
+                        <div style="display:flex; align-items:center; justify-content:center; gap:12px;">
+                            <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M43.611 20.083H42V20H24V28H35.303C33.654 32.657 29.223 36 24 36C17.373 36 12 30.627 12 24C12 17.373 17.373 12 24 12C27.059 12 29.842 13.154 31.961 15.039L37.618 9.382C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24C4 35.045 12.955 44 24 44C35.045 44 44 35.045 44 24C44 22.659 43.862 21.35 43.611 20.083Z" fill="#FFC107"/>
+                                <path d="M6.306 14.691L12.877 19.51C14.655 15.108 18.961 12 24 12C27.059 12 29.842 13.154 31.961 15.039L37.618 9.382C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691Z" fill="#FF3D00"/>
+                                <path d="M24 44C29.166 44 33.86 42.023 37.409 38.808L31.219 33.57C29.211 35.091 26.715 36 24 36C18.798 36 14.381 32.683 12.717 28.054L6.195 33.079C9.505 39.556 16.227 44 24 44Z" fill="#4CAF50"/>
+                                <path d="M43.611 20.083H42V20H24V28H35.303C34.511 30.237 33.072 32.166 31.217 33.571C31.218 33.57 31.219 33.57 31.22 33.569L37.41 38.807C36.971 39.205 44 34 44 24C44 22.659 43.862 21.35 43.611 20.083Z" fill="#1976D2"/>
+                            </svg>
+                            <span>Đăng nhập bằng Google</span>
+                        </div>
+                }
+            </button>
+
+            <!-- Divider -->
+            <div style="display:flex; align-items:center; margin:20px 0; gap:12px;">
+                <div style="flex:1; height:1px; background:rgba(255,255,255,0.2);"></div>
+                <MudText Style="font-size:0.75rem; color:rgba(255,255,255,0.5);">HOẶC</MudText>
+                <div style="flex:1; height:1px; background:rgba(255,255,255,0.2);"></div>
+            </div>
+
+            <!-- Guest Button -->
+            <button class="guest-btn" @onclick="ExploreGuest">
+                <MudIcon Icon="@Icons.Material.Filled.Explore" Style="font-size:1.1rem; margin-right:8px;" />
+                Tham quan với tư cách khách
+            </button>
+
+            <MudText Style="font-size:0.72rem; color:rgba(255,255,255,0.4); text-align:center; margin-top:16px; line-height:1.5;">
+                Chế độ khách có giới hạn tính năng.<br/>Đăng nhập để mở khóa đầy đủ.
+            </MudText>
+        </div>
+
+        <MudText Style="font-size:0.72rem; color:rgba(255,255,255,0.35); margin-top:32px; text-align:center;">
+            © 2024 SmartTour Tech · Phiên bản 1.0
+        </MudText>
+
+    </div>
 </div>
+
+<style>
+    .google-btn {
+        width: 100%;
+        padding: 14px 20px;
+        border-radius: 14px;
+        background: white;
+        border: none;
+        color: #333;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    .google-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .google-btn:active:not(:disabled) {
+        transform: scale(0.98);
+    }
+    .google-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .guest-btn {
+        width: 100%;
+        padding: 13px 20px;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.12);
+        border: 1.5px solid rgba(255,255,255,0.25);
+        color: white;
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .guest-btn:hover {
+        background: rgba(255,255,255,0.18);
+        border-color: rgba(255,255,255,0.4);
+    }
+    .guest-btn:active {
+        transform: scale(0.98);
+    }
+</style>
 
 @code {
     [Parameter]
+
     [SupplyParameterFromQuery]
+
     public string? ReturnUrl { get; set; }
 
-    private string _username = "";
-    private string _password = "";
-    private bool   _loading  = false;
 
-   /*private async Task HandleLogin()
-    {
-        if (string.IsNullOrWhiteSpace(_username)) return;
-        _loading = true;
-        try
-        {
-            // Gọi API lấy userId thật từ DB
-            var resp = await Http.PostAsJsonAsync("api/auth/login", new
-            {
-                username = _username,
-                password = _password
-            });
 
-            if (resp.IsSuccessStatusCode)
-            {
-                var result = await resp.Content.ReadFromJsonAsync<LoginResponse>();
-                if (result != null)
-                {
-                    var auth = (MobileAuthStateProvider)AuthStateProvider;
-                    auth.MarkUserAsAuthenticated(result.Email, result.UserId.ToString());
-                    NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl);
-                }
-            }
-            else
-            {
-                var msg = resp.StatusCode == System.Net.HttpStatusCode.Unauthorized
-                    ? "Sai tài khoản hoặc mật khẩu."
-                    : "Đăng nhập thất bại. Thử lại sau.";
-                Snackbar.Add(msg, Severity.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Lỗi kết nối: {ex.Message}", Severity.Error);
-        }
-        finally { _loading = false; }
-    }*/
+    private bool _loading = false;
 
-    private async Task HandleLogin()
-    {
-        if (string.IsNullOrWhiteSpace(_username)) return;
-        _loading = true;
-        try 
-        {
-            var auth = (MobileAuthStateProvider)AuthStateProvider;
-            // TEMP: hardcode userId=1 để test, sau khi fix API login thì xóa
-            auth.MarkUserAsAuthenticated("hoangnguyen7122005@gmail.com", "1");
-            NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl);
-        }
-        finally
-        {
-            _loading = false;
-        }
-    }
+
 
     private async Task LoginGoogle()
+
     {
+
+        _loading = true;
+
         try
+
         {
-            // Luôn dùng localhost cho cả Android nhờ 'adb reverse tcp:5139 tcp:5139'
+
             string webUrl = "http://localhost:5139";
 
             var authUrl = new Uri($"{webUrl}/account/login-google?returnUrl=smarttour://callback");
+
             var callbackUrl = new Uri("smarttour://callback");
+
+
 
             var result = await WebAuthenticator.Default.AuthenticateAsync(authUrl, callbackUrl);
 
-            await InvokeAsync(() => {
+
+
+            await InvokeAsync(() =>
+            {
+
                 if (result != null && result.Properties.TryGetValue("email", out var email))
+
                 {
+
                     result.Properties.TryGetValue("userId", out var userId);
+
                     var auth = (MobileAuthStateProvider)AuthStateProvider;
+
                     auth.MarkUserAsAuthenticated(email, userId ?? "");
+
                     NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl);
+
                 }
+
                 else
+
                 {
+
                     string error = result?.Properties.ContainsKey("error") == true ? result.Properties["error"] : "Thiếu email";
+
                     Snackbar.Add($"Đăng nhập thất bại: {error}", Severity.Error);
+
                     StateHasChanged();
+
                 }
+
             });
+
         }
+
         catch (TaskCanceledException)
+
         {
-            await InvokeAsync(() => {
-                try {
-                    Snackbar.Add("Đăng nhập đã bị hủy.", Severity.Info);
-                } catch {}
+
+            await InvokeAsync(() =>
+            {
+
+                try { Snackbar.Add("Đăng nhập đã bị hủy.", Severity.Info); } catch { }
+
             });
+
         }
+
         catch (Exception ex)
+
         {
-            await InvokeAsync(() => {
-                try {
-                    Snackbar.Add($"Lỗi đăng nhập Google: {ex.Message}", Severity.Error);
-                } catch {}
+
+            await InvokeAsync(() =>
+            {
+
+                try { Snackbar.Add($"Lỗi đăng nhập Google: {ex.Message}", Severity.Error); } catch { }
+
             });
+
         }
+
+        finally { _loading = false; }
+
     }
+
+
 
     private void ExploreGuest()
+
     {
+
         var auth = (MobileAuthStateProvider)AuthStateProvider;
+
         auth.MarkUserAsAuthenticated("Guest", "0");
+
         NavigationManager.NavigateTo(string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl);
-    }
 
-    private class LoginResponse
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("userId")]
-        public int UserId { get; set; }
-
-        [System.Text.Json.Serialization.JsonPropertyName("username")]
-        public string Username { get; set; } = "";
-
-        [System.Text.Json.Serialization.JsonPropertyName("email")]
-        public string Email { get; set; } = "";
-
-        [System.Text.Json.Serialization.JsonPropertyName("fullName")]
-        public string FullName { get; set; } = "";
-
-        [System.Text.Json.Serialization.JsonPropertyName("roleId")]
-        public int RoleId { get; set; }
     }
 }
