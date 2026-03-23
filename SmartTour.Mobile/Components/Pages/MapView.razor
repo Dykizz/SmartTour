@@ -103,7 +103,7 @@
                             </MudText>
                             <div class="d-flex align-center gap-2 mt-1">
                                 <span class="poi-category-tag">
-                                    @(_selectedPoi.CategoryName ?? LanguageService.T("Place"))
+                                    @(LanguageService.T(_selectedPoi.CategoryName ?? "Place"))
                                 </span>
                                 <MudText Typo="Typo.caption" Style="color:#aaa;">
                                     @_selectedPoi.Latitude.ToString("F4"),
@@ -265,7 +265,7 @@
             var config = await Http.GetFromJsonAsync<MapConfig>("api/pois/map-config");
             if (config == null || string.IsNullOrEmpty(config.MapboxAccessToken))
             {
-                _errorMessage = "Token Mapbox không tồn tại.";
+                _errorMessage = LanguageService.T("TokenMissing");
                 _mapError = true;
                 await InvokeAsync(StateHasChanged);
                 return;

@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Components.Routing
 
 @using SmartTour.Mobile.Components.Shared
+@inject LanguageService LanguageService
 
 <MudThemeProvider/>
 <MudDialogProvider/>
@@ -25,7 +26,7 @@
                 </Found>
                 <NotFound>
                     <LayoutView Layout="@typeof(MainLayout)">
-                        <MudText Typo="Typo.h5" Class="pa-4">Trang không tồn tại!</MudText>
+                        <MudText Typo="Typo.h5" Class="pa-4">@LanguageService.T("PageNotFound")</MudText>
                     </LayoutView>
                 </NotFound>
             </Router>
@@ -33,10 +34,10 @@
         <ErrorContent Context="ex">
             <div class="pa-4 d-flex flex-column align-center justify-center" style="height: 80vh">
                 <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-4">
-                    Đã xảy ra lỗi hệ thống: @ex.Message
+                    @LanguageService.T("SystemError"): @ex.Message
                 </MudAlert>
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => _errorBoundary?.Recover()">
-                    Thử lại
+                    @LanguageService.T("Retry")
                 </MudButton>
             </div>
         </ErrorContent>

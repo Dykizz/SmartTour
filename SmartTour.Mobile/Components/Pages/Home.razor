@@ -124,7 +124,7 @@
                     ⭐ @LanguageService.T("Featured").ToUpper() ⭐
                 </MudText>
                 <MudText Typo="Typo.caption" Style="color:#888;">
-                    @(_totalCount > 0 ? $"{_pois.Count} / {_totalCount} địa điểm" : "")
+                    @(_totalCount > 0 ? $"{_pois.Count} / {_totalCount} {LanguageService.T("PlacesLabel")}" : "")
                 </MudText>
             </div>
 
@@ -155,7 +155,7 @@
                                                                             <MudIcon Icon="@Icons.Material.Filled.LocationOn"
                                                                                      Style="font-size:0.75rem; color:rgba(255,255,255,0.8);" />
                                                                             <MudText Typo="Typo.caption" Style="color:rgba(255,255,255,0.8);">
-                                                        @(poi.Category?.Name ?? "Địa điểm")
+                                                        @(LanguageService.T(poi.Category?.Name ?? "Place"))
                                                                             </MudText>
                                                                         </div>
                                                                     </div>
@@ -188,10 +188,10 @@
                                                         <MudIcon Icon="@Icons.Material.Filled.LocationOn"
                                                                  Style="font-size:0.7rem; color:#0e6eb8;" />
                                                         <MudText Typo="Typo.caption" Style="color:#888;">
-                                            @(poi.Category?.Name ?? "Địa điểm")
+                                            @(LanguageService.T(poi.Category?.Name ?? "Place"))
                                                         </MudText>
                                                     </div>
-                                                    <div class="detail-chip-sm">Chi tiết</div>
+                                                    <div class="detail-chip-sm">@LanguageService.T("Details")</div>
                                                 </div>
                                             </MudPaper>
                                         </MudItem>
@@ -211,12 +211,12 @@
                             <MudIcon Icon="@Icons.Material.Filled.LocationOff"
                                      Style="font-size:3.5rem; color:rgba(14,110,184,0.15);" />
                             <MudText Typo="Typo.subtitle1" Class="mt-3 mb-1" Style="font-weight:600; color:#0a3050;">
-                                Không tìm thấy địa điểm
+                                @LanguageService.T("NoResults")
                             </MudText>
                             <MudButton Variant="Variant.Filled"
                                        Style="background:#0e6eb8; color:white; border-radius:24px; margin-top:12px;"
                                        OnClick="ResetFilters">
-                                Xem tất cả
+                                @LanguageService.T("SeeAll")
                             </MudButton>
                         </div>
             }
@@ -239,7 +239,7 @@
                Class="filter-sheet" OverlayAutoClose="true" Variant="DrawerVariant.Temporary"
                Overlay="true">
         <div class="filter-header">
-            <MudText Typo="Typo.h6" Style="font-weight:800; color:#0a3050;">Bộ lọc nâng cao</MudText>
+            <MudText Typo="Typo.h6" Style="font-weight:800; color:#0a3050;">@LanguageService.T("AdvancedFilter")</MudText>
             <MudIconButton Icon="@Icons.Material.Filled.Close"
                            OnClick="@(() => _filterOpen = false)" Size="Size.Small" />
         </div>
@@ -249,7 +249,7 @@
             <div class="d-flex align-center justify-space-between mb-4">
                 <div class="d-flex align-center gap-2">
                     <MudIcon Icon="@Icons.Material.Filled.MyLocation" Size="Size.Small" Style="color:#aaa;" />
-                    <MudText Typo="Typo.body2">Tìm quanh vị trí của tôi</MudText>
+                    <MudText Typo="Typo.body2">@LanguageService.T("FindAroundMe")</MudText>
                 </div>
                 <MudSwitch T="bool" @bind-Value="_filterByLocation" Color="Color.Primary" />
             </div>
@@ -258,7 +258,7 @@
             {
                         <div class="mb-5">
                             <div class="d-flex justify-space-between align-center mb-2">
-                                <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Khoảng cách tối đa</MudText>
+                                <MudText Typo="Typo.subtitle2" Style="font-weight:700;">@LanguageService.T("MaxDistance")</MudText>
                                 <MudText Typo="Typo.caption" Color="Color.Primary" Style="font-weight:600;">
                             @(_selectedRadius >= 1000 ? $"{_selectedRadius / 1000:F1} km" : $"{_selectedRadius:N0} m")
                                 </MudText>
@@ -273,26 +273,26 @@
             }
 
             <!-- Status Toggles -->
-            <MudText Typo="Typo.subtitle2" Class="mb-3" Style="font-weight:700;">Trạng thái điểm đến</MudText>
+            <MudText Typo="Typo.subtitle2" Class="mb-3" Style="font-weight:700;">@LanguageService.T("DestinationStatus")</MudText>
             <div class="d-flex flex-column gap-1 mb-2">
                 <div class="d-flex align-center justify-space-between filter-row">
                     <div class="d-flex align-center gap-2">
                         <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Style="color:#aaa;" />
-                        <MudText Typo="Typo.body2">Đang mở cửa</MudText>
+                        <MudText Typo="Typo.body2">@LanguageService.T("OpenNow")</MudText>
                     </div>
                     <MudSwitch T="bool" @bind-Value="_filterOpenNow" Color="Color.Primary" />
                 </div>
                 <div class="d-flex align-center justify-space-between filter-row">
                     <div class="d-flex align-center gap-2">
                         <MudIcon Icon="@Icons.Material.Filled.Headset" Size="Size.Small" Style="color:#aaa;" />
-                        <MudText Typo="Typo.body2">Có thuyết minh âm thanh</MudText>
+                        <MudText Typo="Typo.body2">@LanguageService.T("HasAudio")</MudText>
                     </div>
                     <MudSwitch T="bool" @bind-Value="_filterHasAudio" Color="Color.Primary" />
                 </div>
                 <div class="d-flex align-center justify-space-between filter-row">
                     <div class="d-flex align-center gap-2">
                         <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" Style="color:#aaa;" />
-                        <MudText Typo="Typo.body2">Quán nổi bật</MudText>
+                        <MudText Typo="Typo.body2">@LanguageService.T("FeaturedPlaces")</MudText>
                     </div>
                     <MudSwitch T="bool" @bind-Value="_filterIsFeatured" Color="Color.Primary" />
                 </div>
@@ -302,11 +302,11 @@
         <div class="filter-actions">
             <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Default"
                        Style="border-radius:12px; height:48px;" OnClick="ResetFilters">
-                Thiết lập lại
+                @LanguageService.T("Reset")
             </MudButton>
             <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary"
                        Style="border-radius:12px; height:48px; background:#0e6eb8;" OnClick="ApplyFilters">
-                Áp dụng
+                @LanguageService.T("Apply")
             </MudButton>
         </div>
     </MudDrawer>
@@ -558,7 +558,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add("Lỗi khởi tạo: " + ex.Message, Severity.Error);
+            Snackbar.Add(LanguageService.T("InitError") + ": " + ex.Message, Severity.Error);
         }
     }
 
@@ -626,7 +626,7 @@
     private async Task LoadCategories()
     {
         try { _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new(); }
-        catch (Exception ex) { Snackbar.Add("Lỗi tải danh mục: " + ex.Message, Severity.Error); }
+        catch (Exception ex) { Snackbar.Add(LanguageService.T("LoadCatsError") + ": " + ex.Message, Severity.Error); }
     }
 
     private async Task LoadLanguages()
@@ -681,7 +681,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add("Lỗi tải địa điểm: " + ex.Message, Severity.Error);
+            Snackbar.Add(LanguageService.T("LoadPoisError") + ": " + ex.Message, Severity.Error);
         }
         finally
         {
@@ -728,11 +728,11 @@
                 _userLat = loc.Latitude; _userLng = loc.Longitude; _locationActive = true;
                 var label = _selectedRadius >= 1000
                     ? $"{_selectedRadius / 1000:F1}km" : $"{_selectedRadius:N0}m";
-                Snackbar.Add($"📍 Đã xác định vị trí. Bán kính: {label}", Severity.Success);
+                Snackbar.Add($"📍 {LanguageService.T("LocationIdentified")}. {LanguageService.T("RadiusLabel")}: {label}", Severity.Success);
             }
-            else { _locationActive = false; Snackbar.Add("Không lấy được vị trí GPS.", Severity.Warning); }
+            else { _locationActive = false; Snackbar.Add(LanguageService.T("GpsError"), Severity.Warning); }
         }
-        catch { _locationActive = false; Snackbar.Add("Không thể lấy vị trí. Kiểm tra quyền GPS.", Severity.Warning); }
+        catch { _locationActive = false; Snackbar.Add(LanguageService.T("GpsPermissionError"), Severity.Warning); }
         finally { await RefreshList(); }
     }
 
@@ -757,7 +757,7 @@
                 return;
             }
         }
-    Snackbar.Add($"Đã chuyển: {code.ToUpper()}", Severity.Info);
+    Snackbar.Add($"{LanguageService.T("SwitchedTo")}: {code.ToUpper()}", Severity.Info);
     }
 
     public async ValueTask DisposeAsync()
