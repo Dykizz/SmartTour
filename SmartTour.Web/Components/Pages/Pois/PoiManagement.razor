@@ -611,6 +611,7 @@
         try
         {
             var mapConfig = await Http.GetFromJsonAsync<MapConfigResult>("api/pois/map-config");
+            if (MapService.ProviderName == "Google") return mapConfig?.GoogleMapsApiKey ?? "";
             return mapConfig?.MapboxAccessToken ?? "";
         }
         catch { return ""; }
@@ -683,6 +684,9 @@
         [System.Text.Json.Serialization.JsonPropertyName("mapboxAccessToken")]
         public string MapboxAccessToken { get; set; } = string.Empty; 
         
+        [System.Text.Json.Serialization.JsonPropertyName("googleMapsApiKey")]
+        public string GoogleMapsApiKey { get; set; } = string.Empty; 
+
         [System.Text.Json.Serialization.JsonPropertyName("provider")]
         public string Provider { get; set; } = string.Empty; 
     }

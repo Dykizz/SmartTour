@@ -2,7 +2,6 @@ namespace SmartTour.Shared.Models;
 
 /// <summary>
 /// DTO nhẹ chỉ chứa thông tin cần thiết để kiểm tra Geofence trên Mobile.
-/// Không bao gồm Images, Contents, OperatingHours để giảm tải mạng.
 /// </summary>
 public class PoiGeofenceDto
 {
@@ -12,12 +11,17 @@ public class PoiGeofenceDto
     public double Longitude { get; set; }
 
     /// <summary>
-    /// Bán kính vùng Geofence tính bằng mét (lấy từ cột GeofenceRadius trong DB).
-    /// Fallback: 50m nếu giá trị = 0.
+    /// Bán kính vùng Geofence tính bằng mét.
     /// </summary>
     public double GeofenceRadius { get; set; }
     public string CategoryName { get; set; } = string.Empty;
+    public int? CategoryId { get; set; }
     public string? QrValue { get; set; }
+
+    // Advanced filtering fields
+    public bool IsFeature { get; set; }
+    public List<OperatingHours> OperatingHours { get; set; } = new();
 
     public List<PoiAudioFile> AudioFiles { get; set; } = new();
 }
+

@@ -180,6 +180,7 @@ public class PoiService : IPoiService
             .Where(p => p.IsActive)
             .Include(p => p.Category)
             .Include(p => p.AudioFiles)
+            .Include(p => p.OperatingHours)
             .ToListAsync();
 
         return pois.Select(p => new PoiGeofenceDto
@@ -190,7 +191,10 @@ public class PoiService : IPoiService
             Longitude = p.Longitude,
             GeofenceRadius = p.GeofenceRadius,
             CategoryName = p.Category?.Name ?? "Place",
+            CategoryId = p.CategoryId,
             QrValue = p.QrValue,
+            IsFeature = p.IsFeature,
+            OperatingHours = p.OperatingHours.ToList(),
             AudioFiles = p.AudioFiles.ToList()
         });
     }

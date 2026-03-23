@@ -241,28 +241,32 @@ window.googleMapInterop = {
             });
             googleMaps[elementId] = map;
 
-            var marker = new google.maps.Marker({
-                position: { lat: lat, lng: lng },
-                map: map, draggable: true, animation: google.maps.Animation.DROP
-            });
-            googleMarkers[elementId] = marker;
+            if (elementId === 'editor-map') {
+                var marker = new google.maps.Marker({
+                    position: { lat: lat, lng: lng },
+                    map: map, draggable: true, animation: google.maps.Animation.DROP
+                });
+                googleMarkers[elementId] = marker;
 
-            marker.addListener('dragend', function () {
-                var p = marker.getPosition();
-                dotNetHelper.invokeMethodAsync('UpdateCoordinates', p.lat(), p.lng());
-            });
+                marker.addListener('dragend', function () {
+                    var p = marker.getPosition();
+                    dotNetHelper.invokeMethodAsync('UpdateCoordinates', p.lat(), p.lng());
+                });
 
-            map.addListener('click', function (e) {
-                marker.setAnimation(google.maps.Animation.BOUNCE);
-                setTimeout(function () { marker.setAnimation(null); }, 300);
-                marker.setPosition(e.latLng);
-                dotNetHelper.invokeMethodAsync('UpdateCoordinates', e.latLng.lat(), e.latLng.lng());
-            });
+                map.addListener('click', function (e) {
+                    marker.setAnimation(google.maps.Animation.BOUNCE);
+                    setTimeout(function () { marker.setAnimation(null); }, 300);
+                    marker.setPosition(e.latLng);
+                    dotNetHelper.invokeMethodAsync('UpdateCoordinates', e.latLng.lat(), e.latLng.lng());
+                });
 
-            addGeolocateControl(map, function (p) {
-                marker.setPosition(p);
-                dotNetHelper.invokeMethodAsync('UpdateCoordinates', p.lat, p.lng);
-            });
+                addGeolocateControl(map, function (p) {
+                    marker.setPosition(p);
+                    dotNetHelper.invokeMethodAsync('UpdateCoordinates', p.lat, p.lng);
+                });
+            } else {
+                addGeolocateControl(map, null);
+            }
 
             if (!autocompleteService) autocompleteService = new google.maps.places.AutocompleteService();
             if (!placesService) placesService = new google.maps.places.PlacesService(map);

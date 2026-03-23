@@ -468,7 +468,7 @@ else
             
             // Hiển thị marker review nhỏ trên bản đồ phụ
             var mapConfig = await Http.GetFromJsonAsync<MapConfigResult>("api/pois/map-config");
-            string apiKey = mapConfig?.MapboxAccessToken ?? "";
+            string apiKey = MapService.ProviderName == "Google" ? (mapConfig?.GoogleMapsApiKey ?? "") : (mapConfig?.MapboxAccessToken ?? "");
             
             string jsFunc = MapService.ProviderName switch
             {
@@ -585,5 +585,8 @@ else
     { 
         [System.Text.Json.Serialization.JsonPropertyName("mapboxAccessToken")]
         public string MapboxAccessToken { get; set; } = string.Empty; 
+
+        [System.Text.Json.Serialization.JsonPropertyName("googleMapsApiKey")]
+        public string GoogleMapsApiKey { get; set; } = string.Empty; 
     }
 }
