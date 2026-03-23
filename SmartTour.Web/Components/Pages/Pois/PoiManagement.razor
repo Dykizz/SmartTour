@@ -25,13 +25,13 @@
                     <MudIcon Icon="@Icons.Material.Filled.Map" />
                 </MudAvatar>
                 <div>
-                    <MudText Typo="Typo.h5" Style="font-weight:700; letter-spacing:-0.5px;">Quản lý toàn bộ POI</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight:700; letter-spacing:-0.5px;" Class="mb-1">Quản lý toàn bộ POI</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">Theo dõi và quản lý dữ liệu điểm đến trên hệ thống.</MudText>
                 </div>
             </div>
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="NavigateToCreate">Thêm điểm mới</MudButton>
+                       OnClick="NavigateToCreate" Class="px-6 rounded-lg" DropShadow="false">Thêm điểm mới</MudButton>
         </div>
 
         <MudPaper Elevation="0" Outlined="true" Class="pa-4 mb-4 rounded-xl bg-gray-50">
@@ -133,14 +133,14 @@
                     <MudIcon Icon="@Icons.Material.Filled.Place" />
                 </MudAvatar>
                 <div>
-                    <MudText Typo="Typo.h5" Style="font-weight:700; letter-spacing:-0.5px;">POI của tôi</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight:700; letter-spacing:-0.5px;" Class="mb-1">POI của tôi</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">Quản lý và đề xuất điểm đến của bạn.</MudText>
                 </div>
             </div>
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add"
                        Disabled="@( !_isAdmin && _maxPoiAllowed > 0 && (_myPoisCount + _pendingRequestsCount) >= _maxPoiAllowed )"
-                       OnClick="NavigateToCreate">Gửi yêu cầu tạo mới</MudButton>
+                       OnClick="NavigateToCreate" Class="px-6 rounded-lg" DropShadow="false">Gửi yêu cầu tạo mới</MudButton>
         </div>
 
         @if (!_isAdmin && _maxPoiAllowed > 0 && (_myPoisCount + _pendingRequestsCount) >= _maxPoiAllowed)
