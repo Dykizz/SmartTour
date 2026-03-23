@@ -236,7 +236,8 @@ window.googleMapInterop = {
                 zoom: 15,
                 mapTypeControl: false, streetViewControl: false,
                 zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
-                fullscreenControl: false
+                fullscreenControl: false,
+                gestureHandling: 'greedy'
             });
             googleMaps[elementId] = map;
 
@@ -478,7 +479,8 @@ window.googleMapInterop = {
                 zoom: 12,
                 mapTypeControl: false, streetViewControl: false,
                 zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_TOP },
-                fullscreenControl: false
+                fullscreenControl: false,
+                gestureHandling: 'greedy'
             });
             googleMaps[elementId] = map;
 

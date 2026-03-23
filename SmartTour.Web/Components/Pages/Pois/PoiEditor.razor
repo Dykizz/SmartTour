@@ -159,7 +159,7 @@
                                 <MudNumericField T="double" Value="_model.Longitude" ValueChanged="OnManualLongitudeChanged" Label="Kinh độ" Format="F6" Variant="Variant.Outlined" Margin="Margin.Dense" />
                             </MudItem>
                             <MudItem xs="12">
-                                <div id="editor-map" style="height: 300px; width: 100%; border-radius: 12px; border: 1px solid var(--mud-palette-divider);"></div>
+                                <div id="editor-map" style="height: 500px; width: 100%; border-radius: 12px; border: 1px solid var(--mud-palette-divider);"></div>
                             </MudItem>
                         </MudGrid>
                     </div>
@@ -196,13 +196,17 @@
                             {
                                 <MudItem xs="6" md="4" lg="3">
                                     <MudCard Outlined="true" Class="poi-image-card relative rounded-lg shadow-none">
-                                        <div style="height: 120px; overflow: hidden; position: relative;" class="d-flex align-center justify-center bg-gray-100 rounded-t-lg">
+                                        <div style="height: 120px; overflow: hidden; position: relative; cursor: pointer;" class="d-flex align-center justify-center bg-gray-100 rounded-t-lg poi-image-preview" @onclick="@(() => OpenImagePreview(img.ImageUrl))">
                                             @if (!string.IsNullOrEmpty(img.ImageUrl)) {
                                                 <MudImage Src="@img.ImageUrl" Style="height:100%; width:100%" ObjectFit="ObjectFit.Cover" />
                                             } else {
                                                 <MudIcon Icon="@Icons.Material.Filled.Image" Color="Color.Default" Size="Size.Large" />
                                             }
                                             
+                                            <div class="hover-overlay">
+                                                <MudIcon Icon="@Icons.Material.Filled.Visibility" Style="color: white; font-size: 2rem;" />
+                                            </div>
+
                                             @* Loading overlay *@
                                             @if (_uploadingImages.ContainsKey(img) && _uploadingImages[img])
                                             {
@@ -272,18 +276,28 @@
                         <div class="mb-6">
                             <div class="d-flex align-center justify-space-between mb-3">
                                 <MudText Typo="Typo.subtitle2">Mô tả gốc (@defaultLang.Name)</MudText>
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Translate" 
-                                           OnClick="TranslateAllContents" Size="Size.Small"
-                                           Disabled="@(_translatingAllDesc)">
-                                    @if (_translatingAllDesc) { <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" /> }
-                                    else { <MudText>Dịch tự động</MudText> }
-                                </MudButton>
                             </div>
                             <MudTextField @bind-Value="mainContent.Description" 
                                          Label="Mô tả chi tiết" 
                                          Lines="8" 
                                          Variant="Variant.Outlined" 
                                          Placeholder="Nhập mô tả chi tiết bằng Tiếng Việt..." />
+                            
+                            <div class="d-flex align-center gap-3 mt-4 pa-3" style="background: var(--mud-palette-background-grey); border-radius: 8px; border: 1px dashed var(--mud-palette-primary);">
+                                <MudSelect T="string" MultiSelection="true" @bind-SelectedValues="_selectedTranslationLangs" 
+                                           Label="Chọn ngôn ngữ cần dịch sang" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Style="background: white;">
+                                    @foreach (var lang in _languages.Where(x => x.IsActive && !x.IsDefault))
+                                    {
+                                        <MudSelectItem T="string" Value="@lang.Code">@lang.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Translate" 
+                                           OnClick="TranslateSelectedContents" Style="height: 40px; white-space: nowrap;"
+                                           Disabled="@(_translatingAllDesc)">
+                                    @if (_translatingAllDesc) { <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" /> }
+                                    else { <MudText>Dịch tự động</MudText> }
+                                </MudButton>
+                            </div>
                         </div>
 
                         <!-- Bản dịch các ngôn ngữ khác -->
@@ -336,37 +350,43 @@
                         <div class="mb-6">
                             <div class="d-flex align-center justify-space-between mb-3">
                                 <MudText Typo="Typo.subtitle2">Kịch bản gốc (Tiếng Việt)</MudText>
+                            </div>
+                            <MudStack Spacing="1">
+                                @{
+                                    var defaultLangCode = _languages.FirstOrDefault(l => l.IsDefault)?.Code ?? "vi";
+                                    var sourceAudio = _model.AudioFiles.FirstOrDefault(a => a.LanguageCode == defaultLangCode);
+                                    if (sourceAudio == null)
+                                    {
+                                        sourceAudio = new PoiAudioFile { LanguageCode = defaultLangCode, SortOrder = 0, IsTts = true };
+                                        _model.AudioFiles.Add(sourceAudio);
+                                    }
+                                }
+                                <div class="pa-2 mb-2" Style="border: 1px solid var(--mud-palette-divider); border-radius: 8px;">
+                                    <MudTextField @bind-Value="sourceAudio.TtsScript" 
+                                                 Label="Nội dung thuyết minh (Tiếng Việt)"
+                                                 Placeholder="Nhập nội dung thuyết minh cần tạo âm thanh bằng AI..." 
+                                                 Lines="5"
+                                                 Variant="Variant.Outlined" 
+                                                 Margin="Margin.Dense" 
+                                                 Class="resize-textarea" />
+                                </div>
+                            </MudStack>
+                            
+                            <div class="d-flex align-center gap-3 mt-2 pa-3" style="background: var(--mud-palette-background-grey); border-radius: 8px; border: 1px dashed var(--mud-palette-primary);">
+                                <MudSelect T="string" MultiSelection="true" @bind-SelectedValues="_selectedAudioLangs" 
+                                           Label="Chọn ngôn ngữ cần tạo Audio AI" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Style="background: white;">
+                                    @foreach (var lang in _languages.Where(x => x.IsActive))
+                                    {
+                                        <MudSelectItem T="string" Value="@lang.Code">@lang.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
                                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AutoFixHigh" 
-                                           OnClick="GenerateAutoAudioChain" Size="Size.Small"
+                                           OnClick="GenerateSelectedAudioChain" Style="height: 40px; white-space: nowrap;"
                                            Disabled="@(_generatingAllAudio)">
                                     @if (_generatingAllAudio) { <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" /> }
                                     else { <MudText>Tạo tự động</MudText> }
                                 </MudButton>
                             </div>
-                            <MudStack Spacing="1">
-                                @{
-                                    var defaultLangCode = _languages.FirstOrDefault(l => l.IsDefault)?.Code ?? "vi";
-                                    var sourceAudios = _model.AudioFiles.Where(a => a.LanguageCode == defaultLangCode).OrderBy(a => a.SortOrder).ToList();
-                                }
-                                @foreach (var audio in sourceAudios)
-                                {
-                                    <div class="d-flex gap-2 pa-2 mb-2" Style="border: 1px solid var(--mud-palette-divider); border-radius: 8px;">
-                                        <div class="d-flex flex-column">
-                                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp" Size="Size.Small" OnClick="@(() => MoveAudio(audio, -1))" Disabled="@(audio == sourceAudios.First())" Class="pa-0"/>
-                                            <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small" OnClick="@(() => MoveAudio(audio, 1))" Disabled="@(audio == sourceAudios.Last())" Class="pa-0"/>
-                                        </div>
-                                        <MudTextField @bind-Value="audio.TtsScript" 
-                                                     Label="@($"Đoạn {audio.SortOrder + 1}")"
-                                                     Placeholder="Nhập nội dung thuyết minh..." 
-                                                     Lines="3"
-                                                     Variant="Variant.Outlined" 
-                                                     Margin="Margin.Dense" 
-                                                     Class="flex-grow-1 resize-textarea" />
-                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => RemoveAudio(audio))" />
-                                    </div>
-                                }
-                                <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => AddTtsAudio(defaultLangCode))" Class="mt-2">Thêm đoạn thuyết minh</MudButton>
-                            </MudStack>
                         </div>
 
                         <!-- Kết quả Audio -->
@@ -376,38 +396,56 @@
                                 @foreach (var lang in _languages.Where(x => x.IsActive))
                                 {
                                     <MudTabPanel Text="@lang.Code.ToUpper()">
-                                        <MudStack Spacing="1" Style="max-height: 400px; overflow-y: auto;">
-                                            @foreach (var audio in _model.AudioFiles.Where(a => a.LanguageCode == lang.Code).OrderBy(a => a.SortOrder))
+                                        @{
+                                            var langAudio = _model.AudioFiles.FirstOrDefault(a => a.LanguageCode == lang.Code);
+                                            if (langAudio == null)
                                             {
-                                                <div class="d-flex align-center gap-2 pa-1 border-b">
-                                                    <MudText Typo="Typo.caption" Style="width: 20px;">@(audio.SortOrder + 1).</MudText>
-                                                    <div class="flex-grow-1">
-                                                        @if (!string.IsNullOrEmpty(audio.FileUrl))
+                                                langAudio = new PoiAudioFile { LanguageCode = lang.Code, SortOrder = 0 };
+                                                _model.AudioFiles.Add(langAudio);
+                                            }
+                                        }
+                                        <div class="d-flex align-top gap-4 mt-4 pa-4" Style="border: 1px solid var(--mud-palette-divider); border-radius: 8px; background: white;">
+                                            <div class="flex-grow-1">
+                                                @if (!string.IsNullOrEmpty(langAudio.FileUrl))
+                                                {
+                                                    <div class="mb-3 d-flex align-center gap-2">
+                                                        <MudChip T="string" Color="@Color.Success" Size="@Size.Small" Variant="@Variant.Outlined" Icon="@Icons.Material.Filled.CheckCircle">Đã có âm thanh</MudChip>
+                                                        @if(langAudio.IsTts)
                                                         {
-                                                            <audio controls src="@audio.FileUrl" style="width: 100%; height: 30px;"></audio>
-                                                        } else {
-                                                            <MudText Typo="Typo.caption" Color="Color.Default">Chưa có audio</MudText>
+                                                            <MudChip T="string" Color="@Color.Primary" Size="@Size.Small" Variant="@Variant.Filled" Icon="@Icons.Material.Filled.AutoFixHigh">AI Voice</MudChip>
                                                         }
                                                     </div>
-                                                    <MudFileUpload T="IBrowserFile" OnFilesChanged="@((e) => UploadAudioFile(e, audio))" Accept="audio/*">
-                                                        <ActivatorContent>
-                                                            @if (_uploadingAudio.ContainsKey(audio) && _uploadingAudio[audio])
+                                                    <audio controls src="@langAudio.FileUrl" style="width: 100%; height: 44px; border-radius: 6px;"></audio>
+                                                } else {
+                                                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-0">Chưa có file âm thanh cho ngôn ngữ này.</MudAlert>
+                                                }
+                                                @if (langAudio.IsTts && !string.IsNullOrEmpty(langAudio.TtsScript) && lang.Code != (_languages.FirstOrDefault(l => l.IsDefault)?.Code ?? "vi"))
+                                                {
+                                                    <MudTextField @bind-Value="langAudio.TtsScript" Label="Kịch bản dịch tự động" Lines="3" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-3" ReadOnly="true"/>
+                                                }
+                                            </div>
+                                            <div class="d-flex flex-column gap-2" style="min-width: 150px;">
+                                                <MudFileUpload T="IBrowserFile" OnFilesChanged="@((e) => UploadAudioFile(e, langAudio))" Accept="audio/*">
+                                                    <ActivatorContent>
+                                                        <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.CloudUpload" Disabled="@(_uploadingAudio.ContainsKey(langAudio) && _uploadingAudio[langAudio])" Size="Size.Small" FullWidth="true">
+                                                            @if (_uploadingAudio.ContainsKey(langAudio) && _uploadingAudio[langAudio])
                                                             {
-                                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="ml-2" />
+                                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2"/>
+                                                                <span>Đang tải...</span>
                                                             }
                                                             else
                                                             {
-                                                                <MudIconButton Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Small" Color="Color.Info" Title="Tải âm thanh từ máy" />
+                                                                <span>Tải file lên</span>
                                                             }
-                                                        </ActivatorContent>
-                                                    </MudFileUpload>
-                                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveAudio(audio))" Title="Xoá audio" />
-                                                </div>
-                                            }
-                                            <div class="mt-2">
-                                                <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => AddTtsAudio(lang.Code))">Thêm Audio thủ công</MudButton>
+                                                        </MudButton>
+                                                    </ActivatorContent>
+                                                </MudFileUpload>
+                                                @if (!string.IsNullOrEmpty(langAudio.FileUrl))
+                                                {
+                                                    <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="@(() => { langAudio.FileUrl = null; langAudio.TtsScript = null; })" Size="Size.Small" FullWidth="true">Xóa âm thanh</MudButton>
+                                                }
                                             </div>
-                                        </MudStack>
+                                        </div>
                                     </MudTabPanel>
                                 }
                             </MudTabs>
@@ -595,14 +633,7 @@
         background-color: rgba(0,0,0,0.04);
     }
     
-    /* Progress Indicators */
-    .mud-progress-circular {
-        animation: spin 1s linear infinite;
-    }
-    @@keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-    }
+    /* Progress Indicators (Removed custom animation to let MudBlazor's SVG spin natively) */
     
     /* Sticky Footer Smooth Entry */
     .sticky-footer-smooth {
@@ -655,6 +686,20 @@
         from { opacity: 0; transform: translateX(-10px); }
         to { opacity: 1; transform: translateX(0); }
     }
+    
+    .poi-image-preview {
+        transition: transform 0.2s ease;
+    }
+    .poi-image-preview:hover {
+        transform: scale(1.02);
+    }
+    .hover-overlay {
+        position: absolute; top:0; left:0; right:0; bottom:0;
+        background: rgba(0,0,0,0.5);
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s ease;
+    }
+    .poi-image-preview:hover .hover-overlay { opacity: 1; }
 </style>
 
 <div style=" background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border-top: 1px solid var(--mud-palette-divider);" class="sticky-footer-smooth py-4 d-flex justify-center gap-6 px-6 shadow-xl">
@@ -666,15 +711,39 @@
 </div>
 
 
-<MudOverlay Visible="@(_generatingAllAudio || _saving)" DarkBackground="true" ZIndex="9999">
+<MudOverlay Visible="@_saving" DarkBackground="true" ZIndex="9998">
     <MudStack AlignItems="AlignItems.Center">
         <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
-        <MudText Typo="Typo.h6" Color="Color.Inherit">@(_saving ? (_isAdmin ? "Đang lưu dữ liệu..." : "Đang gửi yêu cầu...") : "Đang xử lý Audio đa ngôn ngữ...")</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Inherit">Vui lòng đợi trong giây lát, kịch bản đang được AI dịch và chuyển đổi sang giọng nói.</MudText>
+        <MudText Typo="Typo.h6" Color="Color.Inherit">@(_isAdmin ? "Đang lưu dữ liệu..." : "Đang gửi yêu cầu...")</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Inherit">Vui lòng đợi trong giây lát.</MudText>
     </MudStack>
 </MudOverlay>
 
+<MudOverlay Visible="@_previewVisible" DarkBackground="true" ZIndex="9999" OnClick="@(() => _previewVisible = false)">
+    @if (!string.IsNullOrEmpty(_previewImageUrl))
+    {
+        <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+            <MudIconButton Icon="@Icons.Material.Filled.Close" Color="Color.Error" 
+                           OnClick="@(() => _previewVisible = false)"
+                           Style="position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.9); z-index: 10;" />
+            <img src="@_previewImageUrl" style="max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); object-fit: contain;" />
+        </div>
+    }
+</MudOverlay>
+
 @code {
+    private bool _previewVisible = false;
+    private string? _previewImageUrl = null;
+
+    private void OpenImagePreview(string? url)
+    {
+        if (!string.IsNullOrEmpty(url))
+        {
+            _previewImageUrl = url;
+            _previewVisible = true;
+        }
+    }
+
     [Parameter] public int? Id { get; set; }
     [SupplyParameterFromQuery] public int? FromRequestId { get; set; }
     [SupplyParameterFromQuery] public int? EditingRequestId { get; set; }
@@ -708,6 +777,9 @@
         {
             _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new();
             _languages = await Http.GetFromJsonAsync<List<Language>>("api/languages") ?? new();
+            
+            _selectedTranslationLangs = _languages.Where(x => x.IsActive && !x.IsDefault).Select(x => x.Code).ToHashSet();
+            _selectedAudioLangs = _languages.Where(x => x.IsActive).Select(x => x.Code).ToHashSet();
             
             if (IsEdit)
             {
@@ -1021,6 +1093,7 @@
                 {
                     audio.FileUrl = result.Url;
                     audio.IsTts = false; // Đánh dấu là audio tự upload
+                    audio.TtsScript = null; // Xóa kịch bản tự động vì đã upload file thủ công
                     
                     try {
                         audio.DurationSeconds = await JSRuntime.InvokeAsync<double>("window.getAudioDuration", result.Url);
@@ -1042,8 +1115,16 @@
         }
     }
 
-    private async Task GenerateAutoAudioChain()
+    private IEnumerable<string> _selectedTranslationLangs { get; set; } = new HashSet<string>();
+    private IEnumerable<string> _selectedAudioLangs { get; set; } = new HashSet<string>();
+
+    private async Task GenerateSelectedAudioChain()
     {
+        if (!_selectedAudioLangs.Any()) {
+            Snackbar.Add("Vui lòng chọn ít nhất 1 ngôn ngữ đích để tạo audio", Severity.Warning);
+            return;
+        }
+
         var defaultLang = _languages.FirstOrDefault(l => l.IsDefault) ?? _languages.FirstOrDefault();
         if (defaultLang == null) return;
         
@@ -1060,58 +1141,69 @@
 
         _generatingAllAudio = true;
         try {
-            var targetLangs = _languages.Where(x => x.IsActive).ToList();
+            var targetLangs = _languages.Where(x => x.IsActive && _selectedAudioLangs.Contains(x.Code)).ToList();
             Console.WriteLine($"[AudioChain] Starting for {targetLangs.Count} active languages. Source: {sourceLangCode}");
             
             foreach (var lang in targetLangs) {
                 Console.WriteLine($"[AudioChain] Processing language: {lang.Code} (IsDefault: {lang.IsDefault})");
-                var existing = _model.AudioFiles.Where(a => a.LanguageCode == lang.Code && a.IsTts).ToList();
-                foreach (var e in existing) _model.AudioFiles.Remove(e);
 
-                foreach (var src in sourceAudios) {
-                    var scriptToUse = src.TtsScript;
+                if (lang.Code == sourceLangCode) {
+                    // Cập nhật URL trực tiếp cho audio gốc (không xóa để tránh mất bind UI)
+                    foreach (var src in sourceAudios) {
+                        if (!string.IsNullOrWhiteSpace(src.TtsScript)) {
+                            var ttsResp = await Http.PostAsJsonAsync("api/tts/generate", new { Text = src.TtsScript, LanguageCode = lang.Code });
+                            if (ttsResp.IsSuccessStatusCode) {
+                                var ttsResult = await ttsResp.Content.ReadFromJsonAsync<TtsResponse>();
+                                if (ttsResult != null) {
+                                    src.FileUrl = ttsResult.Url;
+                                    try { src.DurationSeconds = await JSRuntime.InvokeAsync<double>("window.getAudioDuration", ttsResult.Url); } catch { }
+                                    Console.WriteLine($"[AudioChain] TTS Success Original: {ttsResult.Url}");
+                                }
+                            } else {
+                                Snackbar.Add($"Lỗi sinh TTS ({lang.Code})", Severity.Error);
+                            }
+                        }
+                    }
+                }
+                else {
+                    var existing = _model.AudioFiles.Where(a => a.LanguageCode == lang.Code && a.IsTts).ToList();
+                    foreach (var e in existing) _model.AudioFiles.Remove(e);
 
-                    if (lang.Code != sourceLangCode) {
+                    foreach (var src in sourceAudios) {
+                        var scriptToUse = src.TtsScript;
                         Console.WriteLine($"[AudioChain] Translating segment from {sourceLangCode} to {lang.Code}...");
                         var resp = await Http.PostAsJsonAsync("api/Translate", new { Text = src.TtsScript, TargetLanguage = lang.Code });
                         if (resp.IsSuccessStatusCode) {
                             var res = await resp.Content.ReadFromJsonAsync<TranslateResponse>();
                             if (res != null) {
                                 scriptToUse = System.Net.WebUtility.HtmlDecode(res.TranslatedText);
-                                Console.WriteLine($"[AudioChain] Translation success. Result: {scriptToUse.Substring(0, Math.Min(20, scriptToUse.Length))}...");
+                                Console.WriteLine($"[AudioChain] Translation success.");
                             }
                         } else {
                             var err = await resp.Content.ReadAsStringAsync();
-                            Console.WriteLine($"[AudioChain] Translation FAILED for {lang.Code}: {err}");
                             Snackbar.Add($"Lỗi dịch sang {lang.Name}: {err}", Severity.Error);
                         }
-                    }
 
-                    var newAudio = new PoiAudioFile {
-                        LanguageCode = lang.Code,
-                        IsTts = true,
-                        SortOrder = src.SortOrder,
-                        TtsScript = scriptToUse
-                    };
+                        var newAudio = new PoiAudioFile {
+                            LanguageCode = lang.Code,
+                            IsTts = true,
+                            SortOrder = src.SortOrder,
+                            TtsScript = scriptToUse
+                        };
 
-                    if (!string.IsNullOrWhiteSpace(scriptToUse))
-                    {
-                        Console.WriteLine($"[AudioChain] Generating TTS for {lang.Code}...");
-                        var ttsResp = await Http.PostAsJsonAsync("api/tts/generate", new { Text = scriptToUse, LanguageCode = lang.Code });
-                        if (ttsResp.IsSuccessStatusCode) {
-                            var ttsResult = await ttsResp.Content.ReadFromJsonAsync<TtsResponse>();
-                            if (ttsResult != null) {
-                                newAudio.FileUrl = ttsResult.Url;
-                                try {
-                                    newAudio.DurationSeconds = await JSRuntime.InvokeAsync<double>("window.getAudioDuration", ttsResult.Url);
-                                } catch { /* Ignore JS errors */ }
-                                Console.WriteLine($"[AudioChain] TTS Success: {ttsResult.Url} ({newAudio.DurationSeconds}s)");
+                        if (!string.IsNullOrWhiteSpace(scriptToUse))
+                        {
+                            var ttsResp = await Http.PostAsJsonAsync("api/tts/generate", new { Text = scriptToUse, LanguageCode = lang.Code });
+                            if (ttsResp.IsSuccessStatusCode) {
+                                var ttsResult = await ttsResp.Content.ReadFromJsonAsync<TtsResponse>();
+                                if (ttsResult != null) {
+                                    newAudio.FileUrl = ttsResult.Url;
+                                    try { newAudio.DurationSeconds = await JSRuntime.InvokeAsync<double>("window.getAudioDuration", ttsResult.Url); } catch { }
+                                }
                             }
-                        } else {
-                            Console.WriteLine($"[AudioChain] TTS FAILED for {lang.Code}");
                         }
+                        _model.AudioFiles.Add(newAudio);
                     }
-                    _model.AudioFiles.Add(newAudio);
                 }
             }
             Snackbar.Add("Đã tạo xong bộ Audio Guide đa ngôn ngữ", Severity.Success);
@@ -1123,16 +1215,25 @@
         finally { _generatingAllAudio = false; StateHasChanged(); }
     }
 
-    private async Task TranslateAllContents()
+    private async Task TranslateSelectedContents()
     {
+        if (!_selectedTranslationLangs.Any()) {
+            Snackbar.Add("Vui lòng chọn ít nhất 1 ngôn ngữ đích để dịch", Severity.Warning);
+            return;
+        }
+
         var defaultLang = _languages.FirstOrDefault(x => x.IsDefault);
         if (defaultLang == null) return;
         var sourceContent = _model.Contents.FirstOrDefault(x => x.LanguageCode == defaultLang.Code);
-        if (sourceContent == null || string.IsNullOrWhiteSpace(sourceContent.Description)) return;
+        if (sourceContent == null || string.IsNullOrWhiteSpace(sourceContent.Description)) 
+        {
+            Snackbar.Add("Vui lòng nhập mô tả Tiếng Việt trước khi dịch", Severity.Warning);
+            return;
+        }
 
         _translatingAllDesc = true;
         try {
-            var tasks = _languages.Where(l => !l.IsDefault && l.IsActive).Select(async lang => {
+            var tasks = _languages.Where(l => !l.IsDefault && l.IsActive && _selectedTranslationLangs.Contains(l.Code)).Select(async lang => {
                 var content = _model.Contents.FirstOrDefault(t => t.LanguageCode == lang.Code);
                 if (content == null) {
                     content = new PoiContent { LanguageCode = lang.Code };
@@ -1141,7 +1242,7 @@
                 await TranslateContent(content, sourceContent);
             });
             await Task.WhenAll(tasks);
-            Snackbar.Add("Đã dịch xong tất cả ngôn ngữ", Severity.Success);
+            Snackbar.Add("Đã dịch xong các ngôn ngữ đã chọn", Severity.Success);
         } catch (Exception ex) {
             Snackbar.Add("Lỗi dịch tổng thể: " + ex.Message, Severity.Error);
         } finally {
@@ -1173,34 +1274,6 @@
         finally { _translatingDesc[targetContent.LanguageCode] = false; }
     }
 
-    private void AddTtsAudio(string langCode)
-    {
-        var count = _model.AudioFiles.Count(a => a.LanguageCode == langCode);
-        _model.AudioFiles.Add(new PoiAudioFile { LanguageCode = langCode, IsTts = true, SortOrder = count });
-    }
-
-    private void RemoveAudio(PoiAudioFile audio)
-    {
-        _model.AudioFiles.Remove(audio);
-        ReorderAudios(audio.LanguageCode);
-    }
-
-    private void MoveAudio(PoiAudioFile audio, int direction)
-    {
-        var audios = _model.AudioFiles.Where(a => a.LanguageCode == audio.LanguageCode).OrderBy(a => a.SortOrder).ToList();
-        var idx = audios.IndexOf(audio);
-        var targetIdx = idx + direction;
-        if (targetIdx >= 0 && targetIdx < audios.Count) {
-            var target = audios[targetIdx];
-            (audio.SortOrder, target.SortOrder) = (target.SortOrder, audio.SortOrder);
-        }
-    }
-
-    private void ReorderAudios(string langCode)
-    {
-        var audios = _model.AudioFiles.Where(a => a.LanguageCode == langCode).OrderBy(a => a.SortOrder).ToList();
-        for (int i = 0; i < audios.Count; i++) audios[i].SortOrder = i;
-    }
 
     private void GoBack() => NavigationManager.NavigateTo("/poi-management");
 

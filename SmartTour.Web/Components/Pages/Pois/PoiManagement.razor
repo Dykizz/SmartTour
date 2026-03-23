@@ -93,6 +93,10 @@
                         </MudTd>
                         <MudTd>
                             <div class="d-flex">
+                                <MudTooltip Text="Xem chi tiết">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info"
+                                                   Size="Size.Small" OnClick="@(() => NavigateToDetail(poi.Id))" />
+                                </MudTooltip>
                                 <MudTooltip Text="Chỉnh sửa">
                                     <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
                                                    Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
@@ -211,6 +215,10 @@
                             </MudTd>
                             <MudTd>
                                 <div class="d-flex">
+                                    <MudTooltip Text="Xem chi tiết">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info"
+                                                       Size="Size.Small" OnClick="@(() => NavigateToDetail(poi.Id))" />
+                                    </MudTooltip>
                                     <MudTooltip Text="Gửi yêu cầu chỉnh sửa">
                                         <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
                                                        Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
@@ -610,6 +618,13 @@
 
     private void NavigateToCreate() => NavigationManager.NavigateTo("/poi/editor");
     private void NavigateToEdit(int id) => NavigationManager.NavigateTo($"/poi/editor/{id}");
+    private void NavigateToDetail(int id) => NavigationManager.NavigateTo($"/poi/detail/{id}");
+
+    [JSInvokable]
+    public void NavigateToDetailFromMap(int id)
+    {
+        NavigateToDetail(id);
+    }
 
     private async Task DeletePoi(Poi poi)
     {
