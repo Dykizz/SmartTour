@@ -112,21 +112,29 @@ public class PoisController : ControllerBase
     [AllowAnonymous]
     public IActionResult GetMapConfig([FromServices] IConfiguration config)
     {
-        var token = config["MAPBOX_ACCESS_TOKEN"];
-        
+        var provider = config["MAP_PROVIDER"] ?? "Mapbox";
+        var token = provider switch
+        {
+            "Google" => config["GOOGLE_MAP_API_KEY"],
+            "Mapbox" => config["MAPBOX_ACCESS_TOKEN"],
+            _ => null
+        };
+
         if (string.IsNullOrEmpty(token))
         {
-            _logger.LogWarning("MAPBOX_ACCESS_TOKEN chưa được cấu hình");
-            return Ok(new MapConfig { MapboxAccessToken = "" });
+            _logger.LogWarning($"API Key for {provider} chưa được cấu hình");
         }
 
-        return Ok(new MapConfig { MapboxAccessToken = token });
+        return Ok(new MapConfig { MapboxAccessToken = token ?? "", Provider = provider });
     }
 
     public class MapConfig 
     { 
         [System.Text.Json.Serialization.JsonPropertyName("mapboxAccessToken")]
         public string MapboxAccessToken { get; set; } = string.Empty; 
+        
+        [System.Text.Json.Serialization.JsonPropertyName("provider")]
+        public string Provider { get; set; } = string.Empty;
     }
 
     private async Task<int?> GetCurrentUserIdAsync()

@@ -25,6 +25,6 @@ public class MapPlaceDetails
 /// </summary>
 public class MapProviderConfig
 {
-    public string ProviderName { get; set; } = "Mapbox"; // Mapbox, Google, Vietmap
+    public string ProviderName { get; set; } = "Mapbox"; // Mapbox, Google
     public string ApiKey { get; set; } = "";
 }

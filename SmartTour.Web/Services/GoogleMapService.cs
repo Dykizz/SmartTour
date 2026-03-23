@@ -5,17 +5,17 @@ using SmartTour.Shared.Models;
 namespace SmartTour.Web.Services;
 
 /// <summary>
-/// Implementation của Map Service sử dụng Vietmap
+/// Implementation của Map Service sử dụng Google Maps
 /// </summary>
-public class VietmapService : IMapService
+public class GoogleMapService : IMapService
 {
     private readonly IJSRuntime _jsRuntime;
     private readonly IConfiguration _configuration;
     private string? _apiKey;
 
-    public string ProviderName => "Vietmap";
+    public string ProviderName => "Google";
 
-    public VietmapService(IJSRuntime jsRuntime, IConfiguration configuration)
+    public GoogleMapService(IJSRuntime jsRuntime, IConfiguration configuration)
     {
         _jsRuntime = jsRuntime;
         _configuration = configuration;
@@ -25,25 +25,25 @@ public class VietmapService : IMapService
     {
         if (_apiKey == null)
         {
-            _apiKey = _configuration["VIETMAP_API_KEY"] 
-                      ?? throw new InvalidOperationException("VIETMAP_API_KEY not found in configuration");
+            _apiKey = _configuration["GOOGLE_MAP_API_KEY"] 
+                      ?? throw new InvalidOperationException("GOOGLE_MAP_API_KEY not found in configuration");
         }
         return _apiKey;
     }
 
     public async Task InitMapAsync<T>(double lat, double lng, string elementId, DotNetObjectReference<T> dotNetHelper) where T : class
     {
-        await _jsRuntime.InvokeVoidAsync("vietmapInterop.initMap", lat, lng, elementId, dotNetHelper, GetApiKey());
+        await _jsRuntime.InvokeVoidAsync("googleMapInterop.initMap", lat, lng, elementId, dotNetHelper, GetApiKey());
     }
 
     public async Task SetMarkerAsync(double lat, double lng, string elementId)
     {
-        await _jsRuntime.InvokeVoidAsync("vietmapInterop.setMarker", lat, lng, elementId);
+        await _jsRuntime.InvokeVoidAsync("googleMapInterop.setMarker", lat, lng, elementId);
     }
 
     public async Task InvalidateSizeAsync(string elementId)
     {
-        await _jsRuntime.InvokeVoidAsync("vietmapInterop.invalidateSize", elementId);
+        await _jsRuntime.InvokeVoidAsync("googleMapInterop.invalidateSize", elementId);
     }
 
     public async Task<List<MapPrediction>> GetPredictionsAsync(string input, CancellationToken cancellationToken = default)
@@ -54,7 +54,7 @@ public class VietmapService : IMapService
         try
         {
             var predictions = await _jsRuntime.InvokeAsync<List<MapPrediction>>(
-                "vietmapInterop.getPredictions", 
+                "googleMapInterop.getPredictions", 
                 cancellationToken, 
                 input, 
                 GetApiKey()
@@ -63,7 +63,7 @@ public class VietmapService : IMapService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Vietmap search error: {ex.Message}");
+            Console.WriteLine($"Google Maps search error: {ex.Message}");
             return new List<MapPrediction>();
         }
     }
@@ -73,14 +73,14 @@ public class VietmapService : IMapService
         try
         {
             return await _jsRuntime.InvokeAsync<MapPlaceDetails>(
-                "vietmapInterop.getPlaceDetails", 
+                "googleMapInterop.getPlaceDetails", 
                 placeId, 
                 GetApiKey()
             );
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Vietmap place details error: {ex.Message}");
+            Console.WriteLine($"Google Maps place details error: {ex.Message}");
             return null;
         }
     }

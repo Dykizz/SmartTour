@@ -10,6 +10,7 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject AuthenticationStateProvider AuthStateProvider
+@inject SmartTour.Web.Services.IMapService MapService
 
 <PageTitle>Quản lý POI</PageTitle>
 
@@ -576,25 +577,35 @@
                     radius = p.GeofenceRadius
                 }).ToList();
 
-                var mapConfig = await Http.GetFromJsonAsync<MapConfigResult>("api/pois/map-config");
-                string provider = string.IsNullOrEmpty(mapConfig?.MapboxAccessToken) ? "Vietmap" : "Mapbox";
-
+                // Lấy provider trực tiếp từ IMapService (không cần gọi API)
+                string provider = MapService.ProviderName;
+                string apiKey = await GetMapApiKeyAsync();
                 string containerId = _isAdmin ? "admin-overview-map" : "seller-overview-map";
 
-                if (provider == "Mapbox")
+                string jsFunc = provider switch
                 {
-                    await JSRuntime.InvokeVoidAsync("mapInterop.showOverviewMap", containerId, mappedData, null, mapConfig?.MapboxAccessToken ?? "");
-                }
-                else
-                {
-                    await JSRuntime.InvokeVoidAsync("vietmapInterop.showOverviewMap", containerId, mappedData, null, mapConfig?.MapboxAccessToken ?? "");
-                }
+                    "Google" => "googleMapInterop.showOverviewMap",
+                    "Mapbox" => "mapInterop.showOverviewMap",
+                    _ => "mapInterop.showOverviewMap"
+                };
+
+                await JSRuntime.InvokeVoidAsync(jsFunc, containerId, mappedData, null, apiKey);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading map metadata: {ex.Message}");
         }
+    }
+
+    private async Task<string> GetMapApiKeyAsync()
+    {
+        try
+        {
+            var mapConfig = await Http.GetFromJsonAsync<MapConfigResult>("api/pois/map-config");
+            return mapConfig?.MapboxAccessToken ?? "";
+        }
+        catch { return ""; }
     }
 
     private void NavigateToCreate() => NavigationManager.NavigateTo("/poi/editor");
@@ -656,5 +667,8 @@
     { 
         [System.Text.Json.Serialization.JsonPropertyName("mapboxAccessToken")]
         public string MapboxAccessToken { get; set; } = string.Empty; 
+        
+        [System.Text.Json.Serialization.JsonPropertyName("provider")]
+        public string Provider { get; set; } = string.Empty; 
     }
 }
