@@ -32,7 +32,24 @@
 </head>
 
 <body>
-    <div id="app">Loading...</div>
+    <div id="app">
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background: linear-gradient(135deg,#0e6eb8 0%,#1a9de8 100%); font-family: Roboto, sans-serif;">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:24px; animation: b-bounce 2s infinite ease-in-out;">
+                <path d="M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z" />
+                <circle cx="12" cy="10" r="3" />
+            </svg>
+            <h2 style="color:white; font-size:2rem; font-weight:800; margin:0 0 8px 0; letter-spacing: 0.5px;">SmartTour</h2>
+            <p style="color:rgba(255,255,255,0.85); font-size:0.95rem; margin:0;">Khởi động ứng dụng...</p>
+            
+            <div style="width:140px; height:4px; background:rgba(255,255,255,0.2); border-radius:2px; margin-top:32px; overflow:hidden;">
+                <div style="height:100%; width:40%; background:white; border-radius:2px; animation: b-load 1.2s infinite ease-in-out alternate;"></div>
+            </div>
+            <style>
+                @keyframes b-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+                @keyframes b-load { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+            </style>
+        </div>
+    </div>
 
     <div id="blazor-error-ui"
         style="display:none; background: #ffebee; color: #b71c1c; padding: 20px; position: fixed; bottom: 0; width: 100%; z-index: 1000; border-top: 4px solid #f44336;">
