@@ -76,6 +76,15 @@ public static class MauiProgram
 		// Đăng ký HttpClient mặc định lấy từ Factory
 		builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("SmartTourApi"));
 
+		// Đăng ký Local Database bằng DbContextFactory (Best Practice cho Blazor để tránh lỗi đa luồng)
+		builder.Services.AddDbContextFactory<SmartTour.Mobile.Data.AppDbContext>();
+
+        // Đăng ký Service chuyên Cache Data (Singleton là lý tưởng vì nó dùng DbContextFactory)
+        builder.Services.AddSingleton<SmartTour.Mobile.Services.OfflineSyncService>();
+        
+        // Đăng ký Service chuyên tải/lưu Cache cho m thanh / Hình Ảnh
+        builder.Services.AddSingleton<SmartTour.Mobile.Services.MediaCacheService>();
+
 		var app = builder.Build();
 
         // Cấu hình bắt lỗi toàn cục cho luồng Task (nếu cần)

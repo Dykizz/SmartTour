@@ -3,6 +3,9 @@
 @inject SmartTour.Mobile.Services.LanguageService LanguageService
 @inject IJSRuntime JS
 @inject NavigationManager NavigationManager
+@inject SmartTour.Mobile.Services.OfflineSyncService SyncService
+@inject SmartTour.Mobile.Services.MediaCacheService MediaCacheService
+@inject ISnackbar Snackbar
 @using Microsoft.AspNetCore.Components.Authorization
 @implements IAsyncDisposable
 
@@ -25,6 +28,13 @@
 
         // Dừng audio khi navigate vào login
         _locationChangedSubscription = NavigationManager.RegisterLocationChangingHandler(OnLocationChanging);
+
+        // --- CHIẾN LƯỢC BACKGROUND SYNC & DỌN RÁC (OFFLINE-FIRST) ---
+        // 1. Gài bẫy mạng: Nếu ra khỏi rừng có sóng 4G/Wifi lại, đẩy hết Dữ Liệu Lưu Offline lên Server!
+        Microsoft.Maui.Networking.Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+        
+        // 2. Khởi động Robot dọn rác ngầm: Chống tràn bộ nhớ! Quét xóa ảnh/nhạc cũ hơn 30 ngày không xài tới.
+        _ = MediaCacheService.CleanupOldCacheAsync(30);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -77,12 +87,30 @@
         await JS.InvokeVoidAsync("audioHelper.pause");
     }
 
+    // Đôi đũa thần kỳ: Vừa có mạng là đẩy dữ liệu lên ngay
+    private async void OnConnectivityChanged(object? sender, Microsoft.Maui.Networking.ConnectivityChangedEventArgs e)
+    {
+        if (e.NetworkAccess == Microsoft.Maui.Networking.NetworkAccess.Internet)
+        {
+            try 
+            {
+                await SyncService.ProcessPendingActionsAsync();
+                // Vì hàm chạy ngầm không đếm số lượng, nhưng đảm bảo dữ liệu đứt mạng đã lên Server!
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[BgSync] Lỗi đẩy Background Sync: {ex.Message}");
+            }
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         GeofenceService.AudioTriggered -= OnAudioTriggered;
         GeofenceService.PauseAudioRequested -= OnPauseAudioRequested;
         _locationChangedSubscription?.Dispose();
         _geofenceDotNetRef?.Dispose();
+        Microsoft.Maui.Networking.Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
         await GeofenceService.StopAsync();
     }
 }

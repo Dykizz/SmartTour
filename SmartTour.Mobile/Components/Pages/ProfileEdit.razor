@@ -9,6 +9,7 @@
 @inject HttpClient Http
 @inject ISnackbar Snackbar
 @inject LanguageService LanguageService
+@inject OfflineSyncService SyncService
 @attribute [Authorize]
 @implements IDisposable
 
@@ -233,16 +234,18 @@
     {
         try
         {
-            // Use absolute path to ensure correct resolution on sub-pages
-            var user = await Http.GetFromJsonAsync<UserDto>($"/api/users/{_userId}");
-            if (user != null)
+            await SyncService.GetUserProfileAsync(_userId, user => 
             {
-                _user = user;
-            }
+                if (user != null && user.Id != 0)
+                {
+                    _user = user;
+                    InvokeAsync(StateHasChanged);
+                }
+            });
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"{LanguageService.T("SystemError")} (ID: {_userId}): {ex.Message}", Severity.Error);
+            Snackbar.Add($"Lỗi DB: {ex.Message}", Severity.Error);
         }
     }
 
@@ -257,21 +260,16 @@
         _isSaving = true;
         try
         {
-            var response = await Http.PutAsJsonAsync($"/api/users/{_userId}", _user);
-            if (response.IsSuccessStatusCode)
-            {
-                // Cập nhật Identity cục bộ để các trang khác (như Home) thấy tên mới ngay lập tức
-                var auth = (MobileAuthStateProvider)AuthStateProvider;
-                auth.MarkUserAsAuthenticated(_user.Email, _userId.ToString(), _user.FullName);
+            // Ghi nhận trực tiếp vào DB Local và đẩy lệnh Sync ngầm
+            await SyncService.SaveUserProfileOfflineAsync(_user);
 
-                Snackbar.Add(LanguageService.T("UpdateProfileSuccess"), Severity.Success);
-                await Task.Delay(1500);
-                NavigationManager.NavigateTo("/profile");
-            }
-            else
-            {
-                Snackbar.Add(LanguageService.T("UpdateError"), Severity.Error);
-            }
+            // Cập nhật Identity cục bộ để các trang khác (như Home) thấy tên mới ngay lập tức
+            var auth = (MobileAuthStateProvider)AuthStateProvider;
+            auth.MarkUserAsAuthenticated(_user.Email, _userId.ToString(), _user.FullName);
+
+            Snackbar.Add("Cập nhật thông tin thành công!", Severity.Success);
+            await Task.Delay(500); // Đợi xíu cho UX cảm nhận cái loading
+            NavigationManager.NavigateTo("/profile");
         }
         catch (Exception ex)
         {
