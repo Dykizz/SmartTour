@@ -481,10 +481,28 @@
         await InvokeAsync(StateHasChanged);
         try
         {
-            var config = await Http.GetFromJsonAsync<MapConfig>("api/pois/map-config");
-            if (config == null || string.IsNullOrEmpty(config.GoogleMapsApiKey))
+            string? googleApiKey = Microsoft.Maui.Storage.Preferences.Default.Get("cached_google_map_key", "");
+            
+            try
             {
-                _errorMessage = "Google Maps API Key không tồn tại.";
+                // Thử fetch API nhanh trong 5s (né trường hợp treo kết nối do đứt mạng ngầm)
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                var config = await Http.GetFromJsonAsync<MapConfig>("api/pois/map-config", cts.Token);
+                if (config != null && !string.IsNullOrEmpty(config.GoogleMapsApiKey))
+                {
+                    googleApiKey = config.GoogleMapsApiKey;
+                    Microsoft.Maui.Storage.Preferences.Default.Set("cached_google_map_key", googleApiKey);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MapView] Không lấy được Map Config từ Server (Có thể do Offline): {ex.Message}");
+                // Coi như mượt mà vượt qua lỗi để xuống dưới dùng Key cũ
+            }
+
+            if (string.IsNullOrEmpty(googleApiKey))
+            {
+                _errorMessage = "Không có kết nối mạng và chưa Tải bản đồ lần nào. Vui lòng bật mạng để dùng Google Maps lần đầu.";
                 _mapError = true;
                 await InvokeAsync(StateHasChanged);
                 return;
@@ -493,8 +511,11 @@
             _dotNetRef = DotNetObjectReference.Create(this);
             var lat = GeofenceService.LastKnownLatitude ?? 10.7769;
             var lng = GeofenceService.LastKnownLongitude ?? 106.7009;
+            
+            // Invoke Javascript
             await JS.InvokeVoidAsync("window.mapHelper.initMap",
-                config.GoogleMapsApiKey, lat, lng, 15, _dotNetRef);
+                googleApiKey, lat, lng, 15, _dotNetRef);
+            
             _mapInitialized = true;
 
             _filteredPois = GeofenceService.AllPois.ToList();

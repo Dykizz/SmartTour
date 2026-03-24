@@ -62,8 +62,18 @@
                     <div class="profile-header-bg">
                         <div class="d-flex flex-column align-center pt-6 pb-4">
                             <div class="profile-avatar-wrapper">
-                                <MudAvatar Image="@(string.IsNullOrEmpty(_user.AvatarUrl) ? "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200&h=200" : _user.AvatarUrl)"
-                                           Style="width:90px; height:90px; border-radius:32px; border:2px solid rgba(255,255,255,0.4); box-shadow:0 12px 24px rgba(0,0,0,0.1);" />
+                                @if (!string.IsNullOrEmpty(_user.AvatarUrl) && !_imageLoadFailed)
+                                {
+                                    <MudAvatar Style="width:90px; height:90px; border-radius:32px; border:2px solid rgba(255,255,255,0.4); box-shadow:0 12px 24px rgba(0,0,0,0.1); background:transparent;">
+                                        <img src="@_user.AvatarUrl" style="width:100%; height:100%; object-fit: cover;" @onerror="OnImageError" />
+                                    </MudAvatar>
+                                }
+                                else
+                                {
+                                    <MudAvatar Style="width:90px; height:90px; border-radius:32px; border:2px solid rgba(255,255,255,0.4); box-shadow:0 12px 24px rgba(0,0,0,0.1); background:#ffffff; color:#0e6eb8; font-size:2.5rem; font-weight:bold;">
+                                        @(_userName?.FirstOrDefault().ToString().ToUpper() ?? "U")
+                                    </MudAvatar>
+                                }
                                 <div class="status-tag">@LanguageService.T("Active")</div>
                             </div>
                             <MudText Style="font-weight:800; color:white; font-size:1.2rem; margin-top:12px;">@_userName</MudText>
@@ -159,7 +169,7 @@
                                         <MudIcon Icon="@Icons.Material.Filled.CloudDownload" Size="Size.Small" />
                                     </div>
                                     <div class="setting-text">
-                                        <div style="font-weight:700;">Tải gói hình & âm thanh Offline</div>
+                                        <div style="font-weight:700;">Tải Trọn Gói Dữ Liệu Ngoại Tuyến</div>
                                         @if(_isScanning)
                                         {
                                             <div style="font-size:0.75rem; color:#0e6eb8; margin-top:4px; font-weight:600;">Đang quét dữ liệu...</div>
@@ -171,7 +181,7 @@
                                         }
                                         else
                                         {
-                                            <div style="font-size:0.75rem; color:#888; font-weight:500;">Tải đệm sẵn để nghe thuyết minh kể cả lúc rớt mạng</div>
+                                            <div style="font-size:0.75rem; color:#888; font-weight:500;">Tải sẵn toàn bộ Bản đồ, Hình ảnh và Âm thanh để dùng khi không có mạng</div>
                                             @if (!string.IsNullOrEmpty(_lastSyncTime))
                                             {
                                                 <div style="font-size:0.7rem; color:#10b981; margin-top:4px; font-weight:600; display:flex; align-items:center;">
@@ -230,16 +240,20 @@
             
             <div style="background:#f8fafc; border-radius:12px; padding:12px; margin-bottom:16px; border:1px solid #e2e8f0;">
                 <div class="d-flex align-center gap-3 mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" Style="color:#64748b;" />
+                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalPois Địa điểm Tour (~@(_packInfo?.EstimatedPoiMegabytes.ToString("F1")) MB)</MudText>
+                </div>
+                <div class="d-flex align-center gap-3 mb-2">
                     <MudIcon Icon="@Icons.Material.Filled.Map" Size="Size.Small" Style="color:#64748b;" />
-                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalPois Địa điểm Tour</MudText>
+                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalMapTiles Hình nền Bản đồ (~@(_packInfo?.EstimatedMapMegabytes.ToString("F1")) MB)</MudText>
                 </div>
                 <div class="d-flex align-center gap-3 mb-2">
                     <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small" Style="color:#64748b;" />
-                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalImages Hình ảnh HD minh họa</MudText>
+                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalImages Hình ảnh HD (~@(_packInfo?.EstimatedImageMegabytes.ToString("F1")) MB)</MudText>
                 </div>
                 <div class="d-flex align-center gap-3 mb-2">
                     <MudIcon Icon="@Icons.Material.Filled.Headset" Size="Size.Small" Style="color:#64748b;" />
-                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalAudio File lồng tiếng MP3</MudText>
+                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalAudio File lồng tiếng (~@(_packInfo?.EstimatedAudioMegabytes.ToString("F1")) MB)</MudText>
                 </div>
                 <div class="d-flex align-center justify-space-between mt-3 pt-3" style="border-top:1px dashed #cbd5e1;">
                     <MudText Typo="Typo.body2" Style="color:#64748b; font-size:0.85rem;">Tổng dung lượng</MudText>
@@ -418,9 +432,13 @@
     private List<Poi> _favorites = new();
 
     private bool _loadingFavs = false;
+    private bool _imageLoadFailed = false;
 
-
-
+    private void OnImageError()
+    {
+        _imageLoadFailed = true;
+        StateHasChanged();
+    }
     private List<Poi> _previewFavorites => _favorites.Take(4).ToList();
 
     // Biến cho tính năng Tải gói Offline
@@ -499,20 +517,13 @@
         StateHasChanged();
         try
         {
-            if (Microsoft.Maui.Networking.Connectivity.NetworkAccess == Microsoft.Maui.Networking.NetworkAccess.Internet)
+            // Luôn gọi qua SyncService (Single Source of Truth)
+            // SyncService sẽ trả data offline lập tức, sau đó gọi ngầm ngầm API (nếu có mạng) để cập nhật DB nội bộ.
+            _favorites = await SyncService.GetFavoritesAsync(_userId, (latestFavs) =>
             {
-                // Có mạng: gọi thẳng API (luôn đúng)
-                var result = await Http.GetFromJsonAsync<List<Poi>>("api/favorites");
-                if (result != null)
-                    _favorites = result;
-            }
-            else
-            {
-                // Offline: đọc từ SQLite local
-                var localFavs = await SyncService.GetFavoritesAsync(_userId);
-                if (localFavs.Any())
-                    _favorites = localFavs;
-            }
+                _favorites = latestFavs;
+                InvokeAsync(StateHasChanged);
+            });
         }
         catch (Exception ex)
         {
@@ -521,7 +532,7 @@
         finally
         {
             _loadingFavs = false;
-            StateHasChanged(); // ← Render 1 lần duy nhất sau khi XONG, bao gồm cả tắt spinner
+            StateHasChanged();
         }
     }
 
@@ -610,6 +621,22 @@
 
             await SyncService.DownloadMediaPackAsync(_packInfo!, p2);
             
+            // Bước 3: Tải Nền Bản Đồ (Map Tiles) quanh khu vực POI (Dùng Bounding Box)
+            _downloadStatus = "Đang tải dữ liệu Bản Đồ khu vực...";
+            InvokeAsync(StateHasChanged);
+            if (_packInfo != null && _packInfo.MinLat != 0)
+            {
+                try
+                {
+                    await JS.InvokeVoidAsync("window.mapHelper.prefetchTilesForBox", 
+                        _packInfo.MinLat, _packInfo.MaxLat, _packInfo.MinLng, _packInfo.MaxLng);
+                }
+                catch (Exception mapEx)
+                {
+                    Console.WriteLine($"[Profile] Lỗi tải map tiles: {mapEx.Message}");
+                }
+            }
+
             _downloadStatus = "Hoàn tất! Đi du lịch Offline thôi!";
             _downloadPercent = 100;
             _lastSyncTime = DateTime.Now.ToString("dd/MM/yyyy HH:mm");

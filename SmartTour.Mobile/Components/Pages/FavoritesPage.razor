@@ -148,17 +148,18 @@
         min-height: 90px;
     }
 </style>
-
+@inject SmartTour.Mobile.Services.OfflineSyncService SyncService
 @code {
     private List<Poi>    _favorites   = new();
     private bool         _loading     = true;
     private HashSet<int> _removingIds = new();
+    private int _userId = 0;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var idClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (!int.TryParse(idClaim, out int userId) || userId <= 0)
+        if (!int.TryParse(idClaim, out _userId) || _userId <= 0)
         {
             NavigationManager.NavigateTo("/login?returnUrl=/favorites");
             return;
@@ -171,7 +172,11 @@
         _loading = true;
         try
         {
-            _favorites = await Http.GetFromJsonAsync<List<Poi>>("api/favorites") ?? new();
+            _favorites = await SyncService.GetFavoritesAsync(_userId, (latestFavs) =>
+            {
+                _favorites = latestFavs;
+                InvokeAsync(StateHasChanged);
+            });
         }
         catch (Exception ex)
         {
@@ -188,20 +193,14 @@
 
         try
         {
-            var resp = await Http.DeleteAsync($"api/favorites/{poiId}");
-            if (resp.IsSuccessStatusCode || resp.StatusCode == System.Net.HttpStatusCode.NoContent)
-            {
-                _favorites.RemoveAll(p => p.Id == poiId);
-                Snackbar.Add("🗑️ Đã xóa khỏi yêu thích", Severity.Info);
-            }
-            else
-            {
-                Snackbar.Add("Không thể xóa. Thử lại sau.", Severity.Error);
-            }
+            // Sử dụng cơ sở dữ liệu đồng bộ (Offline support)
+            var success = await SyncService.ToggleFavoriteAsync(poiId, _userId);
+            _favorites.RemoveAll(p => p.Id == poiId);
+            Snackbar.Add("🗑️ Đã xóa khỏi yêu thích", Severity.Info);
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Lỗi: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Lỗi thao tác: {ex.Message}", Severity.Error);
         }
         finally
         {

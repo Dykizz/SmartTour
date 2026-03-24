@@ -43,9 +43,16 @@
             <!-- Cột Avatar & Thông tin cơ bản -->
             <MudItem xs="12" md="4">
                 <MudPaper Elevation="0" Outlined="true" Class="pa-6 rounded-xl d-flex flex-column align-center text-center bg-gray-50 h-100">
-                    <MudAvatar Color="Color.Primary" Style="width: 100px; height: 100px; font-size: 2.5rem;" Class="mb-4 shadow-sm">
-                        @(_user.Identity?.Name?.FirstOrDefault().ToString().ToUpper() ?? "U")
-                    </MudAvatar>
+                    @if (_userInfo != null && !string.IsNullOrEmpty(_userInfo.AvatarUrl))
+                    {
+                        <MudAvatar Image="@_userInfo.AvatarUrl" Style="width: 100px; height: 100px; font-size: 2.5rem; object-fit: cover;" Class="mb-4 shadow-sm" />
+                    }
+                    else
+                    {
+                        <MudAvatar Color="Color.Primary" Style="width: 100px; height: 100px; font-size: 2.5rem;" Class="mb-4 shadow-sm">
+                            @(_user.Identity?.Name?.FirstOrDefault().ToString().ToUpper() ?? "U")
+                        </MudAvatar>
+                    }
                     
                     <MudText Typo="Typo.h5" Style="font-weight: 700;">@_user.Identity?.Name</MudText>
                     

@@ -31,7 +31,8 @@ public class CloudStorageService : ICloudStorageService
     {
         try {
             Console.WriteLine($"[GCS] Starting upload: {fileName} into bucket {_bucketName} (Type: {contentType})");
-            var data = await _storageClient.UploadObjectAsync(_bucketName, fileName, contentType, fileStream);
+            var options = new UploadObjectOptions { PredefinedAcl = PredefinedAcl.PublicRead };
+            var data = await _storageClient.UploadObjectAsync(_bucketName, fileName, contentType, fileStream, options);
             var url = $"https://storage.googleapis.com/{_bucketName}/{fileName}";
             Console.WriteLine($"[GCS] Upload success: {url}");
             return url;
@@ -47,7 +48,8 @@ public class CloudStorageService : ICloudStorageService
         try {
             Console.WriteLine($"[GCS] Starting byte upload: {fileName} into bucket {_bucketName} (Size: {data.Length} bytes)");
             using var stream = new MemoryStream(data);
-            await _storageClient.UploadObjectAsync(_bucketName, fileName, contentType, stream);
+            var options = new UploadObjectOptions { PredefinedAcl = PredefinedAcl.PublicRead };
+            await _storageClient.UploadObjectAsync(_bucketName, fileName, contentType, stream, options);
             var url = $"https://storage.googleapis.com/{_bucketName}/{fileName}";
             Console.WriteLine($"[GCS] Byte upload success: {url}");
             return url;

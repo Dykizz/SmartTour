@@ -364,29 +364,41 @@ public class OfflineSyncService
                     var networkFavorites = await http.GetFromJsonAsync<List<Poi>>("api/favorites");
                     if (networkFavorites != null)
                     {
-                        using var updateDb = await _dbContextFactory.CreateDbContextAsync();
-                        
-                        // Xóa bằng SQL thuần, không kéo entity vào tracker
-                        await updateDb.Database.ExecuteSqlRawAsync(
-                            "DELETE FROM Favorites WHERE UserId = {0}", userId);
-
-                        // Insert bằng SQL thuần - tránh EF FK conflict
-                        foreach (var remotePoi in networkFavorites)
-                        {
-                            await updateDb.Database.ExecuteSqlRawAsync(
-                                "INSERT OR IGNORE INTO Favorites (UserId, PoiId, CreatedAt) VALUES ({0}, {1}, {2})",
-                                userId, remotePoi.Id, DateTime.UtcNow);
-
-                            // Cập nhật thông tin POI riêng biệt
-                            remotePoi.Category = null;
-                            var existPoi = await updateDb.Pois.FirstOrDefaultAsync(p => p.Id == remotePoi.Id);
-                            if (existPoi == null)
-                                updateDb.Pois.Add(remotePoi);
-                            else
-                                updateDb.Entry(existPoi).CurrentValues.SetValues(remotePoi);
-                        }
-                        await updateDb.SaveChangesAsync();
+                        // 1. NGAY LẬP TỨC cập nhật UI khi có mạng, bỏ qua các thao tác DB nặng!
                         onDataUpdated?.Invoke(networkFavorites);
+
+                        // 2. Chạy lưu ngầm xuống DB cục bộ (Bọc Try/Catch kín để không sập app)
+                        try 
+                        {
+                            using var updateDb = await _dbContextFactory.CreateDbContextAsync();
+                            
+                            await updateDb.Database.ExecuteSqlRawAsync("DELETE FROM Favorites WHERE UserId = {0}", userId);
+                            
+                            // Gỡ bỏ các navigation property rườm rà trước khi Cache để tránh Data Conflict trên Mobile DB
+                            foreach (var remotePoi in networkFavorites)
+                            {
+                                await updateDb.Database.ExecuteSqlRawAsync(
+                                    "INSERT OR IGNORE INTO Favorites (UserId, PoiId, CreatedAt) VALUES ({0}, {1}, {2})",
+                                    userId, remotePoi.Id, DateTime.UtcNow);
+
+                                remotePoi.Category = null;
+                                remotePoi.Images = null;
+                                remotePoi.AudioFiles = null;
+                                remotePoi.Contents = null;
+                                remotePoi.OperatingHours = null;
+
+                                var existPoi = await updateDb.Pois.FirstOrDefaultAsync(p => p.Id == remotePoi.Id);
+                                if (existPoi == null)
+                                    updateDb.Pois.Add(remotePoi);
+                                else
+                                    updateDb.Entry(existPoi).CurrentValues.SetValues(remotePoi);
+                            }
+                            await updateDb.SaveChangesAsync();
+                        }
+                        catch (Exception dbEx)
+                        {
+                            Console.WriteLine($"[GetFavs] Cảnh báo lỗi cập nhật bộ đệm SQLite: {dbEx.Message}");
+                        }
                     }
                 }
                 catch (Exception ex) { Console.WriteLine($"[GetFavs] Lỗi sync: {ex.Message}"); }
@@ -591,8 +603,20 @@ public class OfflineSyncService
         public int TotalPois { get; set; }
         public int TotalImages { get; set; }
         public int TotalAudio { get; set; }
-        public double EstimatedMegabytes => (TotalImages * 0.4) + (TotalAudio * 2.5); // Ước lượng 400KB/Ảnh, 2.5MB/Audio
+        public int TotalMapTiles { get; set; }
+        public double EstimatedPoiMegabytes => TotalPois * 0.005;    // Ước lượng 5KB JSON text mỗi địa điểm
+        public double EstimatedMapMegabytes => TotalMapTiles * 0.02; // Ước lượng 20KB mỗi tile bản đồ 
+        public double EstimatedImageMegabytes => TotalImages * 0.4;  // Ước lượng 400KB mỗi ảnh HD
+        public double EstimatedAudioMegabytes => TotalAudio * 2.5;   // Ước lượng 2.5MB mỗi file MP3
+        public double EstimatedMegabytes => EstimatedPoiMegabytes + EstimatedImageMegabytes + EstimatedAudioMegabytes + EstimatedMapMegabytes; 
+        
         public HashSet<string> RequiredMediaUrls { get; set; } = new();
+        
+        // Bounding Box (Khung chữ nhật bao quanh toàn bộ POI)
+        public double MinLat { get; set; }
+        public double MaxLat { get; set; }
+        public double MinLng { get; set; }
+        public double MaxLng { get; set; }
     }
 
     /// <summary>
@@ -683,12 +707,39 @@ public class OfflineSyncService
         proc.CurrentStatus = "Hoàn tất quét dung lượng!";
         progress?.Report(proc);
 
+        // Tính Bounding Box (Khu vực tối đa bao phủ các POI) + Mở rộng lề (Padding ~5km)
+        double minLat = default, maxLat = default, minLng = default, maxLng = default;
+        int totalMapTiles = 0;
+
+        if (allPoisFlattened.Any())
+        {
+            minLat = allPoisFlattened.Min(p => p.Latitude) - 0.05;
+            maxLat = allPoisFlattened.Max(p => p.Latitude) + 0.05;
+            minLng = allPoisFlattened.Min(p => p.Longitude) - 0.05;
+            maxLng = allPoisFlattened.Max(p => p.Longitude) + 0.05;
+
+            // Tính số lượng Map Tiles để ước tính dung lượng MB
+            for (int zoom = 10; zoom <= 15; zoom++)
+            {
+                var tileTL = LatLngToTile(maxLat, minLng, zoom);
+                var tileBR = LatLngToTile(minLat, maxLng, zoom);
+                int width = Math.Abs(tileBR.x - tileTL.x) + 1;
+                int height = Math.Abs(tileBR.y - tileTL.y) + 1;
+                totalMapTiles += (width * height);
+            }
+        }
+
         return new OfflinePackInfo
         {
             TotalPois = allPoisFlattened.Count,
             TotalImages = imgCount,
             TotalAudio = audioCount,
-            RequiredMediaUrls = requiredMediaUrls
+            TotalMapTiles = totalMapTiles,
+            RequiredMediaUrls = requiredMediaUrls,
+            MinLat = minLat,
+            MaxLat = maxLat,
+            MinLng = minLng,
+            MaxLng = maxLng
         };
     }
 
@@ -722,5 +773,18 @@ public class OfflineSyncService
 
         proc.CurrentStatus = "Hoàn tất Tải Toàn Bộ Gói Du Lịch Offline!";
         progress?.Report(proc);
+    }
+
+    /// <summary>
+    /// Chuyển đổi Toạ độ địa lý (Lat/Lng) sang Hệ toạ độ Mảnh bản đồ (Slippy map tilenames) 
+    /// dùng để đếm số lượng hình ảnh Map sẽ tải.
+    /// </summary>
+    private (int x, int y) LatLngToTile(double lat, double lng, int zoom)
+    {
+        double n = Math.Pow(2, zoom);
+        int x = (int)((lng + 180.0) / 360.0 * n);
+        double latRad = lat * Math.PI / 180.0;
+        int y = (int)((1.0 - Math.Log(Math.Tan(latRad) + 1.0 / Math.Cos(latRad)) / Math.PI) / 2.0 * n);
+        return (Math.Max(0, x), Math.Max(0, y));
     }
 }
