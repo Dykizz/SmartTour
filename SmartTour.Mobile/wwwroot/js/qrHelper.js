@@ -82,9 +82,21 @@ window.qrHelper = (() => {
         _clearContainer(container);
 
         const video = document.createElement("video");
-        video.setAttribute("playsinline", true);
+        video.id = "qr-video-feed";
+        
+        // Bypass nghiêm ngặt nhất cho UserGesture trong Webview MAUI/iOS
+        video.setAttribute("playsinline", "playsinline");
+        video.setAttribute("webkit-playsinline", "webkit-playsinline");
+        video.setAttribute("muted", "muted");
+        video.setAttribute("autoplay", "autoplay");
         video.muted = true;
+        video.defaultMuted = true;
         video.autoplay = true;
+        video.controls = false;
+        
+        // Vô hiệu hóa người dùng ấn nhầm vào video tag
+        video.style.pointerEvents = "none";
+
         container.appendChild(video);
         _video = video;
 

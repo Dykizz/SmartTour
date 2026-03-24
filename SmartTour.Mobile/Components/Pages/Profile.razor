@@ -8,6 +8,8 @@
 @inject ISnackbar Snackbar
 @inject LanguageService LanguageService
 @inject GeofenceAudioService GeofenceService
+@inject OfflineSyncService SyncService
+@inject IDialogService DialogService
 @inject IJSRuntime JS
 @attribute [Authorize]
 @implements IDisposable
@@ -150,6 +152,39 @@
                         <div class="mt-8 mb-4">
                             <MudText Typo="Typo.subtitle1" Style="font-weight:700; color:#0a3050; margin-bottom:12px;">⚙️ @LanguageService.T("AppSettings")</MudText>
                             <MudPaper Elevation="0" Class="rounded-xl overflow-hidden" Style="border: 1px solid #e1e9f5;">
+                                
+                                <!-- Offline Pack Download Button -->
+                                <div class="setting-item" @onclick="DownloadOfflinePack" style="align-items:flex-start;">
+                                    <div class="setting-icon" style="background:rgba(16,185,129,0.1); color:#10b981; margin-top:2px;">
+                                        <MudIcon Icon="@Icons.Material.Filled.CloudDownload" Size="Size.Small" />
+                                    </div>
+                                    <div class="setting-text">
+                                        <div style="font-weight:700;">Tải gói hình & âm thanh Offline</div>
+                                        @if(_isScanning)
+                                        {
+                                            <div style="font-size:0.75rem; color:#0e6eb8; margin-top:4px; font-weight:600;">Đang quét dữ liệu...</div>
+                                        }
+                                        else if(_isDownloadingPack)
+                                        {
+                                            <div style="font-size:0.75rem; color:#888; margin-top:4px; font-weight:500;">@_downloadStatus (@_downloadPercent%)</div>
+                                            <MudProgressLinear Color="Color.Success" Value="@_downloadPercent" Class="mt-2" Rounded="true" Size="Size.Small" />
+                                        }
+                                        else
+                                        {
+                                            <div style="font-size:0.75rem; color:#888; font-weight:500;">Tải đệm sẵn để nghe thuyết minh kể cả lúc rớt mạng</div>
+                                            @if (!string.IsNullOrEmpty(_lastSyncTime))
+                                            {
+                                                <div style="font-size:0.7rem; color:#10b981; margin-top:4px; font-weight:600; display:flex; align-items:center;">
+                                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size:0.8rem; margin-right:4px;" />
+                                                    Đã đồng bộ lúc: @_lastSyncTime
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                    @if(!_isDownloadingPack && !_isScanning) { <MudIcon Icon="@Icons.Material.Filled.CloudSync" Size="Size.Small" Style="color:#cbd5e1; align-self:center;" /> }
+                                </div>
+                                <div class="setting-divider"></div>
+
                                 <div class="setting-item" @onclick="@(() => NavigationManager.NavigateTo("/profile/edit"))">
                                     <div class="setting-icon blue">
                                         <MudIcon Icon="@Icons.Material.Filled.AccountBox" Size="Size.Small" />
@@ -174,6 +209,64 @@
     </MudMainContent>
 
     <BottomNavigation Active="profile" />
+
+    <!-- ── Mobile Download Confirmation Bottom Sheet (Custom CSS Native) ── -->
+    <MudOverlay Visible="_downloadSheetOpen" DarkBackground="true" AutoClose="true" OnClosed="CloseSheet" ZIndex="9998" />
+    
+    <div class="custom-bottom-sheet @(_downloadSheetOpen ? "sheet-open" : "")">
+        <div class="sheet-header">
+            <div class="sheet-pill"></div>
+        </div>
+        <div class="sheet-body px-4 pb-4">
+            <div class="d-flex align-center mb-4">
+                <div style="background:rgba(14,110,184,0.1); width:48px; height:48px; border-radius:24px; display:flex; align-items:center; justify-content:center; margin-right:16px;">
+                    <MudIcon Icon="@Icons.Material.Filled.CloudDownload" Style="color:#0e6eb8; font-size:1.6rem;" />
+                </div>
+                <div>
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:800; color:#0a3050; line-height:1.2;">Gói Ngoại Tuyến</MudText>
+                    <MudText Typo="Typo.caption" Style="color:#64748b;">Nghe lồng tiếng không cần mạng</MudText>
+                </div>
+            </div>
+            
+            <div style="background:#f8fafc; border-radius:12px; padding:12px; margin-bottom:16px; border:1px solid #e2e8f0;">
+                <div class="d-flex align-center gap-3 mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.Map" Size="Size.Small" Style="color:#64748b;" />
+                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalPois Địa điểm Tour</MudText>
+                </div>
+                <div class="d-flex align-center gap-3 mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small" Style="color:#64748b;" />
+                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalImages Hình ảnh HD minh họa</MudText>
+                </div>
+                <div class="d-flex align-center gap-3 mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.Headset" Size="Size.Small" Style="color:#64748b;" />
+                    <MudText Typo="Typo.body2" Style="color:#334155; font-weight:600; font-size:0.85rem;">@_packInfo?.TotalAudio File lồng tiếng MP3</MudText>
+                </div>
+                <div class="d-flex align-center justify-space-between mt-3 pt-3" style="border-top:1px dashed #cbd5e1;">
+                    <MudText Typo="Typo.body2" Style="color:#64748b; font-size:0.85rem;">Tổng dung lượng</MudText>
+                    <MudText Typo="Typo.subtitle2" Style="color:#0e6eb8; font-weight:800;">~@(_packInfo?.EstimatedMegabytes.ToString("F1")) MB</MudText>
+                </div>
+            </div>
+
+            @if (_isCellularWarning)
+            {
+                <div style="background:rgba(239,68,68,0.1); border-radius:10px; padding:10px; margin-bottom:16px; display:flex; gap:10px; align-items:flex-start;">
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" Style="color:#ef4444; font-size:1.1rem;" />
+                    <MudText Typo="Typo.caption" Style="color:#b91c1c; font-weight:600; font-size:0.75rem; line-height:1.3;">Đang dùng 4G/5G. Việc tải có thể ngốn dữ liệu đi động!</MudText>
+                </div>
+            }
+
+            <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary"
+                       Style="border-radius:12px; height:48px; font-weight:700; font-size:0.95rem; margin-bottom:8px; background:#0e6eb8;"
+                       OnClick="ConfirmDownload">
+                Tải Ngay Sẵn Sàng
+            </MudButton>
+            <MudButton FullWidth="true" Variant="Variant.Text" Color="Color.Default"
+                       Style="border-radius:12px; height:44px; font-weight:600; font-size:0.9rem; color:#64748b;"
+                       OnClick="CloseSheet">
+                Để Lúc Khác
+            </MudButton>
+        </div>
+    </div>
 </MudLayout>
 
 <style>
@@ -283,6 +376,32 @@
 
     .setting-text { flex: 1; font-size: 0.9rem; font-weight: 600; color: #334155; }
     .setting-divider { height: 1px; background: #f1f5f9; margin: 0 16px; }
+
+    /* ── Custom Bottom Sheet Native ── */
+    .custom-bottom-sheet {
+        position: fixed;
+        bottom: 0; left: 0; right: 0; width: 100%;
+        background: white;
+        border-radius: 28px 28px 0 0;
+        z-index: 9999;
+        transform: translateY(110%);
+        transition: transform 0.35s cubic-bezier(0.3, 1, 0.3, 1);
+        box-shadow: 0 -4px 30px rgba(0,0,0,0.15);
+        padding-bottom: 20px;
+    }
+    .custom-bottom-sheet.sheet-open {
+        transform: translateY(0);
+    }
+    
+    .sheet-header {
+        display: flex; justify-content: center; padding: 14px 0;
+    }
+    .sheet-pill {
+        width: 44px; height: 5px; border-radius: 10px; background: #cbd5e1;
+    }
+    .sheet-body {
+        max-height: 80vh; overflow-y: auto; overflow-x: hidden;
+    }
 </style>
 
 @code {
@@ -304,11 +423,21 @@
 
     private List<Poi> _previewFavorites => _favorites.Take(4).ToList();
 
-
+    // Biến cho tính năng Tải gói Offline
+    private bool _isScanning = false;
+    private bool _isDownloadingPack = false;
+    private string _downloadStatus = "";
+    private int _downloadPercent = 0;
+    
+    private bool _downloadSheetOpen = false;
+    private OfflineSyncService.OfflinePackInfo? _packInfo;
+    private bool _isCellularWarning = false;
+    private string _lastSyncTime = "";
 
     protected override async Task OnInitializedAsync()
 
     {
+        _lastSyncTime = Microsoft.Maui.Storage.Preferences.Default.Get("LastOfflineSyncTime", "");
 
         try
 
@@ -321,18 +450,13 @@
             _userName = !string.IsNullOrWhiteSpace(fullName) ? fullName : (authState.User.Identity?.Name ?? LanguageService.T("Guest"));
 
             var idClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-
             int.TryParse(idClaim, out _userId);
 
-
-
             if (_userId > 0)
-
             {
-
-                await LoadUserProfile();
-
-                await LoadFavorites();
+                // UI lướt ngay lập tức (Không chờ đợi ổ cứng/DB Cục bộ chạy xong)
+                _ = LoadUserProfile();
+                _ = LoadFavorites();
             }
 
             LanguageService.OnLanguageChanged += StateHasChanged;
@@ -351,97 +475,159 @@
 
 
     private async Task LoadUserProfile()
-
     {
-
         try
-
         {
-
-            var user = await Http.GetFromJsonAsync<UserDto>($"api/users/{_userId}");
-
-            if (user != null)
-
+            await SyncService.GetUserProfileAsync(_userId, user => 
             {
-
-                _user = user;
-
-                _userName = user.FullName;
-
-                _userEmail = user.Email;
-
-                _memberYear = user.CreatedAt.Year;
-
-            }
-
+                if (user != null && user.Id != 0)
+                {
+                    _user = user;
+                    _userName = user.FullName;
+                    _userEmail = user.Email;
+                    _memberYear = user.CreatedAt.Year;
+                    InvokeAsync(StateHasChanged);
+                }
+            });
         }
-
-        catch { }
-
+        catch (Exception) { }
     }
-
-
 
     private async Task LoadFavorites()
-
     {
-
         _loadingFavs = true;
-
+        StateHasChanged();
         try
-
         {
-
-            _favorites = await Http.GetFromJsonAsync<List<Poi>>("api/favorites") ?? new();
-
+            if (Microsoft.Maui.Networking.Connectivity.NetworkAccess == Microsoft.Maui.Networking.NetworkAccess.Internet)
+            {
+                // Có mạng: gọi thẳng API (luôn đúng)
+                var result = await Http.GetFromJsonAsync<List<Poi>>("api/favorites");
+                if (result != null)
+                    _favorites = result;
+            }
+            else
+            {
+                // Offline: đọc từ SQLite local
+                var localFavs = await SyncService.GetFavoritesAsync(_userId);
+                if (localFavs.Any())
+                    _favorites = localFavs;
+            }
         }
-
         catch (Exception ex)
-
         {
-
-            Snackbar.Add($"{LanguageService.T("LoadPoisError")}: {ex.Message}", Severity.Error);
-
+            Snackbar.Add($"Lỗi tải yêu thích: {ex.Message}", Severity.Error);
         }
-
-        finally { _loadingFavs = false; }
-
+        finally
+        {
+            _loadingFavs = false;
+            StateHasChanged(); // ← Render 1 lần duy nhất sau khi XONG, bao gồm cả tắt spinner
+        }
     }
-
 
 
     private async Task RemoveFavorite(int poiId)
-
     {
+        // 1. Optimistic UI: Ẩn ngay khỏi danh sách trên màn hình
+        var poiToRemove = _favorites.FirstOrDefault(p => p.Id == poiId);
+        if (poiToRemove == null) return;
+        
+        _favorites.Remove(poiToRemove);
+        StateHasChanged();
 
         try
-
         {
-
-            var response = await Http.DeleteAsync($"api/favorites/{poiId}");
-
-            if (response.IsSuccessStatusCode)
-
-            {
-
-                _favorites.RemoveAll(p => p.Id == poiId);
-
-                Snackbar.Add(LanguageService.T("RemovedFromFavs"), Severity.Success);
-
-                StateHasChanged();
-
-            }
-
+            // Gọi ToggleFavoriteAsync (API thẳng nếu có mạng, Offline Queue nếu không)
+            await SyncService.ToggleFavoriteAsync(poiId, _userId);
+            Snackbar.Add("Đã xóa khỏi bộ sưu tập", Severity.Success);
         }
-
         catch (Exception ex)
-
         {
+            // Rollback nếu thất bại
+            _favorites.Add(poiToRemove);
+            StateHasChanged();
+            Snackbar.Add($"Lỗi thao tác: {ex.Message}", Severity.Error);
+        }
+    }
 
-            Snackbar.Add($"{LanguageService.T("SystemError")}: {ex.Message}", Severity.Error);
-
+    private async Task DownloadOfflinePack()
+    {
+        if (_isDownloadingPack || _isScanning) return;
+        
+        var access = Microsoft.Maui.Networking.Connectivity.Current.NetworkAccess;
+        if (access != Microsoft.Maui.Networking.NetworkAccess.Internet)
+        {
+            Snackbar.Add("Mất kết nối Internet! Không thể quét dữ liệu.", Severity.Warning);
+            return;
         }
 
+        _isScanning = true;
+        StateHasChanged();
+
+        try
+        {
+            var p = new Progress<OfflineSyncService.SyncProgress>(prg => { });
+            _packInfo = await SyncService.PrepareOfflinePackAsync(p);
+
+            var profiles = Microsoft.Maui.Networking.Connectivity.Current.ConnectionProfiles;
+            _isCellularWarning = profiles.Contains(Microsoft.Maui.Networking.ConnectionProfile.Cellular) && !profiles.Contains(Microsoft.Maui.Networking.ConnectionProfile.WiFi);
+
+            _downloadSheetOpen = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Đo lường thất bại: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseSheet()
+    {
+        _downloadSheetOpen = false;
+    }
+
+    private async Task ConfirmDownload()
+    {
+        _downloadSheetOpen = false;
+        _isDownloadingPack = true;
+        _downloadStatus = "Đang tải...";
+        StateHasChanged();
+
+        try
+        {
+            // Bước 2: Khách Bấm Đồng Ý Tải -> Kéo file Vật lý
+            var p2 = new Progress<OfflineSyncService.SyncProgress>(prg =>
+            {
+                _downloadStatus = prg.CurrentStatus;
+                _downloadPercent = prg.Percentage;
+                InvokeAsync(StateHasChanged);
+            });
+
+            await SyncService.DownloadMediaPackAsync(_packInfo!, p2);
+            
+            _downloadStatus = "Hoàn tất! Đi du lịch Offline thôi!";
+            _downloadPercent = 100;
+            _lastSyncTime = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+            Microsoft.Maui.Storage.Preferences.Default.Set("LastOfflineSyncTime", _lastSyncTime);
+
+            Snackbar.Add($"Tải thành công {_packInfo?.EstimatedMegabytes:F1}MB tài nguyên trọn gói!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Tải thất bại: {ex.Message}", Severity.Error);
+            _downloadStatus = "Lỗi đường truyền";
+        }
+        finally
+        {
+            await Task.Delay(3000); 
+            _isDownloadingPack = false;
+            StateHasChanged();
+        }
     }
 
 

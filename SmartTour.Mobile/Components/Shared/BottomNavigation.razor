@@ -2,6 +2,8 @@
 @inject LanguageService LanguageService
 @implements IDisposable
 
+@inject IJSRuntime JS
+
 <MudPaper Elevation="8"
           Class="py-2"
           Style="position:fixed; bottom:0; width:100%;
@@ -12,7 +14,7 @@
                  z-index:999;">
     <div class="bottomnav-row">
         <div class="bottomnav-item"
-             @onclick="@(() => NavigationManager.NavigateTo("/"))">
+             @onclick="@(() => Navigate("/"))">
             <div class="@GetIconClass("home")">
                 <MudIcon Icon="@Icons.Material.Filled.Home"
                          Style="@GetIconStyle("home")" />
@@ -24,7 +26,7 @@
         </div>
 
         <div class="bottomnav-item bottomnav-item-map"
-             @onclick="@(() => NavigationManager.NavigateTo("/map"))">
+             @onclick="@(() => Navigate("/map"))">
             <div class="@GetIconClass("map")">
                 <MudIcon Icon="@Icons.Material.Filled.Map"
                          Style="@GetIconStyle("map")" />
@@ -36,7 +38,7 @@
         </div>
 
         <div class="bottomnav-scan-item"
-            @onclick="@(() => NavigationManager.NavigateTo("/scan"))">
+            @onclick="@(() => Navigate("/scan"))">
             <div class="@(Active == "scan" ? "bottomnav-icon bottomnav-icon-active" : "bottomnav-icon")">
                 <MudIcon Icon="@Icons.Material.Filled.QrCodeScanner"
                         Style="@(Active == "scan" ? "color:#0e6eb8; font-size:1.2rem;" : "color:#bbb; font-size:1.2rem;")" />
@@ -48,7 +50,7 @@
         </div>
 
         <div class="bottomnav-item"
-             @onclick="@(() => NavigationManager.NavigateTo("/profile"))">
+             @onclick="@(() => Navigate("/profile"))">
             <div class="@GetIconClass("profile")">
                 <MudIcon Icon="@Icons.Material.Filled.Person"
                          Style="@GetIconStyle("profile")" />
@@ -135,6 +137,18 @@
     protected override void OnInitialized()
     {
         LanguageService.OnLanguageChanged += StateHasChanged;
+    }
+
+    private async Task Navigate(string route)
+    {
+        // Bí quyết: Chặt đứt luồng Camera NGAY LẬP TỨC từ JS trước khi Bộ thu dọn của Blazor kích hoạt
+        // Đảm bảo không có xung đột bộ nhớ, giải phóng Camera 100% trước khi vẽ tab mới!
+        if (Active == "scan" && route != "/scan")
+        {
+            try { await JS.InvokeVoidAsync("window.qrHelper.stopScan"); } catch { }
+        }
+        
+        NavigationManager.NavigateTo(route);
     }
 
     public void Dispose()
