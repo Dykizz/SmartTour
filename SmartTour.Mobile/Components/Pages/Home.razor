@@ -11,6 +11,7 @@
 @inject ISnackbar Snackbar
 @inject LanguageService LanguageService
 @inject GeofenceAudioService GeofenceService
+@inject OfflineSyncService SyncService
 @inject IJSRuntime JS
 @attribute [Authorize]
 
@@ -29,6 +30,12 @@
         </div>
         <MudSpacer />
         <div class="d-flex align-center gap-2">
+            @if (SyncService.IsSyncing)
+            {
+                <MudTooltip Text="Đang đồng bộ đệm...">
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="width:18px;height:18px; color:rgba(255,255,255,0.7);"/>
+                </MudTooltip>
+            }
             <MudMenu Icon="@Icons.Material.Filled.Language" Style="color:white;"
                      Anchor="Anchor.BottomLeft" Dense="true">
                 @foreach (var lang in _languages)
@@ -494,7 +501,7 @@
 
 @code {
     [CascadingParameter]
-    private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; } = default!;
 
     private DotNetObjectReference<Home>? _thisRef;
 
@@ -553,8 +560,13 @@
             _selectedLanguage = LanguageService.SelectedLanguage;
             GeofenceService.BannerStateChanged += OnBannerStateChanged;
             LanguageService.OnLanguageChanged += OnLanguageChanged;
+            SyncService.OnSyncStateChanged += OnSyncStateChanged;
 
-            await Task.WhenAll(LoadCategories(), RefreshList(), LoadLanguages());
+            // Xóa sổ thắt cổ chai 'await' để giao diện Tab không phải đợi ổ cứng/CSDL lấy dữ liệu
+            // Tab sẽ trượt mượt mà ra trước ngay lập tức 0.00ms, dữ liệu từ từ nảy lên sau!
+            _ = LoadCategories();
+            _ = RefreshList();
+            _ = LoadLanguages();
         }
         catch (Exception ex)
         {
@@ -583,6 +595,8 @@
     }
 
     private void OnBannerStateChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnSyncStateChanged() => InvokeAsync(StateHasChanged);
 
     private void OnLanguageChanged()
     {
@@ -625,7 +639,14 @@
 
     private async Task LoadCategories()
     {
-        try { _categories = await Http.GetFromJsonAsync<List<Category>>("api/categories") ?? new(); }
+        try 
+        { 
+            _categories = await SyncService.GetCategoriesAsync(updated => 
+            {
+                _categories = updated;
+                InvokeAsync(StateHasChanged);
+            });
+        }
         catch (Exception ex) { Snackbar.Add("Lỗi tải danh mục: " + ex.Message, Severity.Error); }
     }
 
@@ -670,11 +691,22 @@
                 q.Append($"&lat={_userLat.Value.ToString(inv)}&lng={_userLng.Value.ToString(inv)}&radius={_selectedRadius.ToString(inv)}");
             }
 
-            var resp = await Http.GetFromJsonAsync<PagedResponse<Poi>>($"api/pois?{q}");
-            if (resp != null)
+            var resp = await SyncService.GetPoisAsync(q.ToString(), updatedData =>
+            {
+                if (_currentPage == 1) _pois = updatedData.Items.ToList();
+                // Chống lặp data cho Infinite Scroll nếu ngầm cập nhật
+                else _pois.AddRange(updatedData.Items.Where(newItem => !_pois.Any(p => p.Id == newItem.Id)));
+                
+                _totalCount = updatedData.TotalCount;
+                _hasMore = _pois.Count < updatedData.TotalCount;
+                InvokeAsync(StateHasChanged);
+            });
+
+            // Gán dữ liệu Local Cache hiển thị ngay lập tức
+            if (resp != null && resp.Items.Any())
             {
                 if (_currentPage == 1) _pois = resp.Items.ToList();
-                else _pois.AddRange(resp.Items);
+                else _pois.AddRange(resp.Items.Where(newItem => !_pois.Any(p => p.Id == newItem.Id)));
                 _totalCount = resp.TotalCount;
                 _hasMore = _pois.Count < resp.TotalCount;
             }
@@ -764,6 +796,7 @@
     {
         GeofenceService.BannerStateChanged -= OnBannerStateChanged;
         LanguageService.OnLanguageChanged -= OnLanguageChanged;
+        SyncService.OnSyncStateChanged -= OnSyncStateChanged;
         try { await JS.InvokeVoidAsync("homeScroll.dispose"); } catch { }
         _thisRef?.Dispose();
     }

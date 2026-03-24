@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Maui.Devices.Sensors;
 using SmartTour.Shared.Models;
 using System.Net.Http.Json;
@@ -205,33 +206,62 @@ public class GeofenceAudioService : IAsyncDisposable
     {
         try
         {
-            // Tạo scope mới để lấy HttpClient (tránh Captive Dependency)
             using var scope = _scopeFactory.CreateScope();
             var http = scope.ServiceProvider.GetRequiredService<HttpClient>();
+            var mediaCache = scope.ServiceProvider.GetRequiredService<MediaCacheService>();
+            var dbFactory = scope.ServiceProvider.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<SmartTour.Mobile.Data.AppDbContext>>();
 
-            var pois = await http.GetFromJsonAsync<List<PoiGeofenceDto>>("api/pois/geofence");
-            if (pois != null)
+            // 1. NGƯỜI DÙNG CÓ INTERNET -> Quét API lấy danh sách tọa độ mới nhất
+            if (Microsoft.Maui.Networking.Connectivity.Current.NetworkAccess == Microsoft.Maui.Networking.NetworkAccess.Internet)
             {
-                string baseUrl = http.BaseAddress?.ToString().TrimEnd('/') ?? "";
-
-                foreach (var p in pois)
+                var pois = await http.GetFromJsonAsync<List<PoiGeofenceDto>>("api/pois/geofence");
+                if (pois != null)
                 {
-                    foreach (var a in p.AudioFiles)
+                    _allPois = pois;
+                    System.Diagnostics.Debug.WriteLine($"[GeofenceService] Mạng Tốt: Tải {pois.Count} trạm POI từ vệ tinh.");
+                }
+            }
+            else
+            {
+                // 2. NGƯỜI DÙNG ĐỨT MẠNG -> Xúc thẳng xuống Đĩa Cứng SQLite cực kỳ tối mật
+                using var db = await dbFactory.CreateDbContextAsync();
+                var localPois = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                    db.Pois.Include(p => p.AudioFiles).AsNoTracking());
+
+                _allPois = localPois.Select(p => new PoiGeofenceDto {
+                    Id = p.Id,
+                    Name = p.Name,
+                    QrValue = p.QrValue,
+                    Latitude = p.Latitude,
+                    Longitude = p.Longitude,
+                    GeofenceRadius = p.GeofenceRadius,
+                    AudioFiles = p.AudioFiles.ToList()
+                }).ToList();
+
+                System.Diagnostics.Debug.WriteLine($"[GeofenceService] Offline: Moi lên được {_allPois.Count} trạm POI từ Đĩa Cứng cất giấu.");
+            }
+
+            // 3. THUẬT TOÁN BIẾN HÌNH BASE64: Nhúng sẵn đường truyền tĩnh để WebView Load nhanh như chớp chặn mọi lỗi File chặn
+            string baseUrl = http.BaseAddress?.ToString().TrimEnd('/') ?? "";
+            foreach (var p in _allPois)
+            {
+                foreach (var a in p.AudioFiles)
+                {
+                    if (string.IsNullOrEmpty(a.FileUrl)) break;
+
+                    if (a.FileUrl.StartsWith("/")) a.FileUrl = baseUrl + a.FileUrl;
+                    
+                    // Nếu đang Offline -> Dùng ống bóp Base64 nhồi thẳng Mp3 nội bộ vào thay vì chờ Google
+                    if (Microsoft.Maui.Networking.Connectivity.Current.NetworkAccess != Microsoft.Maui.Networking.NetworkAccess.Internet)
                     {
-                        if (!string.IsNullOrEmpty(a.FileUrl) && a.FileUrl.StartsWith("/"))
-                        {
-                            a.FileUrl = baseUrl + a.FileUrl;
-                        }
+                        a.FileUrl = await mediaCache.GetLocalMediaDataUriAsync(a.FileUrl);
                     }
                 }
-
-                _allPois = pois;
-                System.Diagnostics.Debug.WriteLine($"[GeofenceService] Loaded {pois.Count} POIs for geofencing.");
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[GeofenceService] Lỗi tải POI: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[GeofenceService] Lỗi Sinh tồn Load POI: {ex.Message}");
         }
     }
 

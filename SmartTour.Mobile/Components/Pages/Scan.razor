@@ -13,7 +13,7 @@
 <MudLayout>
     <MudAppBar Elevation="0" Dense="true"
         Style="background:linear-gradient(135deg,#0e6eb8 0%,#1a9de8 100%); z-index:200;">
-        <div class="appbar-icon-btn" @onclick="@(() => NavigationManager.NavigateTo("/"))">
+        <div class="appbar-icon-btn" @onclick="GoBack">
             <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Style="color:white; font-size:1.1rem;" />
         </div>
         <MudSpacer />
@@ -200,10 +200,10 @@
     private bool _processing = false;
     private int _lastScannedId = -1;
     private DateTime _lastScanTime = DateTime.MinValue;
+    private DateTime _lastProcessTime = DateTime.MinValue;
 
     protected override async Task OnInitializedAsync()
     {
-        GeofenceService.AudioTriggered += OnAudioTriggered;
         LanguageService.OnLanguageChanged += StateHasChanged;
         try
         {
@@ -213,11 +213,6 @@
         {
             Snackbar.Add($"{LanguageService.T("QRLoadError")}: {ex.Message}", Severity.Error);
         }
-    }
-
-    private async Task OnAudioTriggered(PoiGeofenceDto poi, PoiAudioFile audio, bool isManual)
-    {
-        await JS.InvokeVoidAsync("audioHelper.playAtTime", audio.FileUrl, 0);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -294,9 +289,42 @@
         var poi = GeofenceService.AllPois.FirstOrDefault(p => p.Id == poiId);
         if (poi != null)
         {
-            if (_lastScannedId != poiId)
+            // 1. Kiểm tra: Có phải Tab Audio của Điểm này đang hiển thị sẵn hay không?
+            bool isTabAlreadyOpen = GeofenceService.BannerVisible && GeofenceService.CurrentPoi?.Id == poiId;
+
+            if (!isTabAlreadyOpen)
             {
+                // A. Người dùng đã tắt Tab (hoặc quét chỗ MỚI hoàn toàn) -> QUÉT NGAY LẬP TỨC KHÔNG HỎI 
                 _lastScannedId = poiId;
+                _lastProcessTime = DateTime.Now;
+                await GeofenceService.PlayManualAsync(poi, LanguageService.SelectedLanguage);
+                return;
+            }
+
+            // 2. Chạy tới đây tức là Tab ĐANG MỞ. 
+            // Nếu người dùng lia máy scan lại điểm đang xem:
+            if (_lastScannedId == poiId)
+            {
+                // Check xem cách lần quét trước đó bao lâu
+                var timeSinceLastScan = (DateTime.Now - _lastProcessTime).TotalSeconds;
+
+                if (timeSinceLastScan < 5)
+                {
+                    // Lướt lỡ quạt ngang dính QR -> NGÓ LƠ (làm thinh không phát lại để khỏi loạn âm)
+                    return; 
+                }
+                else
+                {
+                    // Sau một lúc (~5s), khách kề máy quét mã -> TỰ PHÁT LẠI ÂM THANH MÀ KHÔNG CẦN HỎI POPUP 
+                    _lastProcessTime = DateTime.Now;
+                    await GeofenceService.PlayManualAsync(poi, LanguageService.SelectedLanguage);
+                }
+            }
+            else
+            {
+                // (Trường hợp siêu hiếm): Tab cũ đang mở nhưng lại mã QR ID khác thì load mới
+                _lastScannedId = poiId;
+                _lastProcessTime = DateTime.Now;
                 await GeofenceService.PlayManualAsync(poi, LanguageService.SelectedLanguage);
             }
         }
@@ -334,11 +362,16 @@
         return false;
     }
 
+    private async Task GoBack()
+    {
+        try { await JS.InvokeVoidAsync("window.qrHelper.stopScan"); } catch { }
+        NavigationManager.NavigateTo("/");
+    }
+
     public async ValueTask DisposeAsync()
     {
-        GeofenceService.AudioTriggered -= OnAudioTriggered;
         LanguageService.OnLanguageChanged -= StateHasChanged;
-        try { await JS.InvokeVoidAsync("qrHelper.stopScan"); } catch { }
+        try { await JS.InvokeVoidAsync("window.qrHelper.stopScan"); } catch { }
         _qrDotNetRef?.Dispose();
     }
 }

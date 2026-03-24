@@ -34,19 +34,31 @@ window.audioHelper = (() => {
         return _audio;
     }
 
-    // ── Unlock autoplay (Android WebView) ────────────────────────────────
+    // ── Unlock autoplay (Android WebView / iOS Safari) ────────────────────────────────
     function _unlockAudio() {
-        if (_isPlaying) return;
+        // Phải unlock chính gốc cái thẻ Audio mà ta xài, chứ không unlock thẻ ảo!
+        const a = _getOrCreate();
+        if (a.src && a.src !== window.location.href && a.src !== "") {
+            // Đang có source thật thì không đè
+            return;
+        }
 
-        const silent = document.createElement('audio');
-        silent.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-        silent.muted = true;
-        silent.play().then(() => {
-            silent.pause();
-        }).catch(() => { });
+        a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+        a.muted = true;
+        
+        let playPromise = a.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                a.pause();
+                console.log('[audioHelper] 🔓 Đã Unlock Muted Audio thành công trên Device.');
+            }).catch(() => { });
+        }
     }
-    document.addEventListener('touchstart', _unlockAudio, { once: true });
-    document.addEventListener('click', _unlockAudio, { once: true });
+    
+    // Gắn móc bám dính vào toàn bộ các thao tác vuốt / lướt màn hình để mở khóa Loa ngay tức khắc.
+    document.addEventListener('touchstart', _unlockAudio, { once: true, passive: true });
+    document.addEventListener('click', _unlockAudio, { once: true, capture: true });
+    document.addEventListener('touchend', _unlockAudio, { once: true, passive: true });
 
     // ── Phát bài đầu tiên trong queue ────────────────────────────────────
     async function _playNext() {
@@ -188,11 +200,29 @@ window.audioHelper = (() => {
             _isPlaying = true;
 
             try {
-                await audio.play();
+                let playProm = audio.play();
+                if (playProm !== undefined) {
+                    await playProm;
+                }
                 console.log('[audioHelper] playAtTime thành công:', url);
             } catch (err) {
-                _isPlaying = false;
-                console.error('[audioHelper] playAtTime (new src) lỗi:', err);
+                // Fallback cứu hộ: Lỡ khách hàng quét QR mà chả có tí ngón tay nào chạm màn hình
+                // Bị Chrome chặn cứng thì đánh lừa nó bằng Muted trước để chạy, sau đó mở Volume lên lại.
+                if (err.name === 'NotAllowedError') {
+                    console.warn('[audioHelper] ⚠️ Bị chặn Autoplay! Bật chế độ Muted vạch đường...');
+                    audio.muted = true;
+                    try {
+                        await audio.play();
+                        setTimeout(() => { audio.muted = false; }, 400); // 0.4s sau bùi tiếng lại
+                        console.log('[audioHelper] Đã Cứu Hộ mở khóa mồm bằng Muted Trick!');
+                    } catch (e2) {
+                        _isPlaying = false;
+                        console.error('[audioHelper] Muted Try 2 thất bại:', e2);
+                    }
+                } else {
+                    _isPlaying = false;
+                    console.error('[audioHelper] playAtTime (new src) lỗi:', err);
+                }
             }
         },
 

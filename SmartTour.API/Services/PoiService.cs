@@ -83,6 +83,9 @@ public class PoiService : IPoiService
         var query = _context.Pois
             .Include(p => p.Category)
             .Include(p => p.Images) // Cần thiết cho Mobile Home
+            .Include(p => p.AudioFiles) // Cần thiết cho tính năng Tải Offline Pack
+            .Include(p => p.Contents) // Cần thiết cho Offline Text
+            .Include(p => p.OperatingHours) // Cần thiết cho Giờ mở cửa Offline
             .AsQueryable();
 
         if (onlyActive)

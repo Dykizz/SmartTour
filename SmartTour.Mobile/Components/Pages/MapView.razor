@@ -557,8 +557,16 @@
         if (!_mapInitialized) return;
         int closestId = _selectedPoiId != 0 ? 0 : (GeofenceService.CurrentPoi?.Id ?? 0);
 
+        // Map sang object nặc danh siêu nhẹ để tránh lỗi vòng lặp Circular Reference của EF Core (Hình ảnh, âm thanh tự trỏ lại POI)
+        // JavaScript mapHelper chỉ cần 3 trường thông tin: id, latitude, longitude
+        var leanPois = _filteredPois.Select(p => new {
+            id = p.Id,
+            latitude = p.Latitude,
+            longitude = p.Longitude
+        }).ToList();
+
         await JS.InvokeVoidAsync("window.mapHelper.updateMarkers",
-            _filteredPois,
+            leanPois,
             closestId,
             _selectedPoiId);
     }

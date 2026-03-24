@@ -9,6 +9,8 @@
 @inject LanguageService LanguageService
 @inject IJSRuntime JS
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
+@inject SmartTour.Mobile.Services.OfflineSyncService SyncService
+@inject SmartTour.Mobile.Services.MediaCacheService MediaCache
 @implements IDisposable
 
 <div class="poi-detail-container">
@@ -417,7 +419,8 @@
         if (_userId <= 0) return;
         try
         {
-            _isFavorite = await Http.GetFromJsonAsync<bool>($"api/favorites/check/{Id}");
+            _isFavorite = await SyncService.CheckFavoriteAsync(Id, _userId);
+            StateHasChanged();
         }
         catch { }
     }
@@ -427,16 +430,21 @@
         _loading = true;
         try
         {
-            _poi = await Http.GetFromJsonAsync<Poi>($"api/pois/{Id}");
-            if (_poi != null)
+            var poi = await SyncService.GetPoiByIdAsync(Id, updatedPoi =>
             {
-                _currentAudio = _poi.AudioFiles.FirstOrDefault(a => a.LanguageCode == LanguageService.SelectedLanguage)
-                                ?? _poi.AudioFiles.FirstOrDefault(a => a.LanguageCode == "vi")
-                                ?? _poi.AudioFiles.FirstOrDefault();
-                if (_currentAudio != null)
+                if (updatedPoi != null && updatedPoi.Id != 0)
                 {
-                    _duration = FormatTime(_currentAudio.DurationSeconds);
+                    _poi = updatedPoi;
+                    PrepareAudioAndMedia();
+                    InvokeAsync(StateHasChanged);
                 }
+            });
+
+            // Gán ngay dữ liệu local (nếu có) để hiện nhanh
+            if (poi != null && poi.Id != 0 && _poi == null)
+            {
+                _poi = poi;
+                PrepareAudioAndMedia();
             }
         }
         catch (Exception ex)
@@ -446,7 +454,40 @@
         finally
         {
             _loading = false;
+            StateHasChanged(); // ← Đảm bảo spinner TẮT dù data đến từ callback hay local
         }
+    }
+
+    private async void PrepareAudioAndMedia()
+    {
+        if (_poi == null) return;
+        
+        _currentAudio = _poi.AudioFiles.FirstOrDefault(a => a.LanguageCode == LanguageService.SelectedLanguage)
+                        ?? _poi.AudioFiles.FirstOrDefault(a => a.LanguageCode == "vi")
+                        ?? _poi.AudioFiles.FirstOrDefault();
+                        
+        if (_currentAudio != null)
+            _duration = FormatTime(_currentAudio.DurationSeconds);
+
+        // THUẬT TOÁN ĐỈNH CAO: Bơm đường dẫn Base64 Tĩnh vào Thuộc tính URL khi đứt mạng 
+        // Thay vì để trình duyệt Webview cố load HTTPS rồi lăn đùng ra chết
+        try 
+        {
+            foreach (var img in _poi.Images)
+            {
+                if (!string.IsNullOrEmpty(img.ImageUrl) && img.ImageUrl.StartsWith("http"))
+                    img.ImageUrl = await MediaCache.GetLocalMediaDataUriAsync(img.ImageUrl);
+            }
+
+            if (_currentAudio != null && !string.IsNullOrEmpty(_currentAudio.FileUrl) && _currentAudio.FileUrl.StartsWith("http"))
+            {
+                _currentAudio.FileUrl = await MediaCache.GetLocalMediaDataUriAsync(_currentAudio.FileUrl);
+                
+                // Nếu đang phát âm thanh mà đổi sang Base64, cần nạp lại audio Player
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch { }
     }
 
     private void GoBack()
@@ -484,18 +525,23 @@
             return;
         }
 
+        // Optimistic UI: Đổi màu tim ngay lập tức
+        _isFavorite = !_isFavorite;
+        StateHasChanged();
+
         try
         {
-            var response = await Http.PostAsync($"api/favorites/toggle/{Id}", null);
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await response.Content.ReadFromJsonAsync<dynamic>();
-                _isFavorite = !_isFavorite;
-                Snackbar.Add(_isFavorite ? LanguageService.T("SavedToFavs") : LanguageService.T("RemovedFromFavs"), Severity.Success);
-            }
+            // Gọi API thẳng (có mạng) hoặc Queue Offline, nhận về trạng thái thực tế từ Server
+            bool actualState = await SyncService.ToggleFavoriteAsync(Id, _userId);
+            _isFavorite = actualState; // Cập nhật lại đúng theo Server
+            StateHasChanged();
+            Snackbar.Add(actualState ? "Đã thêm vào bộ sưu tập" : "Đã gỡ khỏi Yêu thích", Severity.Success);
         }
         catch (Exception ex)
         {
+            // Rollback nếu thâᴷt bại hoàn toàn
+            _isFavorite = !_isFavorite;
+            StateHasChanged();
             Snackbar.Add(LanguageService.T("SavePoiError") + ": " + ex.Message, Severity.Error);
         }
     }
