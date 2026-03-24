@@ -58,6 +58,7 @@ public class GeofenceAudioService : IAsyncDisposable
     // Nội bộ
     private CancellationTokenSource? _cts;
     private List<PoiGeofenceDto> _allPois = new();
+    private int? _lastClosestPoiId = null;
     private const double DefaultGeofenceMeters = 50.0;
     private const int PollingIntervalSeconds = 8;
 
@@ -346,6 +347,14 @@ public class GeofenceAudioService : IAsyncDisposable
                 // CHỈ CẬP NHẬT BANNER nếu loa đang rảnh (hoặc nếu là POI mới và loa đang nghỉ)
                 if (!IsAudioPlaying && CurrentPoi?.Id != closestPoi.Id)
                 {
+                    // THUẬT TOÁN ĐỈNH CAO: Nếu user nhảy trạm (Ví dụ Vũ -> Oanh -> Vũ)
+                    // Ta phải xóa "đã phát" của trạm đích mới để nó có thể trigger ngay lập tức
+                    if (_lastClosestPoiId != closestPoi.Id)
+                    {
+                        _playedPoiIds.Remove(closestPoi.Id);
+                        _lastClosestPoiId = closestPoi.Id;
+                    }
+
                     CurrentPoi = closestPoi;
                     BannerPoiName = closestPoi.Name;
                     BannerVisible = true;
@@ -374,6 +383,10 @@ public class GeofenceAudioService : IAsyncDisposable
             exitedIds.ExceptWith(currentlyInsideIds);
             foreach (var exitedId in exitedIds)
             {
+                // CHỐNG GIAO THOA: Nếu POI này đang là thằng gần nhất (closest) thì tuyệt đối không được xóa logic "ra khỏi"
+                // Tránh trường hợp vừa vào Vũ, Pass 2 nhận Vũ, Pass 3 lại tưởng thoát Vũ rồi reset sạch banner.
+                if (closestPoi != null && exitedId == closestPoi.Id) continue;
+
                 _insidePoiIds.Remove(exitedId);
                 _playedPoiIds.Remove(exitedId); // QUAN TRỌNG: Xóa khỏi danh sách đã phát để lần sau vào lại sẽ trigger
                 System.Diagnostics.Debug.WriteLine($"[Geofence] 🚪 Đã ra khỏi POI #{exitedId}, sẵn sàng phát lại nếu quay vào.");

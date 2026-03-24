@@ -11,6 +11,7 @@
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 @inject SmartTour.Mobile.Services.OfflineSyncService SyncService
 @inject SmartTour.Mobile.Services.MediaCacheService MediaCache
+@inject SmartTour.Mobile.Services.GeofenceAudioService GeofenceService
 @implements IDisposable
 
 <div class="poi-detail-container">
@@ -33,9 +34,8 @@
             <!-- Hero Image Section -->
             <div class="hero-section">
                 <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" 
-                               Color="Color.Inherit" 
                                OnClick="GoBack" 
-                               Class="back-button" />
+                               Class="back-button glass-btn" />
 
                 <MudCarousel Class="mud-width-full hero-carousel" 
                              Style="height: 350px;" 
@@ -67,11 +67,7 @@
                 <div class="hero-overlay">
                     <MudText Typo="Typo.h4" Class="poi-title">@_poi.Name</MudText>
                     <div class="d-flex align-center gap-2 mt-1">
-                        <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Category">@(LanguageService.T(_poi.Category?.Name ?? "Place"))</MudChip>
-                        <div class="d-flex align-center rating-badge">
-                            <MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Warning" Size="Size.Small" />
-                            <MudText Typo="Typo.caption" Style="color: white; font-weight: bold; margin-left: 2px;">4.8</MudText>
-                        </div>
+                        <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Category">@GetCategoryName(_poi)</MudChip>
                     </div>
                 </div>
             </div>
@@ -134,12 +130,19 @@
                         @foreach (var hour in _poi.OperatingHours.OrderBy(h => h.DayOfWeek))
                         {
                             <div class="d-flex justify-space-between py-2 align-center @(IsToday(hour.DayOfWeek) ? "current-day-row pa-2 rounded" : "")">
-                                <MudText Typo="Typo.body2" Style="@(IsToday(hour.DayOfWeek) ? "font-weight: bold; color: var(--mud-palette-primary);" : "color: #666;")">
-                                    @GetTranslatedDay(hour.DayOfWeek)
-                                </MudText>
                                 <div class="d-flex align-center">
-                                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Default" Class="mr-1" Style="font-size: 0.9rem;" />
-                                    <MudText Typo="Typo.body2" Style="@(IsToday(hour.DayOfWeek) ? "font-weight: bold;" : "")">
+                                    @if (IsToday(hour.DayOfWeek))
+                                    {
+                                        <div class="pulse-dot"></div>
+                                    }
+                                    <MudText Typo="Typo.body2" Style="@(IsToday(hour.DayOfWeek) ? "font-weight: bold; color: #4CAF50;" : "color: #666;")">
+                                        @GetTranslatedDay(hour.DayOfWeek)
+                                        @(IsToday(hour.DayOfWeek) ? " - " + LanguageService.T("Open") : "")
+                                    </MudText>
+                                </div>
+                                <div class="d-flex align-center">
+                                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="@(IsToday(hour.DayOfWeek) ? Color.Success : Color.Default)" Class="mr-1" Style="font-size: 0.9rem;" />
+                                    <MudText Typo="Typo.body2" Style="@(IsToday(hour.DayOfWeek) ? "font-weight: bold; color: #4CAF50;" : "")">
                                         @hour.OpenTime?.ToString(@"hh\:mm") - @hour.CloseTime?.ToString(@"hh\:mm")
                                     </MudText>
                                 </div>
@@ -150,69 +153,51 @@
                 <MudDivider Class="my-6" Style="opacity: 0.5" />
             }
 
-            <!-- Location Section -->
-            <div class="detail-section mb-6">
-                <div class="d-flex align-center mb-4">
-                    <div class="section-indicator mr-2"></div>
-                    <MudText Typo="Typo.h6" Style="font-weight: bold;">@LanguageService.T("Location")</MudText>
-                </div>
-                <div class="location-card pa-4 rounded-xl d-flex align-center gap-3" @onclick="NavigateToMap">
-                    <div class="location-icon-box">
-                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Color="Color.Error" />
-                    </div>
-                    <div class="flex-grow-1">
-                        <MudText Typo="Typo.subtitle2" Style="font-weight: bold;">@LanguageService.T("ViewOnMap")</MudText>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@LanguageService.T("Coordinates"): @_poi.Latitude, @_poi.Longitude</MudText>
-                    </div>
-                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Default" />
-                </div>
-            </div>
-
             <!-- Audio Player Overlay -->
             @if (_showAudioPlayer && _currentAudio != null)
             {
-                <MudPaper Elevation="8" Class="audio-player-card pa-4 animate-slide-up">
-                    <div class="d-flex align-center justify-space-between mb-2">
-                        <div class="d-flex align-center">
-                            <MudIcon Icon="@Icons.Material.Filled.GraphicEq" Color="Color.Primary" Class="mr-2" />
-                            <MudText Typo="Typo.subtitle2" Style="font-weight: bold;">@LanguageService.T("Audio")</MudText>
-                        </div>
-                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _showAudioPlayer = false" />
-                    </div>
-                    <div class="d-flex align-center gap-4 mt-2">
-                        <div class="play-btn-wrapper">
-                            <MudIconButton Icon="@(_isPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" 
-                                           Color="Color.Primary" 
-                                           Variant="Variant.Filled" 
-                                           OnClick="ToggleAudio"
-                                           Style="width: 50px; height: 50px;" />
-                        </div>
-                        <div class="flex-grow-1">
-                            <MudProgressLinear Color="Color.Primary" Value="@_audioProgress" Class="rounded-pill" Style="height: 6px;" />
-                            <div class="d-flex justify-space-between mt-1">
-                                <MudText Typo="Typo.caption" Style="font-weight: 500;">@_currentTime</MudText>
-                                <MudText Typo="Typo.caption" Style="color: #999;">@_duration</MudText>
+                <MudPaper Elevation="12" Class="audio-player-card animate-slide-up pa-3">
+                    <div class="d-flex align-center gap-2">
+                        <div class="@(_isPlaying ? "geofence-pulse-dot" : "geofence-pause-dot")"></div>
+
+                        <div class="flex-grow-1" style="min-width: 0;">
+                            <MudText Typo="Typo.caption" Style="font-weight: bold; color: white; display:block; opacity: 0.9;">
+                                @(_isPlaying ? LanguageService.T("BannerPlaying") : LanguageService.T("Audio"))
+                            </MudText>
+                            <div class="d-flex justify-space-between align-center">
+                                <MudText Typo="Typo.subtitle2" Style="color: white; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    @_poi.Name
+                                </MudText>
+                                <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.8); font-size: 0.7rem; margin-left: 8px;">
+                                    @_currentTime / @_duration
+                                </MudText>
                             </div>
+                            <MudProgressLinear Color="Color.Inherit" Value="@_audioProgress" Class="rounded-pill mt-1" Style="height: 3px; color: rgba(255,255,255,0.7);" />
+                        </div>
+
+                        <div class="d-flex align-center gap-1" @onclick:stopPropagation="true">
+                            <MudIconButton Icon="@(_isPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)"
+                                           Size="Size.Small"
+                                           Style="color: white; background: rgba(255,255,255,0.15); border-radius: 50%;"
+                                           OnClick="ToggleAudio" />
+
+                            <MudIconButton Icon="@Icons.Material.Filled.Replay"
+                                           Size="Size.Small"
+                                           Style="color: white; background: rgba(255,255,255,0.15); border-radius: 50%;"
+                                           OnClick="ReplayAudio"
+                                           Title="@LanguageService.T("Replay")" />
+
+                            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                           Size="Size.Small"
+                                           Style="color: white;"
+                                           OnClick="CloseAudioPlayer" />
                         </div>
                     </div>
-                    <audio id="poi-audio-player" src="@_currentAudio.FileUrl" hidden></audio>
+                    <audio id="poi-audio-player" src="@_currentAudio.FileUrl" @onended="OnAudioEnded" hidden></audio>
                 </MudPaper>
             }
 
                 <div style="height: 100px;"></div> <!-- Spacer for scrolling -->
-            </div>
-
-            <!-- Sticky Footer CTA -->
-            <div class="sticky-footer">
-                <MudButton Variant="Variant.Filled" 
-                           Color="Color.Primary" 
-                           FullWidth="true" 
-                           Size="Size.Large" 
-                           StartIcon="@Icons.Material.Filled.Map"
-                           OnClick="NavigateToMap"
-                           Class="rounded-pill py-3 shadow-lg">
-                @LanguageService.T("StartJourney")
-                </MudButton>
             </div>
     }
 </div>
@@ -225,20 +210,24 @@
     }
 
     .hero-section {
-        position: relative;
+        position: sticky;
+        top: 0;
         height: 350px;
-        overflow: hidden;
+        z-index: 1;
     }
 
-    .back-button {
-        position: absolute;
-        top: 40px;
-        left: 20px;
-        z-index: 100;
-        background-color: rgba(255,255,255,0.3);
-        backdrop-filter: blur(5px);
-        color: white;
+    .glass-btn {
+        position: fixed;
+        top: 50px;
+        z-index: 1000;
+        background-color: rgba(255,255,255,0.7) !important;
+        backdrop-filter: blur(10px);
+        color: #333 !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
     }
+
+    .back-button { left: 20px; }
 
     .hero-carousel img {
         width: 100%;
@@ -275,7 +264,8 @@
         background: white;
         position: relative;
         z-index: 10;
-        box-shadow: 0 -10px 20px rgba(0,0,0,0.05);
+        box-shadow: 0 -15px 40px rgba(89, 74, 226, 0.12);
+        min-height: 100vh;
     }
 
     .action-bar {
@@ -294,13 +284,13 @@
     .icon-circle {
         width: 50px;
         height: 50px;
-        border-radius: 50%;
+        border-radius: 16px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 5px auto;
+        margin: 0 auto 6px auto;
         color: white;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.15);
     }
 
     .icon-circle.primary { background: linear-gradient(135deg, #594AE2, #7D70F1); }
@@ -310,9 +300,11 @@
     .icon-circle.favorite-active { background: linear-gradient(135deg, #ff4d4d, #f92c2c); box-shadow: 0 4px 15px rgba(255, 77, 77, 0.4); }
 
     .description-text {
-        color: #555;
-        line-height: 1.6;
+        color: #444;
+        line-height: 1.7;
         text-align: justify;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        letter-spacing: 0.2px;
     }
 
     .section-indicator {
@@ -328,48 +320,60 @@
     }
 
     .current-day-row {
-        background-color: rgba(var(--mud-palette-primary-rgb), 0.08);
+        background-color: rgba(76, 175, 80, 0.08); /* Light green */
     }
 
-    .location-card {
-        background: #f8f9fa;
-        border: 1px solid #eee;
-        cursor: pointer;
-        transition: all 0.2s;
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #4CAF50;
+        border-radius: 50%;
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+        animation: pulse 1.5s infinite;
+        margin-right: 8px;
     }
 
-    .location-card:active {
-        transform: scale(0.98);
-        background: #f0f0f0;
-    }
-
-    .location-icon-box {
-        width: 45px;
-        height: 45px;
-        border-radius: 12px;
-        background: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    @@keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(76, 175, 80, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
     }
 
     .audio-player-card {
         position: fixed;
-        bottom: 100px;
-        left: 20px;
-        right: 20px;
-        z-index: 1000;
-        border-radius: 20px;
-        background: rgba(255,255,255,0.98);
-        backdrop-filter: blur(15px);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-        border: 1px solid rgba(var(--mud-palette-primary-rgb), 0.1);
+        bottom: 75px;
+        left: 12px;
+        right: 12px;
+        z-index: 1100;
+        border-radius: 16px;
+        background: rgba(14, 110, 184, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 0.5px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 15px rgba(14, 110, 184, 0.15);
     }
 
-    .play-btn-wrapper .mud-button-root {
-        box-shadow: 0 4px 15px rgba(var(--mud-palette-primary-rgb), 0.4);
+    .geofence-pulse-dot {
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        background: #fff;
+        flex-shrink: 0;
+        animation: pulseDot 1.4s ease-in-out infinite;
     }
+
+    .geofence-pause-dot {
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.4);
+        flex-shrink: 0;
+    }
+
+    @@keyframes pulseDot {
+        0%, 100% { transform: scale(1);   opacity: 1; }
+        50%       { transform: scale(1.5); opacity: 0.6; }
+    }
+
+
 
     .animate-slide-up {
         animation: slideUp 0.4s ease-out;
@@ -397,6 +401,7 @@
     private PoiAudioFile? _currentAudio;
     private bool _isFavorite = false;
     private int _userId = 0;
+    private List<Category> _categories = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -405,6 +410,7 @@
         int.TryParse(idClaim, out _userId);
 
         await LoadPoi();
+        _ = LoadCategories();
         await CheckFavoriteStatus();
         LanguageService.OnLanguageChanged += StateHasChanged;
     }
@@ -495,17 +501,34 @@
         NavigationManager.NavigateTo("/");
     }
 
-    private void NavigateToMap()
+    private async Task NavigateToMap()
     {
         if (_poi == null) return;
 
-        // Mở app bản đồ (Google Maps hoặc Apple Maps)
-        var uri = $"https://www.google.com/maps/dir/?api=1&destination={_poi.Latitude},{_poi.Longitude}";
-#if ANDROID || IOS
-    Launcher.Default.OpenAsync(new Uri(uri));
-#else
-        JS.InvokeVoidAsync("open", uri, "_blank");
-#endif
+        try
+        {
+            // Mở app bản đồ mặc định của thiết bị (Google Maps / Apple Maps)
+            var location = new Location(_poi.Latitude, _poi.Longitude);
+            var options = new MapLaunchOptions 
+            { 
+                Name = _poi.Name, 
+                NavigationMode = NavigationMode.Driving 
+            };
+            await Map.Default.OpenAsync(location, options);
+        }
+        catch (Exception)
+        {
+            // Dự phòng (Fallback) nếu máy ảo/thiết bị không có sẵn ứng dụng Bản đồ
+            try
+            {
+                var uri = $"https://www.google.com/maps/dir/?api=1&destination={_poi.Latitude},{_poi.Longitude}";
+                await Launcher.Default.OpenAsync(new Uri(uri));
+            }
+            catch
+            {
+                await JS.InvokeVoidAsync("open", $"https://www.google.com/maps/dir/?api=1&destination={_poi.Latitude},{_poi.Longitude}", "_blank");
+            }
+        }
     }
 
     private async Task ToggleFavorite()
@@ -535,7 +558,7 @@
             bool actualState = await SyncService.ToggleFavoriteAsync(Id, _userId);
             _isFavorite = actualState; // Cập nhật lại đúng theo Server
             StateHasChanged();
-            Snackbar.Add(actualState ? "Đã thêm vào bộ sưu tập" : "Đã gỡ khỏi Yêu thích", Severity.Success);
+            Snackbar.Add(actualState ? "Đã thêm vào quán yêu thích" : "Đã gỡ quán yêu thích", Severity.Success);
         }
         catch (Exception ex)
         {
@@ -546,7 +569,7 @@
         }
     }
 
-    private void StartVoiceGuide()
+    private async Task StartVoiceGuide()
     {
         if (_currentAudio == null)
         {
@@ -554,6 +577,40 @@
             return;
         }
         _showAudioPlayer = true;
+        StateHasChanged();
+        await Task.Delay(50); // Chờ component render DOM (<audio>) rồi mới gọi JS
+        
+        if (!_isPlaying)
+        {
+            await ToggleAudio();
+        }
+    }
+
+    private async Task OnAudioEnded()
+    {
+        _isPlaying = false;
+        _audioProgress = 100;
+        StateHasChanged();
+        
+        await Task.Delay(1000); 
+        _audioProgress = 0;
+        StateHasChanged();
+    }
+
+    private async Task CloseAudioPlayer()
+    {
+        if (_isPlaying)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("audioHelper.pauseById", "poi-audio-player");
+            }
+            catch { }
+        }
+        _isPlaying = false;
+        _showAudioPlayer = false;
+        _audioProgress = 0;
+        StateHasChanged();
     }
 
     private async Task ToggleAudio()
@@ -563,6 +620,12 @@
         {
             if (_isPlaying)
             {
+                if (GeofenceService.IsAudioPlaying)
+                {
+                    await JS.InvokeVoidAsync("audioHelper.pause");
+                    GeofenceService.SetAudioPlaying(false);
+                }
+
                 await JS.InvokeVoidAsync("audioHelper.playById", "poi-audio-player");
                 SimulateProgress();
             }
@@ -578,19 +641,41 @@
         }
     }
 
-    private async void SimulateProgress()
+    private async Task ReplayAudio()
     {
-        while (_isPlaying && _audioProgress < 100)
+        try
         {
-            _audioProgress += 1;
-            StateHasChanged();
-            await Task.Delay(1000);
-        }
-        if (_audioProgress >= 100)
-        {
-            _isPlaying = false;
+            // Đặt lại thời gian thẻ audio về 0
+            await JS.InvokeVoidAsync("eval", "var audioEl = document.getElementById('poi-audio-player'); if(audioEl) { audioEl.currentTime = 0; }");
+            
+            _isPlaying = true;
             _audioProgress = 0;
             StateHasChanged();
+
+            await JS.InvokeVoidAsync("audioHelper.playById", "poi-audio-player");
+            SimulateProgress();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(LanguageService.T("AudioPlayError") + ": " + ex.Message, Severity.Error);
+            _isPlaying = false;
+        }
+    }
+
+    private async void SimulateProgress()
+    {
+        double duration = _currentAudio?.DurationSeconds ?? 100;
+        if (duration <= 0) duration = 100;
+        
+        double delayMs = 500;
+        double increment = 100.0 / (duration / (delayMs / 1000.0));
+
+        while (_isPlaying && _audioProgress < 100)
+        {
+            _audioProgress += increment;
+            if (_audioProgress > 99) _audioProgress = 99; // Dừng lại ở 99%, đợi trigger OnAudioEnded chốt hạ
+            StateHasChanged();
+            await Task.Delay((int)delayMs);
         }
     }
 
@@ -605,5 +690,27 @@
     private string GetTranslatedDay(DayOfWeek day)
     {
         return LanguageService.T(day.ToString());
+    }
+    private async Task LoadCategories()
+    {
+        try 
+        { 
+            _categories = await SyncService.GetCategoriesAsync(updated => 
+            {
+                _categories = updated;
+                InvokeAsync(StateHasChanged);
+            });
+        }
+        catch { }
+    }
+
+    private string GetCategoryName(Poi? poi)
+    {
+        if (poi == null) return LanguageService.T("Place");
+        if (poi.Category != null && !string.IsNullOrEmpty(poi.Category.Name))
+            return LanguageService.T(poi.Category.Name);
+            
+        var cat = _categories.FirstOrDefault(c => c.Id == poi.CategoryId);
+        return cat != null ? LanguageService.T(cat.Name) : LanguageService.T("Place");
     }
 }

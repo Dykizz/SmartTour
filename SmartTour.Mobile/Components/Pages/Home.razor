@@ -162,7 +162,7 @@
                                                                             <MudIcon Icon="@Icons.Material.Filled.LocationOn"
                                                                                      Style="font-size:0.75rem; color:rgba(255,255,255,0.8);" />
                                                                             <MudText Typo="Typo.caption" Style="color:rgba(255,255,255,0.8);">
-                                                        @(LanguageService.T(poi.Category?.Name ?? "Place"))
+                                                                                @GetCategoryName(poi)
                                                                             </MudText>
                                                                         </div>
                                                                     </div>
@@ -195,7 +195,7 @@
                                                         <MudIcon Icon="@Icons.Material.Filled.LocationOn"
                                                                  Style="font-size:0.7rem; color:#0e6eb8;" />
                                                         <MudText Typo="Typo.caption" Style="color:#888;">
-                                            @(LanguageService.T(poi.Category?.Name ?? "Place"))
+                                                            @GetCategoryName(poi)
                                                         </MudText>
                                                     </div>
                                                     <div class="detail-chip-sm">@LanguageService.T("Details")</div>
@@ -543,6 +543,15 @@
     private string GetThumb(Poi poi) =>
         poi.Images?.FirstOrDefault(x => x.IsThumbnail)?.ImageUrl
         ?? poi.Images?.FirstOrDefault()?.ImageUrl ?? "";
+
+    private string GetCategoryName(Poi poi)
+    {
+        if (poi.Category != null && !string.IsNullOrEmpty(poi.Category.Name))
+            return LanguageService.T(poi.Category.Name);
+            
+        var cat = _categories.FirstOrDefault(c => c.Id == poi.CategoryId);
+        return cat != null ? LanguageService.T(cat.Name) : LanguageService.T("Place");
+    }
 
     // ── Lifecycle ────────────────────────────────────────────────────────
 
