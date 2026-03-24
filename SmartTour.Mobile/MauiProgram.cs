@@ -56,16 +56,20 @@ public static class MauiProgram
 		// Đăng ký AuthHeaderHandler (Interceptor)
 		builder.Services.AddTransient<AuthHeaderHandler>();
 
-		string baseUrl = "http://127.0.0.1:5164/";
+		string hostIp = "192.168.31.141"; // Dành cho điện thoại thật
+		string baseUrl = $"http://{hostIp}:5164/";
 #if ANDROID
-		// Đổi IP về 127.0.0.1 trên Android dành cho cả Emulator lẫn Thiết bị thật (thông qua adb reverse)
-		baseUrl = "http://127.0.0.1:5164/";
+		if (DeviceInfo.DeviceType == DeviceType.Virtual)
+		{
+			baseUrl = "http://localhost:5164/"; // Dùng cho Emulator + adb reverse
+		}
 #endif
 
 		// Cấu hình HttpClient dùng AuthHeaderHandler để chèn X-User-Id Header
 		builder.Services.AddHttpClient("SmartTourApi", client => 
 		{
 			client.BaseAddress = new Uri(baseUrl);
+			client.DefaultRequestHeaders.Add("X-Tunnel-Skip-AntiPhishing-Page", "true");
 		})
 		.AddHttpMessageHandler<AuthHeaderHandler>();
 

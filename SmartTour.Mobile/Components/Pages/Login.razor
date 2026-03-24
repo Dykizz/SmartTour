@@ -6,6 +6,7 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject HttpClient Http
+@inject LanguageService LanguageService
 
 <div style="height:100vh; background:linear-gradient(160deg,#0a3050 0%,#0e6eb8 50%,#1a9de8 100%); position:relative; overflow:hidden;">
 
@@ -25,7 +26,7 @@
                 SmartTour
             </MudText>
             <MudText Style="font-size:0.9rem; color:rgba(255,255,255,0.7); text-align:center; max-width:240px; line-height:1.5;">
-                Khám phá Việt Nam theo cách thông minh nhất
+                @LanguageService.T("Slogan")
             </MudText>
         </div>
 
@@ -33,10 +34,10 @@
         <div style="width:100%; max-width:360px; background:rgba(255,255,255,0.12); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.2); border-radius:28px; padding:32px 28px; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
 
             <MudText Style="font-size:1.1rem; font-weight:700; color:white; margin-bottom:6px; text-align:center;">
-                Chào mừng bạn!
+                @LanguageService.T("WelcomeTitle")
             </MudText>
             <MudText Style="font-size:0.82rem; color:rgba(255,255,255,0.6); text-align:center; margin-bottom:28px;">
-                Đăng nhập để khám phá các địa điểm tuyệt vời
+                @LanguageService.T("LoginSubtitle")
             </MudText>
 
             <!-- Google Login Button -->
@@ -46,7 +47,7 @@
                 {
                         <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
                             <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="color:#4285F4;" />
-                            <span>Đang xử lý...</span>
+                            <span>@LanguageService.T("Processing")</span>
                         </div>
                 }
 
@@ -60,7 +61,7 @@
                                 <path d="M24 44C29.166 44 33.86 42.023 37.409 38.808L31.219 33.57C29.211 35.091 26.715 36 24 36C18.798 36 14.381 32.683 12.717 28.054L6.195 33.079C9.505 39.556 16.227 44 24 44Z" fill="#4CAF50"/>
                                 <path d="M43.611 20.083H42V20H24V28H35.303C34.511 30.237 33.072 32.166 31.217 33.571C31.218 33.57 31.219 33.57 31.22 33.569L37.41 38.807C36.971 39.205 44 34 44 24C44 22.659 43.862 21.35 43.611 20.083Z" fill="#1976D2"/>
                             </svg>
-                            <span>Đăng nhập bằng Google</span>
+                            <span>@LanguageService.T("LoginWithGoogle")</span>
                         </div>
                 }
             </button>
@@ -68,23 +69,23 @@
             <!-- Divider -->
             <div style="display:flex; align-items:center; margin:20px 0; gap:12px;">
                 <div style="flex:1; height:1px; background:rgba(255,255,255,0.2);"></div>
-                <MudText Style="font-size:0.75rem; color:rgba(255,255,255,0.5);">HOẶC</MudText>
+                <MudText Style="font-size:0.75rem; color:rgba(255,255,255,0.5);">@LanguageService.T("Or")</MudText>
                 <div style="flex:1; height:1px; background:rgba(255,255,255,0.2);"></div>
             </div>
 
             <!-- Guest Button -->
             <button class="guest-btn" @onclick="ExploreGuest">
                 <MudIcon Icon="@Icons.Material.Filled.Explore" Style="font-size:1.1rem; margin-right:8px;" />
-                Tham quan với tư cách khách
+                @LanguageService.T("ExploreAsGuest")
             </button>
 
             <MudText Style="font-size:0.72rem; color:rgba(255,255,255,0.4); text-align:center; margin-top:16px; line-height:1.5;">
-                Chế độ khách có giới hạn tính năng.<br/>Đăng nhập để mở khóa đầy đủ.
+                @LanguageService.T("GuestModeHint")
             </MudText>
         </div>
 
         <MudText Style="font-size:0.72rem; color:rgba(255,255,255,0.35); margin-top:32px; text-align:center;">
-            © 2026 SmartTour Tech · Phiên bản 1.0
+            © 2026 SmartTour Tech · @LanguageService.T("Version") 1.0
         </MudText>
 
     </div>
@@ -163,8 +164,14 @@
 
         {
 
-            string webUrl = "http://localhost:5139";
-
+            string hostIp = "192.168.31.141";
+            string webUrl = $"http://{hostIp}:5139";
+#if ANDROID
+            if (Microsoft.Maui.Devices.DeviceInfo.DeviceType == Microsoft.Maui.Devices.DeviceType.Virtual)
+            {
+                webUrl = "http://localhost:5139"; // Máy ảo dùng adb reverse
+            }
+#endif
             var authUrl = new Uri($"{webUrl}/account/login-google?returnUrl=smarttour://callback");
 
             var callbackUrl = new Uri("smarttour://callback");
@@ -197,9 +204,8 @@
 
                 {
 
-                    string error = result?.Properties.ContainsKey("error") == true ? result.Properties["error"] : "Thiếu email";
-
-                    Snackbar.Add($"Đăng nhập thất bại: {error}", Severity.Error);
+                    string error = result?.Properties.ContainsKey("error") == true ? result.Properties["error"] : LanguageService.T("EmailMissing");
+                    Snackbar.Add($"{LanguageService.T("LoginFailed")}: {error}", Severity.Error);
 
                     StateHasChanged();
 
@@ -216,7 +222,7 @@
             await InvokeAsync(() =>
             {
 
-                try { Snackbar.Add("Đăng nhập đã bị hủy.", Severity.Info); } catch { }
+                try { Snackbar.Add(LanguageService.T("LoginCancelled"), Severity.Info); } catch { }
 
             });
 
@@ -229,7 +235,7 @@
             await InvokeAsync(() =>
             {
 
-                try { Snackbar.Add($"Lỗi đăng nhập Google: {ex.Message}", Severity.Error); } catch { }
+                try { Snackbar.Add($"{LanguageService.T("GoogleLoginError")}: {ex.Message}", Severity.Error); } catch { }
 
             });
 

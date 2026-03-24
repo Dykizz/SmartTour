@@ -67,7 +67,7 @@
                 <div class="hero-overlay">
                     <MudText Typo="Typo.h4" Class="poi-title">@_poi.Name</MudText>
                     <div class="d-flex align-center gap-2 mt-1">
-                        <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Category">@(_poi.Category?.Name ?? LanguageService.T("Place"))</MudChip>
+                        <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Category">@(LanguageService.T(_poi.Category?.Name ?? "Place"))</MudChip>
                         <div class="d-flex align-center rating-badge">
                             <MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Warning" Size="Size.Small" />
                             <MudText Typo="Typo.caption" Style="color: white; font-weight: bold; margin-left: 2px;">4.8</MudText>

@@ -137,7 +137,7 @@
                             </MudText>
                             <div class="d-flex align-center gap-2 mt-1">
                                 <span class="poi-category-tag">
-                                    @(_selectedPoi.CategoryName ?? LanguageService.T("Place"))
+                                    @(LanguageService.T(_selectedPoi.CategoryName ?? "Place"))
                                 </span>
                                 <MudText Typo="Typo.caption" Style="color:#aaa;">
                                     @_selectedPoi.Latitude.ToString("F4"),
@@ -437,7 +437,7 @@
             query = query.Where(p => p.OperatingHours != null && p.OperatingHours.Any(h => (int)h.DayOfWeek == day && time >= h.OpenTime && time <= h.CloseTime));
         }
 
-        if (_filterByLocation && GeofenceService.LastKnownLatitude.HasValue)
+        if (_filterByLocation && GeofenceService.LastKnownLatitude.HasValue && GeofenceService.LastKnownLongitude.HasValue)
         {
             var myLat = GeofenceService.LastKnownLatitude.Value;
             var myLng = GeofenceService.LastKnownLongitude.Value;
@@ -484,7 +484,7 @@
             var config = await Http.GetFromJsonAsync<MapConfig>("api/pois/map-config");
             if (config == null || string.IsNullOrEmpty(config.GoogleMapsApiKey))
             {
-                _errorMessage = "Google Maps API Key không tồn tại.";
+                _errorMessage = LanguageService.T("TokenMissing");
                 _mapError = true;
                 await InvokeAsync(StateHasChanged);
                 return;

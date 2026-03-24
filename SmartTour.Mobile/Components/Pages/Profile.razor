@@ -41,15 +41,15 @@
                             <div class="profile-avatar guest-avatar">
                                 <MudIcon Icon="@Icons.Material.Filled.AccountCircle" Style="font-size:2.5rem; color:white;" />
                             </div>
-                            <div class="status-tag guest-tag">Chế độ trải nghiệm</div>
+                            <div class="status-tag guest-tag">@LanguageService.T("ExperienceMode")</div>
                             <div>
-                                <MudText Typo="Typo.h6" Style="font-weight:800; color:#0a3050;">Chào bạn!</MudText>
-                                <MudText Typo="Typo.body2" Style="color:#888;">Hãy đăng nhập để lưu địa điểm và nhận huy hiệu Explorer nhé.</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:800; color:#0a3050;">@LanguageService.T("ExperienceGuestTitle")</MudText>
+                                <MudText Typo="Typo.body2" Style="color:#888;">@LanguageService.T("ExperienceGuestHint")</MudText>
                             </div>
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
                                        Style="border-radius:14px; height:50px; text-transform:none; font-weight:700; background:#0e6eb8;"
                                        OnClick="@(() => NavigationManager.NavigateTo("/login?returnUrl=/profile"))">
-                                Đăng nhập ngay
+                                @LanguageService.T("LoginNow")
                             </MudButton>
                         </MudPaper>
                     </div>
@@ -130,7 +130,7 @@
                                                                 </div>
                                                                 <div class="fav-info">
                                                                     <MudText Typo="Typo.caption" Class="fav-name">@poi.Name</MudText>
-                                                                    <div class="fav-cat">@(poi.Category?.Name ?? "Địa điểm")</div>
+                                                                    <div class="fav-cat">@(poi.Category?.Name ?? LanguageService.T("Place"))</div>
                                                                 </div>
                                                             </div>
                                                         </MudItem>
@@ -447,7 +447,7 @@
 
             var fullName = authState.User.FindFirst("FullName")?.Value;
 
-            _userName = !string.IsNullOrWhiteSpace(fullName) ? fullName : (authState.User.Identity?.Name ?? "Guest");
+            _userName = !string.IsNullOrWhiteSpace(fullName) ? fullName : (authState.User.Identity?.Name ?? LanguageService.T("Guest"));
 
             var idClaim = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             int.TryParse(idClaim, out _userId);
@@ -463,7 +463,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Lỗi: {ex.Message}", Severity.Error);
+            Snackbar.Add($"{LanguageService.T("SystemError")}: {ex.Message}", Severity.Error);
         }
     }
 

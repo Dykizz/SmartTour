@@ -167,7 +167,7 @@
         {
             var result = await Microsoft.Maui.Storage.FilePicker.Default.PickAsync(new Microsoft.Maui.Storage.PickOptions
             {
-                PickerTitle = "Chọn ảnh đại diện",
+                PickerTitle = LanguageService.T("PickAvatarTitle"),
                 FileTypes = Microsoft.Maui.Storage.FilePickerFileType.Images
             });
 
@@ -187,18 +187,18 @@
                 {
                     var resObj = await response.Content.ReadFromJsonAsync<UploadResult>();
                     _user.AvatarUrl = resObj?.Url;
-                    Snackbar.Add("Cập nhật ảnh đại diện thành công!", Severity.Success);
+                    Snackbar.Add(LanguageService.T("UpdateAvatarSuccess"), Severity.Success);
                 }
                 else
                 {
                     var errorMsg = await response.Content.ReadAsStringAsync();
-                    Snackbar.Add($"Lỗi: {errorMsg}", Severity.Error);
+                    Snackbar.Add($"{LanguageService.T("SystemError")}: {errorMsg}", Severity.Error);
                 }
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Lỗi: {ex.Message}", Severity.Error);
+            Snackbar.Add($"{LanguageService.T("SystemError")}: {ex.Message}", Severity.Error);
         }
         finally
         {
@@ -253,7 +253,7 @@
     {
         if (string.IsNullOrWhiteSpace(_user.FullName))
         {
-            Snackbar.Add("Vui lòng nhập họ và tên", Severity.Warning);
+            Snackbar.Add(LanguageService.T("EnterFullNameWarning"), Severity.Warning);
             return;
         }
 
@@ -273,7 +273,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Lỗi hệ thống: {ex.Message}", Severity.Error);
+            Snackbar.Add($"{LanguageService.T("SystemError")}: {ex.Message}", Severity.Error);
         }
         finally
         {
