@@ -85,11 +85,7 @@
         </div>
 
         <MudText Style="font-size:0.72rem; color:rgba(255,255,255,0.35); margin-top:32px; text-align:center;">
-<<<<<<< HEAD
-            © 2024 SmartTour Tech · @LanguageService.T("Version") 1.0
-=======
-            © 2026 SmartTour Tech · Phiên bản 1.0
->>>>>>> 8db2cffbc7407a28078e6d8721c850233144a158
+            © 2026 SmartTour Tech · @LanguageService.T("Version") 1.0
         </MudText>
 
     </div>
@@ -168,8 +164,14 @@
 
         {
 
-            string webUrl = "http://localhost:5139";
-
+            string hostIp = "192.168.31.141";
+            string webUrl = $"http://{hostIp}:5139";
+#if ANDROID
+            if (Microsoft.Maui.Devices.DeviceInfo.DeviceType == Microsoft.Maui.Devices.DeviceType.Virtual)
+            {
+                webUrl = "http://localhost:5139"; // Máy ảo dùng adb reverse
+            }
+#endif
             var authUrl = new Uri($"{webUrl}/account/login-google?returnUrl=smarttour://callback");
 
             var callbackUrl = new Uri("smarttour://callback");

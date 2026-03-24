@@ -6,6 +6,7 @@ using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
 using SmartTour.API.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -63,6 +64,13 @@ builder.Services.AddAuthentication(options =>
         options.ClientSecret = builder.Configuration["GOOGLE_CLIENT_SECRET"] ?? "YOUR_GOOGLE_CLIENT_SECRET";
     });
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 builder.Services.AddCascadingAuthenticationState();
 
 
@@ -82,6 +90,8 @@ else
 }
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {

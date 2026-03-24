@@ -437,7 +437,7 @@
             query = query.Where(p => p.OperatingHours != null && p.OperatingHours.Any(h => (int)h.DayOfWeek == day && time >= h.OpenTime && time <= h.CloseTime));
         }
 
-        if (_filterByLocation && GeofenceService.LastKnownLatitude.HasValue)
+        if (_filterByLocation && GeofenceService.LastKnownLatitude.HasValue && GeofenceService.LastKnownLongitude.HasValue)
         {
             var myLat = GeofenceService.LastKnownLatitude.Value;
             var myLng = GeofenceService.LastKnownLongitude.Value;
@@ -484,11 +484,7 @@
             var config = await Http.GetFromJsonAsync<MapConfig>("api/pois/map-config");
             if (config == null || string.IsNullOrEmpty(config.GoogleMapsApiKey))
             {
-<<<<<<< HEAD
                 _errorMessage = LanguageService.T("TokenMissing");
-=======
-                _errorMessage = "Google Maps API Key không tồn tại.";
->>>>>>> 8db2cffbc7407a28078e6d8721c850233144a158
                 _mapError = true;
                 await InvokeAsync(StateHasChanged);
                 return;
