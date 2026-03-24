@@ -10,6 +10,7 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject AuthenticationStateProvider AuthStateProvider
+@inject SmartTour.Web.Services.IMapService MapService
 
 <PageTitle>Quản lý POI</PageTitle>
 
@@ -24,13 +25,13 @@
                     <MudIcon Icon="@Icons.Material.Filled.Map" />
                 </MudAvatar>
                 <div>
-                    <MudText Typo="Typo.h5" Style="font-weight:700; letter-spacing:-0.5px;">Quản lý toàn bộ POI</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight:700; letter-spacing:-0.5px;" Class="mb-1">Quản lý toàn bộ POI</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">Theo dõi và quản lý dữ liệu điểm đến trên hệ thống.</MudText>
                 </div>
             </div>
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="NavigateToCreate">Thêm điểm mới</MudButton>
+                       OnClick="NavigateToCreate" Class="px-6 rounded-lg" DropShadow="false">Thêm điểm mới</MudButton>
         </div>
 
         <MudPaper Elevation="0" Outlined="true" Class="pa-4 mb-4 rounded-xl bg-gray-50">
@@ -92,6 +93,10 @@
                         </MudTd>
                         <MudTd>
                             <div class="d-flex">
+                                <MudTooltip Text="Xem chi tiết">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info"
+                                                   Size="Size.Small" OnClick="@(() => NavigateToDetail(poi.Id))" />
+                                </MudTooltip>
                                 <MudTooltip Text="Chỉnh sửa">
                                     <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
                                                    Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
@@ -128,14 +133,14 @@
                     <MudIcon Icon="@Icons.Material.Filled.Place" />
                 </MudAvatar>
                 <div>
-                    <MudText Typo="Typo.h5" Style="font-weight:700; letter-spacing:-0.5px;">POI của tôi</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight:700; letter-spacing:-0.5px;" Class="mb-1">POI của tôi</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">Quản lý và đề xuất điểm đến của bạn.</MudText>
                 </div>
             </div>
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add"
                        Disabled="@( !_isAdmin && _maxPoiAllowed > 0 && (_myPoisCount + _pendingRequestsCount) >= _maxPoiAllowed )"
-                       OnClick="NavigateToCreate">Gửi yêu cầu tạo mới</MudButton>
+                       OnClick="NavigateToCreate" Class="px-6 rounded-lg" DropShadow="false">Gửi yêu cầu tạo mới</MudButton>
         </div>
 
         @if (!_isAdmin && _maxPoiAllowed > 0 && (_myPoisCount + _pendingRequestsCount) >= _maxPoiAllowed)
@@ -210,6 +215,10 @@
                             </MudTd>
                             <MudTd>
                                 <div class="d-flex">
+                                    <MudTooltip Text="Xem chi tiết">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info"
+                                                       Size="Size.Small" OnClick="@(() => NavigateToDetail(poi.Id))" />
+                                    </MudTooltip>
                                     <MudTooltip Text="Gửi yêu cầu chỉnh sửa">
                                         <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
                                                        Size="Size.Small" OnClick="@(() => NavigateToEdit(poi.Id))" />
@@ -576,19 +585,19 @@
                     radius = p.GeofenceRadius
                 }).ToList();
 
-                var mapConfig = await Http.GetFromJsonAsync<MapConfigResult>("api/pois/map-config");
-                string provider = string.IsNullOrEmpty(mapConfig?.MapboxAccessToken) ? "Vietmap" : "Mapbox";
-
+                // Lấy provider trực tiếp từ IMapService (không cần gọi API)
+                string provider = MapService.ProviderName;
+                string apiKey = await GetMapApiKeyAsync();
                 string containerId = _isAdmin ? "admin-overview-map" : "seller-overview-map";
 
-                if (provider == "Mapbox")
+                string jsFunc = provider switch
                 {
-                    await JSRuntime.InvokeVoidAsync("mapInterop.showOverviewMap", containerId, mappedData, null, mapConfig?.MapboxAccessToken ?? "");
-                }
-                else
-                {
-                    await JSRuntime.InvokeVoidAsync("vietmapInterop.showOverviewMap", containerId, mappedData, null, mapConfig?.MapboxAccessToken ?? "");
-                }
+                    "Google" => "googleMapInterop.showOverviewMap",
+                    "Mapbox" => "mapInterop.showOverviewMap",
+                    _ => "mapInterop.showOverviewMap"
+                };
+
+                await JSRuntime.InvokeVoidAsync(jsFunc, containerId, mappedData, null, apiKey);
             }
         }
         catch (Exception ex)
@@ -597,8 +606,26 @@
         }
     }
 
+    private async Task<string> GetMapApiKeyAsync()
+    {
+        try
+        {
+            var mapConfig = await Http.GetFromJsonAsync<MapConfigResult>("api/pois/map-config");
+            if (MapService.ProviderName == "Google") return mapConfig?.GoogleMapsApiKey ?? "";
+            return mapConfig?.MapboxAccessToken ?? "";
+        }
+        catch { return ""; }
+    }
+
     private void NavigateToCreate() => NavigationManager.NavigateTo("/poi/editor");
     private void NavigateToEdit(int id) => NavigationManager.NavigateTo($"/poi/editor/{id}");
+    private void NavigateToDetail(int id) => NavigationManager.NavigateTo($"/poi/detail/{id}");
+
+    [JSInvokable]
+    public void NavigateToDetailFromMap(int id)
+    {
+        NavigateToDetail(id);
+    }
 
     private async Task DeletePoi(Poi poi)
     {
@@ -656,5 +683,11 @@
     { 
         [System.Text.Json.Serialization.JsonPropertyName("mapboxAccessToken")]
         public string MapboxAccessToken { get; set; } = string.Empty; 
+        
+        [System.Text.Json.Serialization.JsonPropertyName("googleMapsApiKey")]
+        public string GoogleMapsApiKey { get; set; } = string.Empty; 
+
+        [System.Text.Json.Serialization.JsonPropertyName("provider")]
+        public string Provider { get; set; } = string.Empty; 
     }
 }

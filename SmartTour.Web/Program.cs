@@ -66,19 +66,19 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddCascadingAuthenticationState();
 
 
-var mapProvider = builder.Configuration["MAP_PROVIDER"] ?? "Vietmap";
+var mapProvider = builder.Configuration["MAP_PROVIDER"] ?? "Mapbox";
 
-if (mapProvider == "Vietmap")
-{
-    builder.Services.AddScoped<IMapService, VietmapService>();
-}
-else if (mapProvider == "Mapbox")
+if (mapProvider == "Mapbox")
 {
     builder.Services.AddScoped<IMapService, MapboxService>();
 }
+else if (mapProvider == "Google")
+{
+    builder.Services.AddScoped<IMapService, GoogleMapService>();
+}
 else
 {
-    throw new InvalidOperationException($"Unknown MAP_PROVIDER: {mapProvider}. Valid values: Vietmap, Mapbox");
+    throw new InvalidOperationException($"Unknown MAP_PROVIDER: {mapProvider}. Valid values: Mapbox, Google");
 }
 
 var app = builder.Build();

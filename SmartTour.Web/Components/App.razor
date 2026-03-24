@@ -13,14 +13,10 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     
     @{
-        var mapProvider = Configuration["MAP_PROVIDER"] ?? "Vietmap";
+        var mapProvider = Configuration["MAP_PROVIDER"] ?? "Mapbox";
     }
     
-    @if (mapProvider == "Vietmap")
-    {
-        <link href="libs/vietmap/vietmap-gl.css" rel="stylesheet" />
-    }
-    else
+    @if (mapProvider == "Mapbox")
     {
         <link href="libs/mapbox/mapbox-gl.css" rel="stylesheet" />
     }
@@ -33,15 +29,14 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     
-    @if (mapProvider == "Vietmap")
-    {
-        <script src="libs/vietmap/vietmap-gl.js"></script>
-        <script src="vietmapInterop.js?v=6"></script>
-    }
-    else
+    @if (mapProvider == "Mapbox")
     {
         <script src="libs/mapbox/mapbox-gl.js"></script>
         <script src="mapInterop.js?v=6"></script>
+    }
+    else if (mapProvider == "Google")
+    {
+        <script src="googleMapInterop.js"></script>
     }
     <script src="_content/Blazor-ApexCharts/js/apexcharts.js"></script>
     <script src="_content/Blazor-ApexCharts/js/blazor-apex-charts.js"></script>

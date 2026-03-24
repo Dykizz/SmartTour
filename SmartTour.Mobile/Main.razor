@@ -22,6 +22,13 @@
                         <NotAuthorized>
                             <Login />
                         </NotAuthorized>
+                        <Authorizing>
+                            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100dvh; background:#f0f7ff;">
+                                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+                                <MudText Typo="Typo.h6" Class="mt-5" Style="color:#0a3050; font-weight:600;">Đang xác thực bảo mật...</MudText>
+                                <MudText Typo="Typo.body2" Class="mt-2" Style="color:#777;">Vui lòng chờ giây lát</MudText>
+                            </div>
+                        </Authorizing>
                     </AuthorizeRouteView>
                 </Found>
                 <NotFound>

@@ -24,6 +24,10 @@
             🗺️ @LanguageService.T("Map")
         </MudText>
         <MudSpacer />
+        <div class="map-icon-btn me-2" @onclick="ToggleSearch">
+            <MudIcon Icon="@Icons.Material.Filled.Search"
+                     Style="color:white; font-size:1.1rem;" />
+        </div>
         <div class="map-icon-btn" @onclick="CenterOnUser">
             <MudIcon Icon="@Icons.Material.Filled.MyLocation"
                      Style="color:white; font-size:1.1rem;" />
@@ -31,6 +35,36 @@
     </MudAppBar>
 
     <MudMainContent Class="pa-0">
+        @if (_isSearching)
+        {
+            <!-- ── Invisible Backdrop to click outside to close ── -->
+            <div style="position:fixed; inset:0; z-index:145;" @onclick="() => _isSearching = false"></div>
+
+            <!-- ── Search Bar — slides down below AppBar ── -->
+            <div class="px-4 pt-3 pb-2"
+                 style="position:absolute; top:48px; left:0; right:0; z-index:150; animation: slideDown 0.25s ease-out;">
+                <div class="search-bar-container">
+                    <MudIcon Icon="@Icons.Material.Filled.Search" Class="search-icon" />
+                    <input type="text"
+                           class="search-input"
+                           placeholder="@LanguageService.T("SearchHint")"
+                           @bind="_searchQuery"
+                           @bind:event="oninput"
+                           @onkeyup="FilterPois"
+                           autoFocus />
+                    @if (!string.IsNullOrEmpty(_searchQuery))
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                       OnClick="() => { _searchQuery = string.Empty; FilterPois(); }" Class="mr-1" />
+                    }
+                    <div class="filter-action">
+                        <MudIconButton Icon="@Icons.Material.Filled.Tune" Size="Size.Small"
+                                       Class="filter-icon-btn" OnClick="() => { _isSearching = false; _filterOpen = true; }" />
+                    </div>
+                </div>
+            </div>
+        }
+
         <div class="map-wrapper">
             <div id="map" style="width:100%; height:100%;"></div>
 
@@ -139,6 +173,83 @@
         </div>
     </MudMainContent>
 
+    <!-- ── Filter Bottom Sheet ── -->
+    <MudDrawer @bind-Open="_filterOpen" Anchor="Anchor.Bottom" Elevation="25"
+               Class="filter-sheet" OverlayAutoClose="true" Variant="DrawerVariant.Temporary"
+               Overlay="true">
+        <div class="filter-header">
+            <MudText Typo="Typo.h6" Style="font-weight:800; color:#0a3050;">Bộ lọc nâng cao</MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           OnClick="@(() => _filterOpen = false)" Size="Size.Small" />
+        </div>
+
+        <div class="filter-body">
+            <!-- Location Toggle -->
+            <div class="d-flex align-center justify-space-between mb-4">
+                <div class="d-flex align-center gap-2">
+                    <MudIcon Icon="@Icons.Material.Filled.MyLocation" Size="Size.Small" Style="color:#aaa;" />
+                    <MudText Typo="Typo.body2">Tìm quanh vị trí của tôi</MudText>
+                </div>
+                <MudSwitch T="bool" @bind-Value="_filterByLocation" Color="Color.Primary" />
+            </div>
+
+            @if (_filterByLocation)
+            {
+                <div class="mb-5">
+                    <div class="d-flex justify-space-between align-center mb-2">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Khoảng cách tối đa</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Primary" Style="font-weight:600;">
+                            @(_selectedRadius >= 1000 ? $"{_selectedRadius / 1000:F1} km" : $"{_selectedRadius:N0} m")
+                        </MudText>
+                    </div>
+                    <MudSlider T="double" Value="_selectedRadius" ValueChanged="OnRadiusSliderChanged"
+                               Min="50" Max="10000" Step="50" Color="Color.Primary" />
+                    <div class="d-flex justify-space-between mt-n1">
+                        <MudText Typo="Typo.caption" Style="color:#bbb;">50m</MudText>
+                        <MudText Typo="Typo.caption" Style="color:#bbb;">10km</MudText>
+                    </div>
+                </div>
+            }
+
+            <!-- Status Toggles -->
+            <MudText Typo="Typo.subtitle2" Class="mb-3" Style="font-weight:700;">Trạng thái điểm đến</MudText>
+            <div class="d-flex flex-column gap-1 mb-2">
+                <div class="d-flex align-center justify-space-between filter-row">
+                    <div class="d-flex align-center gap-2">
+                        <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Style="color:#aaa;" />
+                        <MudText Typo="Typo.body2">Đang mở cửa</MudText>
+                    </div>
+                    <MudSwitch T="bool" @bind-Value="_filterOpenNow" Color="Color.Primary" />
+                </div>
+                <div class="d-flex align-center justify-space-between filter-row">
+                    <div class="d-flex align-center gap-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Headset" Size="Size.Small" Style="color:#aaa;" />
+                        <MudText Typo="Typo.body2">Có thuyết minh âm thanh</MudText>
+                    </div>
+                    <MudSwitch T="bool" @bind-Value="_filterHasAudio" Color="Color.Primary" />
+                </div>
+                <div class="d-flex align-center justify-space-between filter-row">
+                    <div class="d-flex align-center gap-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" Style="color:#aaa;" />
+                        <MudText Typo="Typo.body2">Quán nổi bật</MudText>
+                    </div>
+                    <MudSwitch T="bool" @bind-Value="_filterIsFeatured" Color="Color.Primary" />
+                </div>
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Default"
+                       Style="border-radius:12px; height:48px;" OnClick="ResetFilters">
+                Thiết lập lại
+            </MudButton>
+            <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary"
+                       Style="border-radius:12px; height:48px; background:#0e6eb8;" OnClick="ApplyFilters">
+                Áp dụng
+            </MudButton>
+        </div>
+    </MudDrawer>
+
     <!-- ── Bottom Navigation ── -->
     <BottomNavigation Active="map" />
 </MudLayout>
@@ -227,6 +338,32 @@
     /* ── Custom Mapbox Popup (Unused) ── */
     .mapboxgl-popup { display: none; }
 
+    /* ── Search Bar UI ── */
+    .search-bar-container {
+        display: flex; align-items: center; background: rgba(255,255,255,0.95); backdrop-filter: blur(15px);
+        padding: 8px 14px; border-radius: 24px; border: 1px solid rgba(14,110,184,0.15);
+        box-shadow: 0 6px 20px rgba(14,110,184,0.1); transition: all 0.3s;
+    }
+    .search-input {
+        flex: 1; border: none; outline: none; font-size: 0.9rem; color: #0a3050; background: transparent; padding: 4px 0;
+    }
+    .search-input::placeholder { color: #aaa; }
+    .search-icon { color: #0e6eb8; font-size: 1.2rem; margin-right: 10px; }
+    .filter-action {
+        border-left: 1px solid rgba(0,0,0,0.06); padding-left: 8px; margin-left: 8px; display: flex; align-items: center;
+    }
+    .filter-icon-btn { background: rgba(14,110,184,0.06) !important; color: #0e6eb8 !important; border-radius: 12px !important; }
+
+    /* ── Filter sheet UI ── */
+    .filter-sheet {
+        border-top: 1px solid rgba(14,110,184,0.1) !important; border-radius: 24px 24px 0 0 !important;
+        box-shadow: 0 -8px 24px rgba(0,0,0,0.05) !important; display: flex; flex-direction: column; max-height: 72vh !important; z-index: 2000 !important;
+    }
+    .filter-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 8px; flex-shrink: 0; }
+    .filter-body { flex: 1; overflow-y: auto; padding: 0 16px 8px; -webkit-overflow-scrolling: touch; }
+    .filter-actions { display: flex; gap: 12px; padding: 12px 16px 20px; flex-shrink: 0; border-top: 0.5px solid rgba(14,110,184,0.08); background: white; }
+    .filter-row { padding: 6px 0; }
+
     @@keyframes slideDown {
         from { transform: translateY(-50px); opacity: 0; }
         to   { transform: translateY(0);    opacity: 1; }
@@ -240,6 +377,88 @@
     private bool _mapInitialized = false;
     private bool _mapError = false;
     private string _errorMessage = "";
+
+    // Search Toggle
+    private bool _isSearching = false;
+
+    // Filters
+    private bool _filterOpen = false;
+    private string _searchQuery = "";
+    private bool _filterByLocation = false;
+    private double _selectedRadius = 1000;
+    private bool _filterOpenNow = false;
+    private bool _filterHasAudio = false;
+    private bool _filterIsFeatured = false;
+
+    private List<PoiGeofenceDto> _filteredPois = new();
+
+    private void ToggleSearch() => _isSearching = !_isSearching;
+
+    private void ToggleFilters() => _filterOpen = !_filterOpen;
+
+    private void OnRadiusSliderChanged(double val) { _selectedRadius = val; }
+
+    private void ResetFilters()
+    {
+        _filterByLocation = false; _selectedRadius = 1000;
+        _filterOpenNow = false; _filterHasAudio = false; _filterIsFeatured = false;
+        _searchQuery = "";
+        FilterPois();
+        _filterOpen = false;
+    }
+
+    private void ApplyFilters()
+    {
+        FilterPois();
+        _filterOpen = false;
+    }
+
+    private void FilterPois()
+    {
+        var query = GeofenceService.AllPois.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            var sq = _searchQuery.ToLowerInvariant();
+            query = query.Where(p => p.Name.ToLowerInvariant().Contains(sq));
+        }
+
+        if (_filterHasAudio)
+            query = query.Where(p => p.AudioFiles != null && p.AudioFiles.Any());
+
+        if (_filterIsFeatured)
+            query = query.Where(p => p.IsFeature);
+
+        if (_filterOpenNow)
+        {
+            var now = DateTime.UtcNow.AddHours(7);
+            var day = (int)now.DayOfWeek;
+            var time = now.TimeOfDay;
+            query = query.Where(p => p.OperatingHours != null && p.OperatingHours.Any(h => (int)h.DayOfWeek == day && time >= h.OpenTime && time <= h.CloseTime));
+        }
+
+        if (_filterByLocation && GeofenceService.LastKnownLatitude.HasValue)
+        {
+            var myLat = GeofenceService.LastKnownLatitude.Value;
+            var myLng = GeofenceService.LastKnownLongitude.Value;
+            query = query.Where(p => CalculateDistance(myLat, myLng, p.Latitude, p.Longitude) <= _selectedRadius);
+        }
+
+        _filteredPois = query.ToList();
+        _ = UpdateMarkersWithSelected();
+        _ = JS.InvokeVoidAsync("window.mapHelper.fitBoundsToPOIs");
+    }
+
+    private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+    {
+        var R = 6371e3;
+        var p1 = lat1 * Math.PI / 180;
+        var p2 = lat2 * Math.PI / 180;
+        var dp = (lat2 - lat1) * Math.PI / 180;
+        var dl = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.Sin(dp / 2) * Math.Sin(dp / 2) + Math.Cos(p1) * Math.Cos(p2) * Math.Sin(dl / 2) * Math.Sin(dl / 2);
+        return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
 
     protected override void OnInitialized()
     {
@@ -263,9 +482,13 @@
         try
         {
             var config = await Http.GetFromJsonAsync<MapConfig>("api/pois/map-config");
-            if (config == null || string.IsNullOrEmpty(config.MapboxAccessToken))
+            if (config == null || string.IsNullOrEmpty(config.GoogleMapsApiKey))
             {
+<<<<<<< HEAD
                 _errorMessage = LanguageService.T("TokenMissing");
+=======
+                _errorMessage = "Google Maps API Key không tồn tại.";
+>>>>>>> 8db2cffbc7407a28078e6d8721c850233144a158
                 _mapError = true;
                 await InvokeAsync(StateHasChanged);
                 return;
@@ -275,12 +498,14 @@
             var lat = GeofenceService.LastKnownLatitude ?? 10.7769;
             var lng = GeofenceService.LastKnownLongitude ?? 106.7009;
             await JS.InvokeVoidAsync("window.mapHelper.initMap",
-                config.MapboxAccessToken, lat, lng, 15, _dotNetRef);
+                config.GoogleMapsApiKey, lat, lng, 15, _dotNetRef);
             _mapInitialized = true;
 
+            _filteredPois = GeofenceService.AllPois.ToList();
             await InvokeAsync(StateHasChanged);
             await UpdateMarkersWithSelected();
             await UpdateUserLocation();
+            await JS.InvokeVoidAsync("window.mapHelper.fitBoundsToPOIs");
         }
         catch (Exception ex)
         {
@@ -337,7 +562,7 @@
         int closestId = _selectedPoiId != 0 ? 0 : (GeofenceService.CurrentPoi?.Id ?? 0);
 
         await JS.InvokeVoidAsync("window.mapHelper.updateMarkers",
-            GeofenceService.AllPois,
+            _filteredPois,
             closestId,
             _selectedPoiId);
     }
@@ -386,5 +611,8 @@
     {
         [JsonPropertyName("mapboxAccessToken")]
         public string MapboxAccessToken { get; set; } = string.Empty;
+
+        [JsonPropertyName("googleMapsApiKey")]
+        public string GoogleMapsApiKey { get; set; } = string.Empty;
     }
 }
